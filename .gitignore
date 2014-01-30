@@ -9,3 +9,7 @@ install_manifest.txt
 *.swp
 SimpleAbcViewer
 abcview
+/build/stash/
+*/doxygen
+doxygen
+/doc/html/*
