@@ -40,6 +40,7 @@ SET( TEST_LIBS
      AlembicAbcCoreAbstract
      AlembicUtil
      ${ALEMBIC_HDF5_LIBS}
+     ${ALEMBIC_LIBGIT2_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
      ${CMAKE_THREAD_LIBS_INIT}
      ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )

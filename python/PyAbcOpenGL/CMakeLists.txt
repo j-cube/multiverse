@@ -107,6 +107,7 @@ IF ( Boost_PYTHON_LIBRARY AND ALEMBIC_PYTHON_LIBRARY )
 
   LINK_LIBRARIES( ${CORE_LIBS}
                   ${ALEMBIC_HDF5_LIBS}
+                  ${ALEMBIC_LIBGIT2_LIBS}
                   ${PLIBS}
                   ${ALEMBIC_ILMBASE_LIBS}
                   ${ZLIB_LIBRARIES}

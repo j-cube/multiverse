@@ -76,6 +76,7 @@ SET( THIS_LIBS
      AlembicOgawa
      AlembicUtil
      ${ALEMBIC_HDF5_LIBS}
+     ${ALEMBIC_LIBGIT2_LIBS}
      ${ALEMBIC_GL_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
      ${CMAKE_THREAD_LIBS_INIT}

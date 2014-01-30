@@ -46,6 +46,7 @@ SET( TEST_LIBS
      AlembicUtil
      alembicmodule
      ${ALEMBIC_HDF5_LIBS}
+     ${ALEMBIC_LIBGIT2_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
      ${ALEMBIC_PYILMBASE_LIBS}
      ${CMAKE_THREAD_LIBS_INIT} ${Boost_THREAD_LIBRARY}
