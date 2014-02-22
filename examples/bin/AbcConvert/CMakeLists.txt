@@ -39,11 +39,13 @@ SET( FULL_ABC_LIBS
      AlembicAbc
      AlembicAbcCoreHDF5
      AlembicAbcCoreOgawa
+     AlembicAbcCoreGit
      AlembicAbcCoreAbstract
      AlembicOgawa
      AlembicUtil
      ${ALEMBIC_HDF5_LIBS}
      ${ALEMBIC_LIBGIT2_LIBS}
+     ${ALEMBIC_MSGPACK_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
      ${CMAKE_THREAD_LIBS_INIT}
      ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )

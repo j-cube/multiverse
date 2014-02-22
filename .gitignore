@@ -13,3 +13,7 @@ abcview
 */doxygen
 doxygen
 /doc/html/*
+/.cproject
+/.project
+*.sublime-project
+*.sublime-workspace

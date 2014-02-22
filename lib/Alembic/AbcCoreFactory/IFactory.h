@@ -55,6 +55,7 @@ public:
     {
         kHDF5,
         kOgawa,
+        kGit,
         kUnknown
     };
 

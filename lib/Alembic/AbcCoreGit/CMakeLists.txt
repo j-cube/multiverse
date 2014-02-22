@@ -9,69 +9,73 @@
 # C++ files for this project
 SET( CXX_FILES
   # AprImpl.cpp
-  # ApwImpl.cpp
+  ApwImpl.cpp
   # ArImpl.cpp
-  # AwImpl.cpp
+  AwImpl.cpp
   # CacheImpl.cpp
   # CprData.cpp
   # CprImpl.cpp
-  # CpwData.cpp
-  # CpwImpl.cpp
+  CpwData.cpp
+  CpwImpl.cpp
   # DataTypeRegistry.cpp
   # # GitHierarchy.cpp
   # # GitHierarchyReader.cpp
   # # GitHierarchyWriter.cpp
+  Git.cpp
   # GitUtil.cpp
   # OrData.cpp
   # OrImpl.cpp
-  # OwData.cpp
-  # OwImpl.cpp
+  OwData.cpp
+  OwImpl.cpp
   # ReadUtil.cpp
   ReadWrite.cpp
   # SprImpl.cpp
-  # SpwImpl.cpp
+  SpwImpl.cpp
   # StringReadUtil.cpp
   # StringWriteUtil.cpp
-  # WriteUtil.cpp
+  Utils.cpp
+  WriteUtil.cpp
 )
 
 SET( H_FILES
   All.h
   # AprImpl.h
-  # ApwImpl.h
+  ApwImpl.h
   # ArImpl.h
-  # AwImpl.h
+  AwImpl.h
   # CacheImpl.h
   # CprData.h
   # CprImpl.h
-  # CpwData.h
-  # CpwImpl.h
+  CpwData.h
+  CpwImpl.h
   # DataTypeRegistry.h
   # # GitHierarchy.h
   # # GitHierarchyReader.h
   # # GitHierarchyWriter.h
+  Git.h
   # GitUtil.h
   # Foundation.h
   # OrData.h
   # OrImpl.h
-  # OwData.h
-  # OwImpl.h
+  OwData.h
+  OwImpl.h
   # ReadUtil.h
   ReadWrite.h
   # SimplePrImpl.h
   # SimplePwImpl.h
   # SprImpl.h
-  # SpwImpl.h
+  SpwImpl.h
   # StringReadUtil.h
   # StringWriteUtil.h
-  # WriteUtil.h
+  Utils.h
+  WriteUtil.h
   # WrittenArraySampleMap.h
 )
 
 SET( SOURCE_FILES ${CXX_FILES} ${H_FILES} )
 
 ADD_LIBRARY( AlembicAbcCoreGit ${SOURCE_FILES} )
-TARGET_LINK_LIBRARIES( AlembicAbcCoreGit ${ALEMBIC_LIBGIT2_LIBS} )
+TARGET_LINK_LIBRARIES( AlembicAbcCoreGit ${ALEMBIC_LIBGIT2_LIBS} ${ALEMBIC_MSGPACK_LIBS} )
 
 INSTALL( TARGETS AlembicAbcCoreGit
          LIBRARY DESTINATION lib

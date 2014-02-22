@@ -38,6 +38,7 @@
 #include <Alembic/AbcCoreFactory/All.h>
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 
 void copyProps(Alembic::Abc::ICompoundProperty & iRead,
     Alembic::Abc::OCompoundProperty & iWrite)
@@ -170,11 +171,11 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        if (toType != "-toHDF" && toType != "-toOgawa")
+        if (toType != "-toHDF" && toType != "-toOgawa" && toType != "-toGit")
         {
             printf("Error: Unknown conversion type specified %s\n",
                    toType.c_str());
-            printf("Currently only -toHDF and -toOgawa are supported.\n");
+            printf("Currently only -toHDF, -toOgawa and -toGit are supported.\n");
             return 1;
         }
 
@@ -191,7 +192,10 @@ int main(int argc, char *argv[])
             (coreType == Alembic::AbcCoreFactory::IFactory::kHDF5 &&
              toType == "-toHDF") ||
             (coreType == Alembic::AbcCoreFactory::IFactory::kOgawa &&
-             toType == "-toOgawa")) )
+             toType == "-toOgawa") ||
+            (coreType == Alembic::AbcCoreFactory::IFactory::kGit &&
+             toType == "-toGit")
+            ) )
         {
             printf("Warning: Alembic file specified: %s\n",inFile.c_str());
             printf("is already of the type you want to convert to.\n");
@@ -212,6 +216,13 @@ int main(int argc, char *argv[])
         {
             outArchive = Alembic::Abc::OArchive(
                 Alembic::AbcCoreOgawa::WriteArchive(),
+                outFile, inTop.getMetaData(),
+                Alembic::Abc::ErrorHandler::kThrowPolicy);
+        }
+        else if (toType == "-toGit")
+        {
+            outArchive = Alembic::Abc::OArchive(
+                Alembic::AbcCoreGit::WriteArchive(),
                 outFile, inTop.getMetaData(),
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
         }
@@ -236,6 +247,7 @@ int main(int argc, char *argv[])
     printf ("OPTION has to be one of these:\n\n");
     printf ("  -toHDF   Convert to HDF.\n");
     printf ("  -toOgawa Convert to Ogawa.\n");
+    printf ("  -toGit   Convert to Git.\n");
 
     return 1;
 }

@@ -6,20 +6,19 @@
 //
 //-*****************************************************************************
 
-#ifndef _Alembic_AbcCoreGit_All_h_
-#define _Alembic_AbcCoreGit_All_h_
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <cstdlib>
 
-#include <Alembic/AbcCoreGit/ReadWrite.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+
 } // End namespace ALEMBIC_VERSION_NS
-
-using namespace ALEMBIC_VERSION_NS;
-
 } // End namespace AbcCoreGit
 } // End namespace Alembic
-
-#endif

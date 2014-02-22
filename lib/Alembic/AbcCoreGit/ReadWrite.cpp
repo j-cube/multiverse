@@ -7,37 +7,29 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcCoreGit/ReadWrite.h>
-// #include <Alembic/AbcCoreGit/Foundation.h>
-// #include <Alembic/AbcCoreGit/AwImpl.h>
+#include <Alembic/AbcCoreGit/Foundation.h>
+#include <Alembic/AbcCoreGit/AwImpl.h>
 // #include <Alembic/AbcCoreGit/ArImpl.h>
-// #include <Alembic/AbcCoreGit/CacheImpl.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
-// //-*****************************************************************************
-// WriteArchive::WriteArchive()
-// {
-//     m_cacheHierarchy = false;
-// }
+//-*****************************************************************************
+WriteArchive::WriteArchive()
+{
+}
 
-// //-*****************************************************************************
-// WriteArchive::WriteArchive( bool iCacheHierarchy )
-// {
-//     m_cacheHierarchy = iCacheHierarchy;
-// }
+//-*****************************************************************************
+AbcA::ArchiveWriterPtr
+WriteArchive::operator()( const std::string &iFileName,
+                          const AbcA::MetaData &iMetaData ) const
+{
+    Alembic::Util::shared_ptr<AwImpl> archivePtr(
+        new AwImpl( iFileName, iMetaData ) );
 
-// //-*****************************************************************************
-// AbcA::ArchiveWriterPtr
-// WriteArchive::operator()( const std::string &iFileName,
-//                           const AbcA::MetaData &iMetaData ) const
-// {
-//     Alembic::Util::shared_ptr<AwImpl> archivePtr(
-//         new AwImpl( iFileName, iMetaData, m_cacheHierarchy ) );
-
-//     return archivePtr;
-// }
+    return archivePtr;
+}
 
 // //-*****************************************************************************
 // AbcA::ReadArraySampleCachePtr
