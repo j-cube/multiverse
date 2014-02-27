@@ -17,6 +17,9 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class OwImpl;
+typedef Util::shared_ptr<OwImpl> OwImplPtr;
+
 //-*****************************************************************************
 // These are _always_ created as shared ptrs.
 class OwImpl
@@ -31,7 +34,8 @@ public:
 
     OwImpl( AbcA::ObjectWriterPtr iParent,
             GitGroupPtr iParentGroup,
-            ObjectHeaderPtr iHeader );
+            ObjectHeaderPtr iHeader,
+            size_t iIndex );
 
     virtual ~OwImpl();
 
@@ -61,6 +65,19 @@ public:
 
     virtual AbcA::ObjectWriterPtr asObjectPtr();
 
+    void fillHash( size_t iIndex, Util::uint64_t iHash0,
+                   Util::uint64_t iHash1 );
+
+    OwImplPtr getTParent() const;
+
+    std::string repr(bool extended=false) const;
+
+    const std::string& name() const               { ABCA_ASSERT(m_data, "invalid OwData"); return m_data->name(); }
+    std::string relPathname() const               { ABCA_ASSERT(m_data, "invalid OwData"); return m_data->relPathname(); }
+    std::string absPathname() const               { ABCA_ASSERT(m_data, "invalid OwData"); return m_data->absPathname(); }
+
+    void writeToDisk();
+
 private:
     // The parent object, NULL if it is the "top" object
     AbcA::ObjectWriterPtr m_parent;
@@ -74,7 +91,19 @@ private:
     // child object data, this is owned by the archive for "top" objects
     OwDataPtr m_data;
 
+    size_t m_index;
 };
+
+inline OwImplPtr getOwImplPtr(AbcA::ObjectWriterPtr aOwPtr)
+{
+    ABCA_ASSERT( aOwPtr, "Invalid pointer to AbcA::ObjectWriter" );
+    Util::shared_ptr< OwImpl > concretePtr =
+       Alembic::Util::dynamic_pointer_cast< OwImpl,
+        AbcA::ObjectWriter > ( aOwPtr );
+    return concretePtr;
+}
+
+#define CONCRETE_OWPTR(aOwPtr)   getOwImplPtr(aOwPtr)
 
 
 } // End namespace ALEMBIC_VERSION_NS

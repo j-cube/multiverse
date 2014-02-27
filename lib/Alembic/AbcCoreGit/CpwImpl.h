@@ -17,6 +17,9 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class CpwImpl;
+typedef Util::shared_ptr<CpwImpl> CpwImplPtr;
+
 //-*****************************************************************************
 class CpwImpl
     : public AbcA::CompoundPropertyWriter
@@ -32,7 +35,8 @@ public:
     // child compound creation
     CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
              GitGroupPtr iParentGroup,
-             PropertyHeaderPtr iHeader );
+             PropertyHeaderPtr iHeader,
+             size_t iIndex );
 
     virtual ~CpwImpl();
 
@@ -78,6 +82,13 @@ public:
     createCompoundProperty( const std::string & iName,
         const AbcA::MetaData & iMetaData );
 
+    void fillHash( size_t iIndex, Util::uint64_t iHash0,
+                   Util::uint64_t iHash1 );
+
+    CpwImplPtr getTParent() const;
+
+    std::string repr(bool extended=false) const;
+
 private:
 
     // The object we belong to.
@@ -91,7 +102,21 @@ private:
 
     // child data, this is owned by the object for "top" compounds
     CpwDataPtr m_data;
+
+    // Index position within parent
+    size_t m_index;
 };
+
+inline CpwImplPtr getCpwImplPtr(AbcA::CompoundPropertyWriterPtr aCpwPtr)
+{
+    ABCA_ASSERT( aCpwPtr, "Invalid pointer to AbcA::CompoundPropertyWriter" );
+    Util::shared_ptr< CpwImpl > concretePtr =
+       Alembic::Util::dynamic_pointer_cast< CpwImpl,
+        AbcA::CompoundPropertyWriter > ( aCpwPtr );
+    return concretePtr;
+}
+
+#define CONCRETE_CPWPTR(aCpwPtr)   getCpwImplPtr(aCpwPtr)
 
 } // End namespace ALEMBIC_VERSION_NS
 

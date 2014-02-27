@@ -7,6 +7,7 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcCoreGit/CpwImpl.h>
+#include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
@@ -23,8 +24,9 @@ CpwImpl::CpwImpl( AbcA::ObjectWriterPtr iParent,
     : m_object( iParent)
     , m_header( new PropertyHeaderAndFriends( "", iMeta ) )
     , m_data( iData )
+    , m_index( 0 )
 {
-    TRACE("CpwImpl::CpwImpl(ObjectWriterPtr)");
+    TRACE("CpwImpl::CpwImpl(ObjectWriterPtr) TOP");
 
     // we don't need to write the property info, the object has done it already
 
@@ -35,19 +37,20 @@ CpwImpl::CpwImpl( AbcA::ObjectWriterPtr iParent,
 // With the compound property writer as an input.
 CpwImpl::CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   GitGroupPtr iParentGroup,
-                  PropertyHeaderPtr iHeader )
+                  PropertyHeaderPtr iHeader,
+                  size_t iIndex )
   : m_parent( iParent )
   , m_header( iHeader )
+  , m_index( iIndex )
 {
     // Check the validity of all inputs.
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid header" );
 
     if (iParentGroup)
-        TRACE("CpwImpl::CpwImpl(CompoundPropertyWriterPtr, parentGroup:" << iParentGroup->repr() <<
-            " name:" << m_header->name() << ")");
+        TRACE("CpwImpl::CpwImpl(parent:" << CONCRETE_CPWPTR(m_parent)->repr(true) << ", parentGroup:" << iParentGroup->repr() << ", header:'" << m_header->name() << "', index:" << m_index << ")");
     else
-        TRACE("CpwImpl::CpwImpl(parent, parentGroup:NULL, name:" << m_header->name() << ")");
+        TRACE("CpwImpl::CpwImpl(parent:" << CONCRETE_CPWPTR(m_parent)->repr(true) << ", parentGroup:NULL, name:'" << m_header->name() << "', index:" << m_index << ")");
 
     // Set the object.
     m_object = m_parent->getObject();
@@ -69,7 +72,27 @@ CpwImpl::CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
 //-*****************************************************************************
 CpwImpl::~CpwImpl()
 {
-    // Nothing!
+    // objects are responsible for calling this on the CpWData they own
+    // as part of their "top" compound
+    if ( m_parent )
+    {
+        MetaDataMapPtr mdMap = Alembic::Util::dynamic_pointer_cast<
+            AwImpl, AbcA::ArchiveWriter >(
+                getObject()->getArchive() )->getMetaDataMap();
+        m_data->writePropertyHeaders( mdMap );
+
+        Util::SpookyHash hash;
+        hash.Init( 0, 0 );
+        m_data->computeHash( hash );
+        HashPropertyHeader( m_header->header, hash );
+
+        Util::uint64_t hash0, hash1;
+        hash.Final( &hash0, &hash1 );
+        Util::shared_ptr< CpwImpl > parent =
+            Alembic::Util::dynamic_pointer_cast< CpwImpl,
+                AbcA::CompoundPropertyWriter > ( m_parent );
+        parent->fillHash( m_index, hash0, hash1 );
+    }
 }
 
 //-*****************************************************************************
@@ -153,6 +176,41 @@ CpwImpl::createCompoundProperty( const std::string & iName,
 {
     TRACE("call m_data->createCompoundProperty");
     return m_data->createCompoundProperty( asCompoundPtr(), iName, iMetaData );
+}
+
+void CpwImpl::fillHash( std::size_t iIndex, Util::uint64_t iHash0,
+                        Util::uint64_t iHash1 )
+{
+    m_data->fillHash( iIndex, iHash0, iHash1 );
+}
+
+CpwImplPtr CpwImpl::getTParent() const
+{
+    Util::shared_ptr< CpwImpl > parent =
+       Alembic::Util::dynamic_pointer_cast< CpwImpl,
+        AbcA::CompoundPropertyWriter > ( m_parent );
+    return parent;
+}
+
+std::string CpwImpl::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        if (m_parent)
+        {
+            CpwImplPtr parentPtr = getTParent();
+
+            ss << "<CpwImpl(parent:" << parentPtr->repr() << ", header:'" << m_header->name() << "')>";
+        } else
+        {
+            ss << "<CpwImpl(TOP, " << ", header:'" << m_header->name() << "')>";
+        }
+    } else
+    {
+        ss << "'" << m_header->name() << "'";
+    }
+    return ss.str();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

@@ -8,6 +8,7 @@
 
 #include <Alembic/AbcCoreGit/OwData.h>
 #include <Alembic/AbcCoreGit/OwImpl.h>
+#include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/CpwImpl.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
@@ -21,6 +22,7 @@ OwImpl::OwImpl( AbcA::ArchiveWriterPtr iArchive,
     : m_archive( iArchive )
     , m_header( new AbcA::ObjectHeader( "ABC", "/", iMetaData ) )
     , m_data( iData )
+    , m_index( 0 )
 {
     if (iData)
         TRACE("OwImpl::OwImpl(iArchive" << ", group:'" << iData->getGroup()->fullname() << "')");
@@ -34,18 +36,20 @@ OwImpl::OwImpl( AbcA::ArchiveWriterPtr iArchive,
 //-*****************************************************************************
 OwImpl::OwImpl( AbcA::ObjectWriterPtr iParent,
                 GitGroupPtr iParentGroup,
-                ObjectHeaderPtr iHeader )
+                ObjectHeaderPtr iHeader,
+                size_t iIndex )
   : m_parent( iParent )
   , m_header( iHeader )
+  , m_index( iIndex )
 {
-    if (iParentGroup)
-        TRACE("OwImpl::OwImpl(iParent" << ", parentGroup:'" << iParentGroup->fullname() << "')");
-    else
-        TRACE("OwImpl::OwImpl(iParent, parentGroup:NULL)");
-
     // Check validity of all inputs.
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid header" );
+
+    if (iParentGroup)
+        TRACE("OwImpl::OwImpl(parent:" << CONCRETE_OWPTR(m_parent)->repr() << ", parentGroup:'" << iParentGroup->fullname() << "', objHeader:'" << m_header->getName() << "', index:" << m_index << ")");
+    else
+        TRACE("OwImpl::OwImpl(parent:" << CONCRETE_OWPTR(m_parent)->repr() << ", parentGroup:NULL, objHeader:'" << m_header->getName() << "', index:" << m_index << ")");
 
     m_archive = m_parent->getArchive();
     ABCA_ASSERT( m_archive, "Invalid archive" );
@@ -57,6 +61,35 @@ OwImpl::OwImpl( AbcA::ObjectWriterPtr iParent,
 //-*****************************************************************************
 OwImpl::~OwImpl()
 {
+    // The archive is responsible for writing the MetaData
+    if ( m_parent )
+    {
+        MetaDataMapPtr mdMap = Alembic::Util::dynamic_pointer_cast<
+            AwImpl, AbcA::ArchiveWriter >( m_archive )->getMetaDataMap();
+
+        Util::SpookyHash hash;
+        hash.Init(0, 0);
+        m_data->writeHeaders( mdMap, hash );
+
+        // writeHeaders bakes in the child hashes and the data hash
+        // but we still need to bake in the name and MetaData
+        std::string metaDataStr = m_header->getMetaData().serialize();
+        if ( !metaDataStr.empty() )
+        {
+            hash.Update( &( metaDataStr[0] ), metaDataStr.size() );
+        }
+
+        hash.Update( &( m_header->getName()[0] ), m_header->getName().size() );
+        Util::uint64_t hash0, hash1;
+        hash.Final( &hash0, &hash1 );
+
+        Util::shared_ptr< OwImpl > parent =
+            Alembic::Util::dynamic_pointer_cast< OwImpl,
+                AbcA::ObjectWriter > ( m_parent );
+        parent->fillHash( m_index, hash0, hash1 );
+    }
+
+    writeToDisk();
 }
 
 //-*****************************************************************************
@@ -119,6 +152,46 @@ AbcA::ObjectWriterPtr OwImpl::asObjectPtr()
 {
     return shared_from_this();
 }
+
+void OwImpl::fillHash( size_t iIndex, Util::uint64_t iHash0,
+                       Util::uint64_t iHash1 )
+{
+    m_data->fillHash( iIndex, iHash0, iHash1 );
+}
+
+OwImplPtr OwImpl::getTParent() const
+{
+    return CONCRETE_OWPTR(m_parent);
+}
+
+std::string OwImpl::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        if (m_parent)
+        {
+            OwImplPtr parentPtr = getTParent();
+
+            ss << "<OwImpl(parent:" << parentPtr->repr() << ", objHeader:'" << m_header->getName() << "')>";
+        } else
+        {
+            ss << "<OwImpl(TOP, " << ", objHeader:'" << m_header->getName() << "')>";
+        }
+    } else
+    {
+        ss << "'" << m_header->getName() << "'";
+    }
+    return ss.str();
+}
+
+void OwImpl::writeToDisk()
+{
+    TRACE("OwImpl::writeToDisk() path:'" << absPathname() << "'");
+    ABCA_ASSERT( m_data, "invalid OwData" );
+    m_data->writeToDisk();
+}
+
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit

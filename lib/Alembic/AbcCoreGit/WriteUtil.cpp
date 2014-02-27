@@ -120,7 +120,6 @@ void HashDimensions( const AbcA::Dimensions & iDims,
     }
 }
 
-#if 0
 //-*****************************************************************************
 WrittenSampleMap &
 GetWrittenSampleMap( AbcA::ArchiveWriterPtr iVal )
@@ -173,7 +172,7 @@ WriteData( WrittenSampleMap &iMap,
         return writeID;
     }
 
-    Git::ODataPtr dataPtr;
+    GitDataPtr dataPtr;
 
     const AbcA::DataType &dataType = iSamp.getDataType();
 
@@ -490,7 +489,6 @@ void WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
     }
 
 }
-#endif /* 0 */
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit

@@ -160,6 +160,9 @@ CpwData::createScalarProperty( AbcA::CompoundPropertyWriterPtr iParent,
     m_propertyHeaders.push_back( headerPtr );
     m_madeProperties[iName] = WeakBpwPtr( ret );
 
+    m_hashes.push_back(0);
+    m_hashes.push_back(0);
+
     return ret;
 }
 
@@ -220,12 +223,62 @@ CpwData::createCompoundProperty( AbcA::CompoundPropertyWriterPtr iParent,
                                 iMetaData ) );
 
     Alembic::Util::shared_ptr<CpwImpl>
-        ret( new CpwImpl( iParent, myGroup, headerPtr ) );
+        ret( new CpwImpl( iParent, myGroup, headerPtr,
+                          m_propertyHeaders.size() ) );
 
     m_propertyHeaders.push_back( headerPtr );
     m_madeProperties[iName] = WeakBpwPtr( ret );
 
+    m_hashes.push_back(0);
+    m_hashes.push_back(0);
+
     return ret;
+}
+
+void CpwData::writePropertyHeaders( MetaDataMapPtr iMetaDataMap )
+{
+    // pack in child header and other info
+    std::vector< Util::uint8_t > data;
+    for ( size_t i = 0; i < getNumProperties(); ++i )
+    {
+        PropertyHeaderPtr prop = m_propertyHeaders[i];
+        WritePropertyInfo( data,
+                           prop->header,
+                           prop->isScalarLike,
+                           prop->isHomogenous,
+                           prop->timeSamplingIndex,
+                           prop->nextSampleIndex,
+                           prop->firstChangedIndex,
+                           prop->lastChangedIndex,
+                           iMetaDataMap );
+    }
+
+    if ( !data.empty() )
+    {
+        m_group->addData( data.size(), &( data.front() ) );
+    }
+}
+
+//-*****************************************************************************
+void CpwData::fillHash( size_t iIndex, Util::uint64_t iHash0,
+    Util::uint64_t iHash1 )
+{
+
+    ABCA_ASSERT( iIndex < m_propertyHeaders.size() &&
+                 iIndex * 2 < m_hashes.size(),
+                 "Invalid property requested in CpwData::fillHash" );
+
+    m_hashes[ iIndex * 2     ] = iHash0;
+    m_hashes[ iIndex * 2 + 1 ] = iHash1;
+}
+
+//-*****************************************************************************
+void CpwData::computeHash( Util::SpookyHash & ioHash )
+{
+    if ( !m_hashes.empty() )
+    {
+        ioHash.Update( &m_hashes.front(), m_hashes.size() * 8 );
+    }
 }
 
 } // End namespace ALEMBIC_VERSION_NS

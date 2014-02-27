@@ -10,6 +10,7 @@
 #include <Alembic/AbcCoreGit/OwImpl.h>
 #include <Alembic/AbcCoreGit/CpwData.h>
 #include <Alembic/AbcCoreGit/CpwImpl.h>
+#include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 #include <iostream>
@@ -25,7 +26,7 @@ OwData::OwData( GitGroupPtr iParentGroup,
                 const AbcA::MetaData &iMetaData )
 {
 	if (iParentGroup)
-		TRACE("OwData::OwData(parentGroup:'" << iParentGroup->fullname() << "', '" << iName << "')");
+		TRACE("OwData::OwData(parentGroup:'" << iParentGroup->fullname() << "', name:'" << iName << "')");
 	else
 		TRACE("OwData::OwData(parentGroup:NULL, '" << iName << "')");
 
@@ -33,25 +34,27 @@ OwData::OwData( GitGroupPtr iParentGroup,
     ABCA_ASSERT( iParentGroup, "Invalid parent group" );
 
     // Create the Git group corresponding to this object.
-    //m_group_ptr.reset( new GitGroup( iParentGroup, iName ) );
-    m_group_ptr = iParentGroup->addGroup( iName );
-    ABCA_ASSERT( m_group_ptr,
+    //m_group.reset( new GitGroup( iParentGroup, iName ) );
+    m_group = iParentGroup->addGroup( iName );
+    ABCA_ASSERT( m_group,
                  "Could not create group for object: " << iName );
     m_data = Alembic::Util::shared_ptr<CpwData>(
-        new CpwData( ".prop", m_group_ptr ) );
+        new CpwData( ".prop", m_group ) );
 
     AbcA::PropertyHeader topHeader( ".prop", iMetaData );
     UNIMPLEMENTED("WritePropertyInfo()");
 #if 0
-    WritePropertyInfo( m_group_ptr, topHeader, false, 0, 0, 0, 0 );
+    WritePropertyInfo( m_group, topHeader, false, 0, 0, 0, 0 );
 #endif /* 0 */
 }
 
 //-*****************************************************************************
 OwData::~OwData()
 {
+    writeToDisk();
+
 	// not necessary actually
-	m_group_ptr.reset();
+	m_group.reset();
 }
 
 //-*****************************************************************************
@@ -152,14 +155,88 @@ AbcA::ObjectWriterPtr OwData::createChild( AbcA::ObjectWriterPtr iParent,
                                 iHeader.getMetaData() ) );
 
     Alembic::Util::shared_ptr<OwImpl> ret( new OwImpl( iParent,
-                            m_group_ptr,
-                            header ) );
+                            //m_group,
+                            m_group->addGroup( iHeader.getName() ),
+                            header, m_childHeaders.size() ) );
 
     m_childHeaders.push_back( header );
     m_madeChildren[iHeader.getName()] = WeakOwPtr( ret );
 
+    m_hashes.push_back(0);
+    m_hashes.push_back(0);
+
     return ret;
 }
+
+//-*****************************************************************************
+void OwData::writeHeaders( MetaDataMapPtr iMetaDataMap,
+                           Util::SpookyHash & ioHash )
+{
+    std::vector< Util::uint8_t > data;
+
+    // pack all object header into data here
+    for ( size_t i = 0; i < m_childHeaders.size(); ++i )
+    {
+        WriteObjectHeader( data, *m_childHeaders[i], iMetaDataMap );
+    }
+
+    Util::SpookyHash dataHash;
+    dataHash.Init( 0, 0 );
+    m_data->computeHash( dataHash );
+
+    Util::uint64_t hashes[4];
+    dataHash.Final( &hashes[0], &hashes[1] );
+
+    ioHash.Init( 0, 0 );
+
+    if ( !m_hashes.empty() )
+    {
+        ioHash.Update( &m_hashes.front(), m_hashes.size() * 8 );
+        ioHash.Final( &hashes[2], &hashes[3] );
+    }
+    else
+    {
+        hashes[2] = 0;
+        hashes[3] = 0;
+    }
+
+    // add the  data hash and child hash for writing
+    Util::uint8_t * hashData = ( Util::uint8_t * ) hashes;
+    for ( size_t i = 0; i < 32; ++i )
+    {
+        data.push_back( hashData[i] );
+    }
+
+    // now update childHash with dataHash
+    // SpookyHash has the nice property that Final doesn't invalidate the hash
+    ioHash.Update( hashes, 16 );
+
+    if ( !data.empty() )
+    {
+        m_group->addData( data.size(), &( data.front() ) );
+    }
+
+    m_data->writePropertyHeaders( iMetaDataMap );
+}
+
+void OwData::fillHash( std::size_t iIndex, Util::uint64_t iHash0,
+                       Util::uint64_t iHash1 )
+{
+    ABCA_ASSERT( iIndex < m_childHeaders.size() &&
+                 iIndex * 2 < m_hashes.size(),
+                 "Invalid property index requested in OwData::fillHash" );
+
+    m_hashes[ iIndex * 2     ] = iHash0;
+    m_hashes[ iIndex * 2 + 1 ] = iHash1;
+}
+
+void OwData::writeToDisk()
+{
+    TRACE("OwData::writeToDisk() path:'" << absPathname() << "'");
+    ABCA_ASSERT( m_group, "invalid group" );
+    m_group->writeToDisk();
+}
+
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit

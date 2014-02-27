@@ -12,12 +12,15 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <git2.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+
 #include <boost/current_function.hpp>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
-
 
 #if defined(DEBUG) && (! defined(NDEBUG))
 
@@ -85,6 +88,8 @@ while( 0 )
 #define TODO( TEXT )                    do { } while( 0 )
 
 #endif /* end of ! DEBUG */
+
+int mkpath(const std::string& path, mode_t mode = 0777);
 
 } // End namespace ALEMBIC_VERSION_NS
 

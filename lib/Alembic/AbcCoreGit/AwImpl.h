@@ -10,9 +10,7 @@
 #define _Alembic_AbcCoreGit_AwImpl_h_
 
 #include <Alembic/AbcCoreGit/Foundation.h>
-#if 0
 #include <Alembic/AbcCoreGit/WrittenSampleMap.h>
-#endif
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
@@ -50,17 +48,14 @@ public:
     //-*************************************************************************
     // GLOBAL FILE CONTEXT STUFF.
     //-*************************************************************************
-#if 0
     WrittenSampleMap &getWrittenSampleMap()
     {
         return m_writtenSampleMap;
     }
-
     MetaDataMapPtr getMetaDataMap()
     {
         return m_metaDataMap;
     }
-#endif
 
     virtual Util::uint32_t addTimeSampling( const AbcA::TimeSampling & iTs );
 
@@ -89,10 +84,8 @@ private:
 
     std::vector < AbcA::index_t > m_maxSamples;
 
-#if 0
     WrittenSampleMap m_writtenSampleMap;
-    //MetaDataMapPtr m_metaDataMap;
-#endif
+    MetaDataMapPtr m_metaDataMap;
 };
 
 } // End namespace ALEMBIC_VERSION_NS

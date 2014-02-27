@@ -26,7 +26,8 @@ ApwImpl::ApwImpl( AbcA::CompoundPropertyWriterPtr iParent,
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid property header" );
     ABCA_ASSERT( m_group, "Invalid group" );
-    TRACE("ApwImpl::ApwImpl(group:" << iGroup->repr() << ")");
+
+    TRACE("ApwImpl::ApwImpl(parent:" << CONCRETE_CPWPTR(m_parent)->repr() << ", group:" << m_group->repr() << ", header:'" << m_header->name() << "', index:" << m_index << ")");
 
     if ( m_header->header.getPropertyType() != AbcA::kArrayProperty )
     {
@@ -73,11 +74,7 @@ ApwImpl::~ApwImpl()
     Util::shared_ptr< CpwImpl > parent =
         Alembic::Util::dynamic_pointer_cast< CpwImpl,
             AbcA::CompoundPropertyWriter > ( m_parent );
-
-    UNIMPLEMENTED("fillHash()");
-#if 0
     parent->fillHash( m_index, hash0, hash1 );
-#endif /* 0 */
 }
 
 //-*****************************************************************************
@@ -96,13 +93,10 @@ void ApwImpl::setFromPreviousSample()
     ABCA_ASSERT( m_header->nextSampleIndex > 0,
         "Can't set from previous sample before any samples have been written" );
 
-    UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
-#if 0
     Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
     HashDimensions( m_dims, digest );
     Util::SpookyHash::ShortEnd(m_hash.words[0], m_hash.words[1],
                               digest.words[0], digest.words[1]);
-#endif /* 0 */
     m_header->nextSampleIndex ++;
 }
 
@@ -257,6 +251,29 @@ AbcA::CompoundPropertyWriterPtr ApwImpl::getParent()
 {
     ABCA_ASSERT( m_parent, "Invalid parent" );
     return m_parent;
+}
+
+CpwImplPtr ApwImpl::getTParent() const
+{
+    Util::shared_ptr< CpwImpl > parent =
+       Alembic::Util::dynamic_pointer_cast< CpwImpl,
+        AbcA::CompoundPropertyWriter > ( m_parent );
+    return parent;
+}
+
+std::string ApwImpl::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        CpwImplPtr parentPtr = getTParent();
+
+        ss << "<ApwImpl(parent:" << parentPtr->repr() << ", header:'" << m_header->name() << "', group:" << m_group->repr() << ")>";
+    } else
+    {
+        ss << "'" << m_header->name() << "'";
+    }
+    return ss.str();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

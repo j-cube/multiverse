@@ -10,6 +10,7 @@
 #define _Alembic_AbcCoreGit_CpwData_h_
 
 #include <Alembic/AbcCoreGit/Foundation.h>
+#include <Alembic/AbcCoreGit/MetaDataMap.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
 namespace Alembic {
@@ -54,6 +55,13 @@ public:
         const std::string & iName,
         const AbcA::MetaData & iMetaData );
 
+    void writePropertyHeaders( MetaDataMapPtr iMetaDataMap );
+
+    void fillHash( size_t iIndex, Util::uint64_t iHash0,
+                   Util::uint64_t iHash1 );
+
+    void computeHash( Util::SpookyHash & ioHash );
+
 private:
 
     GitGroupPtr getGroup();
@@ -74,6 +82,9 @@ private:
 
     PropertyHeaderPtrs m_propertyHeaders;
     MadeProperties m_madeProperties;
+
+    // child hashes
+    std::vector< Util::uint64_t > m_hashes;
 };
 
 typedef Alembic::Util::shared_ptr<CpwData> CpwDataPtr;

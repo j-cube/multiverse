@@ -23,6 +23,7 @@ SET( CXX_FILES
   # # GitHierarchyWriter.cpp
   Git.cpp
   # GitUtil.cpp
+  MetaDataMap.cpp
   # OrData.cpp
   # OrImpl.cpp
   OwData.cpp
@@ -55,6 +56,7 @@ SET( H_FILES
   Git.h
   # GitUtil.h
   # Foundation.h
+  MetaDataMap.h
   # OrData.h
   # OrImpl.h
   OwData.h
@@ -69,6 +71,7 @@ SET( H_FILES
   # StringWriteUtil.h
   Utils.h
   WriteUtil.h
+  WrittenSampleMap.h
   # WrittenArraySampleMap.h
 )
 

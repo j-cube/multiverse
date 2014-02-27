@@ -10,7 +10,8 @@
 #define _Alembic_AbcCoreGit_SpwImpl_h_
 
 #include <Alembic/AbcCoreGit/Foundation.h>
-//#include <Alembic/AbcCoreGit/WrittenSampleMap.h>
+#include <Alembic/AbcCoreGit/WrittenSampleMap.h>
+#include <Alembic/AbcCoreGit/CpwImpl.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
 namespace Alembic {
@@ -48,9 +49,13 @@ public:
     virtual AbcA::ObjectWriterPtr getObject();
     virtual AbcA::CompoundPropertyWriterPtr getParent();
 
+    CpwImplPtr getTParent() const;
+
+    std::string repr(bool extended=false) const;
+
 protected:
     // Previous written array sample identifier!
-    //WrittenSampleIDPtr m_previousWrittenSampleID;
+    WrittenSampleIDPtr m_previousWrittenSampleID;
 
 private:
     // The parent compound property writer.

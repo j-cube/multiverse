@@ -51,9 +51,7 @@ AwImpl::AwImpl( const std::string &iFileName,
                 const AbcA::MetaData &iMetaData )
   : m_fileName( iFileName )
   , m_metaData( iMetaData )
-#if 0
   , m_metaDataMap( new MetaDataMap() )
-#endif
 {
     int error;
 
@@ -124,6 +122,26 @@ void AwImpl::init()
     //GitGroupPtr topGroupPtr(new GitGroup(m_repo_ptr, "/"));
     GitGroupPtr topGroupPtr = m_repo_ptr->addGroup("/");
     m_data.reset( new OwData( topGroupPtr, "ABC", m_metaData ) );
+
+    // seed with the common empty keys
+    AbcA::ArraySampleKey emptyKey;
+    emptyKey.numBytes = 0;
+    GitDataPtr emptyData( new GitData() );
+
+    emptyKey.origPOD = Alembic::Util::kInt8POD;
+    emptyKey.readPOD = Alembic::Util::kInt8POD;
+    WrittenSampleIDPtr wsid( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    m_writtenSampleMap.store( wsid );
+
+    emptyKey.origPOD = Alembic::Util::kStringPOD;
+    emptyKey.readPOD = Alembic::Util::kStringPOD;
+    wsid.reset( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    m_writtenSampleMap.store( wsid );
+
+    emptyKey.origPOD = Alembic::Util::kWstringPOD;
+    emptyKey.readPOD = Alembic::Util::kWstringPOD;
+    wsid.reset( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    m_writtenSampleMap.store( wsid );
 }
 
 //-*****************************************************************************
@@ -216,11 +234,8 @@ void AwImpl::setMaxNumSamplesForTimeSamplingIndex( Util::uint32_t iIndex,
 //-*****************************************************************************
 AwImpl::~AwImpl()
 {
-    TODO( "empty sample map?");
-#if 0
     // empty out the map so any dataset IDs will be freed up
     m_writtenSampleMap.clear();
-#endif
 
     TODO( "write out child headers");
 #if 0

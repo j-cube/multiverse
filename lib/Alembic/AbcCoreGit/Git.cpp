@@ -16,6 +16,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <errno.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -137,7 +138,7 @@ GitObject::~GitObject()
 
 //-*****************************************************************************
 GitGroup::GitGroup( GitRepoPtr repo, const std::string& name ) :
-    m_repo_ptr(repo), m_name(name)
+    m_repo_ptr(repo), m_name(name), m_written(false)
 {
     // top-level group
     TRACE("GitGroup::GitGroup(repo) created:" << repr());
@@ -153,6 +154,8 @@ GitGroup::GitGroup( GitGroupPtr parent, const std::string& name ) :
 //-*****************************************************************************
 GitGroup::~GitGroup()
 {
+    writeToDisk();
+
     // not necessary, but better clean up memory in case of nasty bugs...
     m_parent_ptr.reset();
     m_repo_ptr.reset();
@@ -165,6 +168,40 @@ GitGroupPtr GitGroup::addGroup( const std::string& name )
     return child;
 }
 
+GitDataPtr GitGroup::addData(Alembic::Util::uint64_t iSize, const void * iData)
+{
+    UNIMPLEMENTED("GitGroup::addData(size, data);");
+    return GitDataPtr( new GitData() );
+}
+
+// write data streams from multiple sources as one continuous data stream
+// and add it as a child to this group
+GitDataPtr GitGroup::addData(Alembic::Util::uint64_t iNumData,
+                 const Alembic::Util::uint64_t * iSizes,
+                 const void ** iDatas)
+{
+    UNIMPLEMENTED("GitGroup::addData(num, sizes, datas);");
+    return GitDataPtr( new GitData() );
+}
+
+// reference existing data
+void GitGroup::addData(GitDataPtr iData)
+{
+    UNIMPLEMENTED("GitGroup::addData(GitDataPtr);");
+}
+
+// reference an existing group
+void GitGroup::addGroup(GitGroupPtr iGroup)
+{
+    UNIMPLEMENTED("GitGroup::addData(GitGroupPtr);");
+}
+
+// convenience function for adding empty data
+void GitGroup::addEmptyData()
+{
+    UNIMPLEMENTED("GitGroup::addEmptyData();");
+}
+
 std::string GitGroup::fullname() const
 {
     if (isTopLevel())
@@ -175,19 +212,32 @@ std::string GitGroup::fullname() const
     return pathjoin(m_parent_ptr->fullname(), name(), '/');
 }
 
-std::string GitGroup::pathname() const
+std::string GitGroup::relPathname() const
 {
     if (isTopLevel())
         return name();
 
     ABCA_ASSERT( m_parent_ptr, "Invalid parent group" );
 
-    return pathjoin(m_parent_ptr->pathname(), name());
+    return pathjoin(m_parent_ptr->relPathname(), name());
 }
 
 std::string GitGroup::absPathname() const
 {
     return pathjoin(m_repo_ptr->pathname(), pathname());
+}
+
+void GitGroup::writeToDisk()
+{
+    if (! m_written)
+    {
+        TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+        int rc = mkpath( absPathname(), 0777 );
+        ABCA_ASSERT((rc == 0) || (errno == EEXIST), "can't create directory '" << absPathname() << "'");
+    } else
+    {
+        TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
 }
 
 std::string GitGroup::repr(bool extended) const
@@ -222,8 +272,74 @@ std::string GitGroup::repr(bool extended) const
 
 bool GitGroup::finalize()
 {
-    int rc = mkdir( absPathname().c_str(), 0777 );
+    int rc = mkpath( absPathname(), 0777 );
     return (rc == 0);
+}
+
+GitData::GitData(GitGroupPtr iGroup, Alembic::Util::uint64_t iPos,
+          Alembic::Util::uint64_t iSize) :
+    m_group(iGroup),
+    m_pos(iPos),
+    m_size(iSize)
+{
+    ABCA_ASSERT( m_group, "invalid group" );
+}
+
+GitData::GitData()
+{
+}
+
+GitData::~GitData()
+{
+}
+
+void GitData::write(Alembic::Util::uint64_t iSize, const void * iData)
+{
+    UNIMPLEMENTED("GitData::write(size, data)");
+}
+
+void GitData::write(Alembic::Util::uint64_t iNumData,
+            const Alembic::Util::uint64_t * iSizes,
+            const void ** iDatas)
+{
+    UNIMPLEMENTED("GitData::write(num, sizes, datas)");
+}
+
+// rewrites over part of the already written data, does not change
+// the size of the already written data.  If what is attempting
+// to be rewritten exceeds the boundaries of what is already written,
+// the existing data will be unchanged
+void GitData::rewrite(Alembic::Util::uint64_t iSize, void * iData,
+             Alembic::Util::uint64_t iOffset)
+{
+    UNIMPLEMENTED("GitData::rewrite(size, data, offset)");
+}
+
+Alembic::Util::uint64_t GitData::getSize() const
+{
+    return m_size;
+}
+
+std::string GitData::repr(bool extended) const
+{
+    std::ostringstream ss;
+
+    if (extended)
+    {
+        if (m_group)
+            ss << "<GitData group:" << m_group->repr() << ">";
+        else
+            ss << "<GitData>";
+    } else
+    {
+        ss << "<GitData>";
+    }
+    return ss.str();
+}
+
+Alembic::Util::uint64_t GitData::getPos() const
+{
+    return m_pos;
 }
 
 } // End namespace ALEMBIC_VERSION_NS

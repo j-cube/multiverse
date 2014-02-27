@@ -10,6 +10,7 @@
 #define _Alembic_AbcCoreGit_Git_h_
 
 #include <Alembic/AbcCoreGit/Foundation.h>
+#include <Alembic/AbcCoreGit/Utils.h>
 #include <git2.h>
 
 namespace Alembic {
@@ -21,6 +22,10 @@ void git_check_error(int error_code, const std::string& action);
 class GitGroup;
 typedef Alembic::Util::shared_ptr<GitGroup> GitGroupPtr;
 typedef Alembic::Util::shared_ptr<const GitGroup> GitGroupConstPtr;
+
+class GitData;
+typedef Alembic::Util::shared_ptr<GitData> GitDataPtr;
+typedef Alembic::Util::shared_ptr<const GitData> GitDataConstPtr;
 
 //-*****************************************************************************
 class GitRepo : public Alembic::Util::enable_shared_from_this<GitRepo>
@@ -96,6 +101,24 @@ public:
     // create a group and add it as a child to this group
     GitGroupPtr addGroup( const std::string& name );
 
+    // write the data stream and add it as a child to this group
+    GitDataPtr addData(Alembic::Util::uint64_t iSize, const void * iData);
+
+    // write data streams from multiple sources as one continuous data stream
+    // and add it as a child to this group
+    GitDataPtr addData(Alembic::Util::uint64_t iNumData,
+                     const Alembic::Util::uint64_t * iSizes,
+                     const void ** iDatas);
+
+    // reference existing data
+    void addData(GitDataPtr iData);
+
+    // reference an existing group
+    void addGroup(GitGroupPtr iGroup);
+
+    // convenience function for adding empty data
+    void addEmptyData();
+
     bool isTopLevel() const                       { return (!m_parent_ptr); }
     bool isChild() const                          { return (!isTopLevel()); }
 
@@ -103,8 +126,11 @@ public:
     GitGroupPtr parent()                          { return m_parent_ptr; }
     const std::string& name() const               { return m_name; }
     std::string fullname() const;
-    std::string pathname() const;
+    std::string relPathname() const;
     std::string absPathname() const;
+    std::string pathname() const                  { return relPathname(); }
+
+    void writeToDisk();
 
     std::string repr(bool extended=false) const;
 
@@ -114,6 +140,8 @@ private:
     GitRepoPtr      m_repo_ptr;
     GitGroupPtr     m_parent_ptr;
     std::string     m_name;
+
+    bool            m_written;
 };
 
 //-*****************************************************************************
@@ -148,13 +176,10 @@ private:
 
     Alembic::Util::uint64_t getPos() const;
 
-    GitGroupPtr             m_group_ptr;
+    GitGroupPtr             m_group;
     Alembic::Util::uint64_t m_pos;
     Alembic::Util::uint64_t m_size;
 };
-
-typedef Alembic::Util::shared_ptr<GitData> GitDataPtr;
-typedef Alembic::Util::shared_ptr<const GitData> GitDataConstPtr;
 
 } // End namespace ALEMBIC_VERSION_NS
 
