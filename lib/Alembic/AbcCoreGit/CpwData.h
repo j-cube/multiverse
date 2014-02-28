@@ -62,6 +62,12 @@ public:
 
     void computeHash( Util::SpookyHash & ioHash );
 
+    const std::string& name() const               { return m_name; }
+    std::string relPathname()                     { GitGroupPtr group = getGroup(); ABCA_ASSERT(group, "invalid group"); return group->relPathname(); }
+    std::string absPathname()                     { GitGroupPtr group = getGroup(); ABCA_ASSERT(group, "invalid group"); return group->absPathname(); }
+
+    void writeToDisk();
+
 private:
 
     GitGroupPtr getGroup();

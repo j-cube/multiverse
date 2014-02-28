@@ -21,7 +21,8 @@ SpwImpl::SpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   PropertyHeaderPtr iHeader,
                   size_t iIndex ) :
     m_parent( iParent ), m_header( iHeader ), m_group( iGroup ),
-    m_index( iIndex )
+    m_index( iIndex ),
+    m_written(false)
 {
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid property header" );
@@ -75,6 +76,8 @@ SpwImpl::~SpwImpl()
         Alembic::Util::dynamic_pointer_cast< CpwImpl,
             AbcA::CompoundPropertyWriter > ( m_parent );
     parent->fillHash( m_index, hash0, hash1 );
+
+    writeToDisk();
 }
 
 //-*****************************************************************************
@@ -250,6 +253,54 @@ std::string SpwImpl::repr(bool extended) const
         ss << "'" << m_header->name() << "'";
     }
     return ss.str();
+}
+
+std::string SpwImpl::relPathname() const
+{
+    ABCA_ASSERT(m_group, "invalid group");
+
+    std::string parent_path = m_group->relPathname();
+    if (parent_path == "/")
+    {
+        return parent_path + name();
+    } else
+    {
+        return parent_path + "/" + name();
+    }
+}
+
+std::string SpwImpl::absPathname() const
+{
+    ABCA_ASSERT(m_group, "invalid group");
+
+    std::string parent_path = m_group->absPathname();
+    if (parent_path == "/")
+    {
+        return parent_path + name();
+    } else
+    {
+        return parent_path + "/" + name();
+    }
+}
+
+void SpwImpl::writeToDisk()
+{
+    if (! m_written)
+    {
+        TRACE("SpwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+
+        ABCA_ASSERT( m_group, "invalid group" );
+        m_group->writeToDisk();
+
+        TRACE("create '" << absPathname() << "'");
+
+        m_written = true;
+    } else
+    {
+        TRACE("SpwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 } // End namespace ALEMBIC_VERSION_NS

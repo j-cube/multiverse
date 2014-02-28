@@ -44,6 +44,8 @@ CpwData::~CpwData()
             ABCA_THROW( "can't finalize Git group" );
         m_group.reset();
     }
+
+    writeToDisk();
 }
 
 //-*****************************************************************************
@@ -202,6 +204,9 @@ CpwData::createArrayProperty( AbcA::CompoundPropertyWriterPtr iParent,
     m_propertyHeaders.push_back( headerPtr );
     m_madeProperties[iName] = WeakBpwPtr( ret );
 
+    m_hashes.push_back(0);
+    m_hashes.push_back(0);
+
     return ret;
 }
 
@@ -279,6 +284,15 @@ void CpwData::computeHash( Util::SpookyHash & ioHash )
     {
         ioHash.Update( &m_hashes.front(), m_hashes.size() * 8 );
     }
+}
+
+void CpwData::writeToDisk()
+{
+    TRACE("CpwData::writeToDisk() path:'" << absPathname() << "'");
+
+    GitGroupPtr group = getGroup(); 
+    ABCA_ASSERT( group, "invalid group" );
+    group->writeToDisk();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

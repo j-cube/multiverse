@@ -234,10 +234,14 @@ void GitGroup::writeToDisk()
         TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (WRITING)");
         int rc = mkpath( absPathname(), 0777 );
         ABCA_ASSERT((rc == 0) || (errno == EEXIST), "can't create directory '" << absPathname() << "'");
+
+        m_written = true;
     } else
     {
         TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
     }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 std::string GitGroup::repr(bool extended) const

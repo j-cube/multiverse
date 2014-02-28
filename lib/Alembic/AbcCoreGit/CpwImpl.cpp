@@ -93,6 +93,8 @@ CpwImpl::~CpwImpl()
                 AbcA::CompoundPropertyWriter > ( m_parent );
         parent->fillHash( m_index, hash0, hash1 );
     }
+
+    writeToDisk();
 }
 
 //-*****************************************************************************
@@ -211,6 +213,13 @@ std::string CpwImpl::repr(bool extended) const
         ss << "'" << m_header->name() << "'";
     }
     return ss.str();
+}
+
+void CpwImpl::writeToDisk()
+{
+    TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "'");
+    ABCA_ASSERT( m_data, "invalid data" );
+    m_data->writeToDisk();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

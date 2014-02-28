@@ -89,6 +89,12 @@ public:
 
     std::string repr(bool extended=false) const;
 
+    const std::string& name() const               { return m_data ? m_data->name() : m_header->name(); }
+    std::string relPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->relPathname(); }
+    std::string absPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->absPathname(); }
+
+    void writeToDisk();
+
 private:
 
     // The object we belong to.
