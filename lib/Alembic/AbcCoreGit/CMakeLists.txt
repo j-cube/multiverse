@@ -30,6 +30,7 @@ SET( CXX_FILES
   OwImpl.cpp
   # ReadUtil.cpp
   ReadWrite.cpp
+  SampleStore.cpp
   # SprImpl.cpp
   SpwImpl.cpp
   # StringReadUtil.cpp
@@ -63,6 +64,7 @@ SET( H_FILES
   OwImpl.h
   # ReadUtil.h
   ReadWrite.h
+  SampleStore.h
   # SimplePrImpl.h
   # SimplePwImpl.h
   # SprImpl.h

@@ -11,6 +11,10 @@
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -20,7 +24,9 @@ SpwImpl::SpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   GitGroupPtr iGroup,
                   PropertyHeaderPtr iHeader,
                   size_t iIndex ) :
-    m_parent( iParent ), m_header( iHeader ), m_group( iGroup ),
+    m_parent( iParent ), m_header( iHeader ),
+    m_store( BuildSampleStore( iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) ),
+    m_group( iGroup ),
     m_index( iIndex ),
     m_written(false)
 {
@@ -96,6 +102,11 @@ void SpwImpl::setFromPreviousSample()
     ABCA_ASSERT( m_header->nextSampleIndex > 0,
         "Can't set from previous sample before any samples have been written" );
 
+    ABCA_ASSERT( m_store.get(),
+        "Can't set from previous sample before any samples have been written" );
+
+    m_store->setFromPreviousSample();
+
     Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
     Util::SpookyHash::ShortEnd(m_hash.words[0], m_hash.words[1],
                                digest.words[0], digest.words[1]);
@@ -130,6 +141,8 @@ void SpwImpl::setSample( const void *iSamp )
         key.origPOD = Alembic::Util::kInt8POD;
         key.readPOD = Alembic::Util::kInt8POD;
     }
+
+    m_store->addSample( iSamp );
 
     // We need to write the sample
     UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
@@ -293,6 +306,46 @@ void SpwImpl::writeToDisk()
         m_group->writeToDisk();
 
         TRACE("create '" << absPathname() << "'");
+
+        ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+                     "invalid number of samples in SampleStore!" );
+
+        Json::Value root( Json::objectValue );
+
+//        const AbcA::MetaData& metaData = m_header->metadata();
+        const AbcA::DataType& dataType = m_header->datatype();
+
+        root["name"] = m_header->name();
+        root["kind"] = "ScalarProperty";
+
+        {
+            std::ostringstream ss;
+            ss << PODName( dataType.getPod() );
+            root["typename"] = ss.str();
+        }
+
+        root["extent"] = dataType.getExtent();
+
+        {
+            std::ostringstream ss;
+            ss << dataType;
+            root["type"] = ss.str();
+        }
+
+        root["num_samples"] = TypedSampleStore<size_t>::JsonFromValue( m_store->getNumSamples() );
+
+        root["dimensions"] = TypedSampleStore<AbcA::Dimensions>::JsonFromValue( m_store->getDimensions() );
+
+        root["data"] = m_store->json();
+
+        Json::StyledWriter writer;
+        std::string output = writer.write( root );
+
+        std::string jsonPathname = absPathname() + ".json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
 
         m_written = true;
     } else
