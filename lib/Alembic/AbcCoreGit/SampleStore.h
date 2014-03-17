@@ -31,6 +31,7 @@ public:
     virtual const void *getDataPtr() const = 0;
 
     virtual void addSample( const void *iSamp ) = 0;
+    virtual void addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
     virtual void setFromPreviousSample() = 0;                       // duplicate last added sample
 
     virtual size_t getNumSamples() const = 0;
@@ -38,6 +39,7 @@ public:
     virtual const AbcA::DataType& getDataType() const = 0;
     virtual const AbcA::Dimensions& getDimensions() const = 0;
     virtual int extent() const = 0;
+    virtual size_t rank() const = 0;
     virtual AbcA::PlainOldDataType getPod() const = 0;
     virtual std::string getTypeName() const = 0;
     virtual std::string getFullTypeName() const = 0;
@@ -73,8 +75,10 @@ public:
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
-    virtual void addSample( const T* iSamp );
-    virtual void addSample( const void *iSamp );
+    virtual void addSample( const T* iSamp );                       // rank-0 sample
+    virtual void addSample( const void *iSamp );                    // rank-0 sample
+
+    virtual void addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
 
     virtual void setFromPreviousSample();                           // duplicate last added sample
 
@@ -83,6 +87,7 @@ public:
     virtual const AbcA::DataType& getDataType() const     { return m_dataType; }
     virtual const AbcA::Dimensions& getDimensions() const { return m_dimensions; }
     virtual int extent() const                            { return m_dataType.getExtent(); }
+    virtual size_t rank() const                           { return m_dimensions.rank(); }
     virtual AbcA::PlainOldDataType getPod() const         { return m_dataType.getPod(); }
     virtual std::string getTypeName() const               { return PODName(m_dataType.getPod()); }
     virtual std::string getFullTypeName() const;

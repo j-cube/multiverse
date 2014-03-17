@@ -61,9 +61,22 @@ void TypedSampleStore<T>::copyFrom( const void* iData )
 template <typename T>
 void TypedSampleStore<T>::addSample( const T* iSamp )
 {
-    size_t extent = m_dataType.getExtent();
-    for (size_t i = 0; i < extent; ++i)
-        addSamplePiece( iSamp[i] );
+    if (rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
+        for (size_t i = 0; i < extent; ++i)
+            addSamplePiece( iSamp[i] );
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+
+        for (size_t i = 0; i < pods_per_sample; ++i)
+            addSamplePiece( iSamp[i] );
+    }
 }
 
 template <typename T>
@@ -74,31 +87,76 @@ void TypedSampleStore<T>::addSample( const void *iSamp )
 }
 
 template <typename T>
+void TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
+{
+    ABCA_ASSERT( iSamp.getDataType() == m_dataType,
+        "DataType on ArraySample iSamp: " << iSamp.getDataType() <<
+        ", does not match the DataType of the SampleStore: " <<
+        m_dataType );
+
+    addSample( iSamp.getData() );
+}
+
+template <typename T>
 void TypedSampleStore<T>::setFromPreviousSample()                           // duplicate last added sample
 {
     ABCA_ASSERT( m_data.size() > 0,
         "No samples to duplicate in SampleStore" );
 
-    size_t extent = m_dataType.getExtent();
+    if (rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
 
-    ABCA_ASSERT( m_data.size() > extent,
-                  "wrong number of PODs in SampleStore" );
+        ABCA_ASSERT( m_data.size() > extent,
+                      "wrong number of PODs in SampleStore" );
 
-    std::vector<T> last_sample(m_data.end() - extent, m_data.end());
+        std::vector<T> last_sample(m_data.end() - extent, m_data.end());
 
-    assert(last_sample.size() == extent);
-    ABCA_ASSERT( last_sample.size() == extent,
-                  "wrong number of PODs in last sample" );
+        assert(last_sample.size() == extent);
+        ABCA_ASSERT( last_sample.size() == extent,
+                      "wrong number of PODs in last sample" );
 
-    m_data.insert( m_data.end(), last_sample.begin(), last_sample.end() );
+        m_data.insert( m_data.end(), last_sample.begin(), last_sample.end() );
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+
+        ABCA_ASSERT( m_data.size() > pods_per_sample,
+                      "wrong number of PODs in SampleStore" );
+
+        std::vector<T> last_sample(m_data.end() - pods_per_sample, m_data.end());
+
+        assert(last_sample.size() == pods_per_sample);
+        ABCA_ASSERT( last_sample.size() == pods_per_sample,
+                      "wrong number of PODs in last sample" );
+
+        m_data.insert( m_data.end(), last_sample.begin(), last_sample.end() );
+    }
 }
 
 template <typename T>
 size_t TypedSampleStore<T>::getNumSamples() const
 {
-    ABCA_ASSERT( (m_data.size() % m_dataType.getExtent()) == 0,
-                  "wrong number of PODs in SampleStore" );
-    return m_data.size() / m_dataType.getExtent();
+    if (rank() == 0)
+    {
+        ABCA_ASSERT( (m_data.size() % m_dataType.getExtent()) == 0,
+                      "wrong number of PODs in SampleStore" );
+        return m_data.size() / m_dataType.getExtent();
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * m_dataType.getExtent();
+
+        ABCA_ASSERT( (m_data.size() % pods_per_sample) == 0,
+                      "wrong number of PODs in SampleStore" );
+        return m_data.size() / pods_per_sample;
+    }
 }
 
 template <typename T>
