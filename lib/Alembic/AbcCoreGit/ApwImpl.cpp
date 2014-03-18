@@ -80,6 +80,7 @@ ApwImpl::~ApwImpl()
 //-*****************************************************************************
 void ApwImpl::setFromPreviousSample()
 {
+    // Set the next sample to equal the previous sample. An important feature!
 
     // Make sure we aren't writing more samples than we have times for
     // This applies to acyclic sampling only
@@ -92,6 +93,11 @@ void ApwImpl::setFromPreviousSample()
 
     ABCA_ASSERT( m_header->nextSampleIndex > 0,
         "Can't set from previous sample before any samples have been written" );
+
+    ABCA_ASSERT( m_store.get(),
+        "Can't set from previous sample before any samples have been written" );
+
+    m_store->setFromPreviousSample();
 
     Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
     HashDimensions( m_dims, digest );
@@ -130,6 +136,12 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
         key.origPOD = Alembic::Util::kInt8POD;
         key.readPOD = Alembic::Util::kInt8POD;
     }
+
+    if (! m_store.get())
+    {
+        m_store.reset( BuildSampleStore( m_header->datatype(), iSamp.getDimensions() ) );
+    }
+    m_store->addSample( iSamp );
 
     // We need to write the sample
     UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");

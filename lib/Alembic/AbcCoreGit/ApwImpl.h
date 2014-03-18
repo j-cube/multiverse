@@ -11,6 +11,7 @@
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/WrittenSampleMap.h>
+#include <Alembic/AbcCoreGit/SampleStore.h>
 #include <Alembic/AbcCoreGit/CpwImpl.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
@@ -66,6 +67,8 @@ private:
 
     // for accumulating our hierarchical hash
     Util::Digest m_hash;
+
+    Alembic::Util::auto_ptr<AbstractTypedSampleStore> m_store;
 
     GitGroupPtr m_group;
 
