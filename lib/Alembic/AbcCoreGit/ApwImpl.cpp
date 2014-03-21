@@ -11,6 +11,10 @@
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -21,7 +25,8 @@ ApwImpl::ApwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   PropertyHeaderPtr iHeader,
                   size_t iIndex ) :
     m_parent( iParent ), m_header( iHeader ), m_group( iGroup ), m_dims( 1 ),
-    m_index( iIndex )
+    m_index( iIndex ),
+    m_written(false)
 {
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid property header" );
@@ -75,6 +80,8 @@ ApwImpl::~ApwImpl()
         Alembic::Util::dynamic_pointer_cast< CpwImpl,
             AbcA::CompoundPropertyWriter > ( m_parent );
     parent->fillHash( m_index, hash0, hash1 );
+
+    writeToDisk();
 }
 
 //-*****************************************************************************
@@ -286,6 +293,97 @@ std::string ApwImpl::repr(bool extended) const
         ss << "'" << m_header->name() << "'";
     }
     return ss.str();
+}
+
+std::string ApwImpl::relPathname() const
+{
+    ABCA_ASSERT(m_group, "invalid group");
+
+    std::string parent_path = m_group->relPathname();
+    if (parent_path == "/")
+    {
+        return parent_path + name();
+    } else
+    {
+        return parent_path + "/" + name();
+    }
+}
+
+std::string ApwImpl::absPathname() const
+{
+    ABCA_ASSERT(m_group, "invalid group");
+
+    std::string parent_path = m_group->absPathname();
+    if (parent_path == "/")
+    {
+        return parent_path + name();
+    } else
+    {
+        return parent_path + "/" + name();
+    }
+}
+
+void ApwImpl::writeToDisk()
+{
+    if (! m_written)
+    {
+        TRACE("ApwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+
+        ABCA_ASSERT( m_group, "invalid group" );
+        m_group->writeToDisk();
+
+        TRACE("create '" << absPathname() << "'");
+
+        ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+                     "invalid number of samples in SampleStore!" );
+
+        Json::Value root( Json::objectValue );
+
+//        const AbcA::MetaData& metaData = m_header->metadata();
+        const AbcA::DataType& dataType = m_header->datatype();
+
+        root["name"] = m_header->name();
+        root["kind"] = "ArrayProperty";
+
+        {
+            std::ostringstream ss;
+            ss << PODName( dataType.getPod() );
+            root["typename"] = ss.str();
+        }
+
+        assert( dataType.getExtent() == m_store->extent() );
+
+        root["extent"] = dataType.getExtent();
+        root["rank"] = TypedSampleStore<size_t>::JsonFromValue( m_store->rank() );
+
+        {
+            std::ostringstream ss;
+            ss << dataType;
+            root["type"] = ss.str();
+        }
+
+        root["num_samples"] = TypedSampleStore<size_t>::JsonFromValue( m_store->getNumSamples() );
+
+        root["dimensions"] = TypedSampleStore<AbcA::Dimensions>::JsonFromValue( m_store->getDimensions() );
+
+        root["data"] = m_store->json();
+
+        Json::StyledWriter writer;
+        std::string output = writer.write( root );
+
+        std::string jsonPathname = absPathname() + ".json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
+
+        m_written = true;
+    } else
+    {
+        TRACE("ApwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 } // End namespace ALEMBIC_VERSION_NS

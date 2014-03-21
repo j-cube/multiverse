@@ -53,6 +53,12 @@ public:
 
     std::string repr(bool extended=false) const;
 
+    const std::string& name() const               { return m_header->name(); }
+    std::string relPathname() const;
+    std::string absPathname() const;
+
+    void writeToDisk();
+
 protected:
     // Previous written array sample identifier!
     WrittenSampleIDPtr m_previousWrittenSampleID;
@@ -75,6 +81,8 @@ private:
     AbcA::Dimensions m_dims;
 
     size_t m_index;
+
+    bool m_written;
 };
 
 } // End namespace ALEMBIC_VERSION_NS
