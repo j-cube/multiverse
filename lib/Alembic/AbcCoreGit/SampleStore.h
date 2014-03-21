@@ -47,7 +47,15 @@ public:
     virtual std::string repr(bool extended = false) const = 0;
 
     virtual Json::Value json() const = 0;
+
+    friend std::ostream& operator<< ( std::ostream& out, const AbstractTypedSampleStore& value );
 };
+
+inline std::ostream& operator<< ( std::ostream& out, const AbstractTypedSampleStore& value )
+{
+        out << value.repr();
+        return out;
+}
 
 //-*****************************************************************************
 // Typed Sample Store
