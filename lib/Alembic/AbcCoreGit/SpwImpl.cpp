@@ -338,6 +338,17 @@ void SpwImpl::writeToDisk()
 
         root["data"] = m_store->json();
 
+        Json::Value propInfo( Json::objectValue );
+        propInfo["isScalarLike"] = m_header->isScalarLike;
+        propInfo["isHomogenous"] = m_header->isHomogenous;
+        propInfo["timeSamplingIndex"] = m_header->timeSamplingIndex;
+        propInfo["numSamples"] = m_header->nextSampleIndex;
+        propInfo["firstChangedIndex"] = m_header->firstChangedIndex;
+        propInfo["lastChangedIndex"] = m_header->lastChangedIndex;
+        propInfo["metadata"] = m_header->header.getMetaData().serialize();
+
+        root["info"] = propInfo;
+
         Json::StyledWriter writer;
         std::string output = writer.write( root );
 
