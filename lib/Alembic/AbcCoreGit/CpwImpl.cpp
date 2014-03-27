@@ -10,6 +10,11 @@
 #include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
+#include <Alembic/AbcCoreGit/SampleStore.h>
+
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -25,6 +30,7 @@ CpwImpl::CpwImpl( AbcA::ObjectWriterPtr iParent,
     , m_header( new PropertyHeaderAndFriends( "", iMeta ) )
     , m_data( iData )
     , m_index( 0 )
+    , m_written( false )
 {
     TRACE("CpwImpl::CpwImpl(ObjectWriterPtr) TOP");
 
@@ -220,6 +226,50 @@ void CpwImpl::writeToDisk()
     TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "'");
     ABCA_ASSERT( m_data, "invalid data" );
     m_data->writeToDisk();
+
+    if (! m_written)
+    {
+        TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+
+        TRACE("create '" << absPathname() << ".json'");
+
+        Json::Value root( Json::objectValue );
+
+//        const AbcA::MetaData& metaData = m_header->metadata();
+
+        root["name"] = m_header->name();
+        root["kind"] = "CompoundProperty";
+
+        root["index"] = TypedSampleStore<size_t>::JsonFromValue( m_index );
+        root["num_properties"] = TypedSampleStore<size_t>::JsonFromValue( getNumProperties() );
+
+        Json::Value propInfo( Json::objectValue );
+        propInfo["isScalarLike"] = m_header->isScalarLike;
+        propInfo["isHomogenous"] = m_header->isHomogenous;
+        propInfo["timeSamplingIndex"] = m_header->timeSamplingIndex;
+        propInfo["numSamples"] = m_header->nextSampleIndex;
+        propInfo["firstChangedIndex"] = m_header->firstChangedIndex;
+        propInfo["lastChangedIndex"] = m_header->lastChangedIndex;
+        propInfo["metadata"] = m_header->header.getMetaData().serialize();
+
+        root["info"] = propInfo;
+
+        Json::StyledWriter writer;
+        std::string output = writer.write( root );
+
+        std::string jsonPathname = absPathname() + ".json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
+
+        m_written = true;
+    } else
+    {
+        TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 } // End namespace ALEMBIC_VERSION_NS

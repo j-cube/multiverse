@@ -111,6 +111,8 @@ private:
 
     // Index position within parent
     size_t m_index;
+
+    bool m_written;
 };
 
 inline CpwImplPtr getCpwImplPtr(AbcA::CompoundPropertyWriterPtr aCpwPtr)
