@@ -21,25 +21,23 @@ namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
-OwData::OwData( GitGroupPtr iParentGroup,
+OwData::OwData( GitGroupPtr iGroup,
                 const std::string &iName,
-                const AbcA::MetaData &iMetaData )
+                const AbcA::MetaData &iMetaData ) :
+    m_group( iGroup )
 {
-	if (iParentGroup)
-		TRACE("OwData::OwData(parentGroup:'" << iParentGroup->fullname() << "', name:'" << iName << "')");
-	else
-		TRACE("OwData::OwData(parentGroup:NULL, '" << iName << "')");
-
     // Check validity of all inputs.
-    ABCA_ASSERT( iParentGroup, "Invalid parent group" );
+    ABCA_ASSERT( m_group, "Invalid group" );
+
+	TRACE("OwData::OwData(group:'" << m_group->fullname() << "', name:'" << iName << "')");
 
     // Create the Git group corresponding to this object.
     //m_group.reset( new GitGroup( iParentGroup, iName ) );
-    m_group = iParentGroup->addGroup( iName );
-    ABCA_ASSERT( m_group,
-                 "Could not create group for object: " << iName );
+    GitGroupPtr cpw_group = m_group->addGroup( ".prop" );
+    ABCA_ASSERT( cpw_group,
+                 "Could not create group for top compound property '.prop' in object: " << iName );
     m_data = Alembic::Util::shared_ptr<CpwData>(
-        new CpwData( ".prop", m_group ) );
+        new CpwData( ".prop", cpw_group ) );
 
     AbcA::PropertyHeader topHeader( ".prop", iMetaData );
     UNIMPLEMENTED("WritePropertyInfo()");

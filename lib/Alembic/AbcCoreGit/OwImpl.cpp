@@ -35,7 +35,7 @@ OwImpl::OwImpl( AbcA::ArchiveWriterPtr iArchive,
 
 //-*****************************************************************************
 OwImpl::OwImpl( AbcA::ObjectWriterPtr iParent,
-                GitGroupPtr iParentGroup,
+                GitGroupPtr iGroup,
                 ObjectHeaderPtr iHeader,
                 size_t iIndex )
   : m_parent( iParent )
@@ -45,16 +45,14 @@ OwImpl::OwImpl( AbcA::ObjectWriterPtr iParent,
     // Check validity of all inputs.
     ABCA_ASSERT( m_parent, "Invalid parent" );
     ABCA_ASSERT( m_header, "Invalid header" );
+    ABCA_ASSERT( iGroup, "Invalid group" );
 
-    if (iParentGroup)
-        TRACE("OwImpl::OwImpl(parent:" << CONCRETE_OWPTR(m_parent)->repr() << ", parentGroup:'" << iParentGroup->fullname() << "', objHeader:'" << m_header->getName() << "', index:" << m_index << ")");
-    else
-        TRACE("OwImpl::OwImpl(parent:" << CONCRETE_OWPTR(m_parent)->repr() << ", parentGroup:NULL, objHeader:'" << m_header->getName() << "', index:" << m_index << ")");
+    TRACE("OwImpl::OwImpl(parent:" << CONCRETE_OWPTR(m_parent)->repr() << ", group:'" << iGroup->fullname() << "', objHeader:'" << m_header->getName() << "', index:" << m_index << ")");
 
     m_archive = m_parent->getArchive();
     ABCA_ASSERT( m_archive, "Invalid archive" );
 
-    m_data.reset( new OwData( iParentGroup, m_header->getName(),
+    m_data.reset( new OwData( iGroup, m_header->getName(),
                               m_header->getMetaData() ) );
 }
 

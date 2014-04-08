@@ -119,9 +119,12 @@ void AwImpl::init()
     m_metaData.set("_ai_AlembicVersion", AbcA::GetLibraryVersion());
 
     ABCA_ASSERT( m_repo_ptr, "invalid git repository object");
+
     //GitGroupPtr topGroupPtr(new GitGroup(m_repo_ptr, "/"));
     GitGroupPtr topGroupPtr = m_repo_ptr->addGroup("/");
-    m_data.reset( new OwData( topGroupPtr, "ABC", m_metaData ) );
+    GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
+
+    m_data.reset( new OwData( abcGroupPtr, "ABC", m_metaData ) );
 
     // seed with the common empty keys
     AbcA::ArraySampleKey emptyKey;

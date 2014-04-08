@@ -28,7 +28,7 @@ typedef int git_group_t;
 class OwData : public Alembic::Util::enable_shared_from_this<OwData>
 {
 public:
-    OwData( GitGroupPtr iParentGroup,
+    OwData( GitGroupPtr iGroup,
             const std::string &iName,
             const AbcA::MetaData &iMetaData );
 

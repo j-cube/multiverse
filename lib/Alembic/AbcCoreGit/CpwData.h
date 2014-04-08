@@ -24,7 +24,7 @@ class CpwData : public Alembic::Util::enable_shared_from_this<CpwData>
 {
 public:
 
-    CpwData( const std::string & iName, GitGroupPtr iParentGroup );
+    CpwData( const std::string & iName, GitGroupPtr iGroup );
 
     ~CpwData();
 
@@ -70,15 +70,9 @@ public:
 
 private:
 
-    GitGroupPtr getGroup();
-
-    // The parent group. We need to keep this around because we
-    // don't create our group until we need to. This is guaranteed to
-    // exist because our parent (or object) is guaranteed to exist.
-    GitGroupPtr m_parentGroup;
+    GitGroupPtr getGroup() { return m_group; }
 
     // The group corresponding to this property.
-    // It may never be created or written.
     GitGroupPtr m_group;
 
     // if m_group gets created it will be given this name

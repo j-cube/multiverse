@@ -33,7 +33,7 @@ public:
             const AbcA::MetaData & iMetaData );
 
     OwImpl( AbcA::ObjectWriterPtr iParent,
-            GitGroupPtr iParentGroup,
+            GitGroupPtr iGroup,
             ObjectHeaderPtr iHeader,
             size_t iIndex );
 

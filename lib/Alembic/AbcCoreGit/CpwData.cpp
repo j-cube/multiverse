@@ -18,34 +18,27 @@ namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
-CpwData::CpwData( const std::string & iName, GitGroupPtr iParentGroup )
-    : m_parentGroup( iParentGroup )
+CpwData::CpwData( const std::string & iName, GitGroupPtr iGroup )
+    : m_group( iGroup )
     , m_name( iName )
 {
-    if (iParentGroup)
-        TRACE("CpwData::CpwData(name:'" << iName << "', parentGroup:" << iParentGroup->repr() << ")");
-    else
-        TRACE("CpwData::CpwData(name:'" << iName << "', parentGroup: NULL)");
+    ABCA_ASSERT( m_group, "Invalid group" );
 
-    // the "top" compound property has no name
-    if ( m_name == "" )
-    {
-        m_group = m_parentGroup;
-    }
+    TRACE("CpwData::CpwData(name:'" << iName << "', group:" << m_group->repr() << ")");
 }
 
 //-*****************************************************************************
 CpwData::~CpwData()
 {
-    if ( m_group )
-    {
-        bool ok = m_group->finalize();
-        if (! ok)
-            ABCA_THROW( "can't finalize Git group" );
-        m_group.reset();
-    }
+    ABCA_ASSERT( m_group, "Invalid group" );
+
+    bool ok = m_group->finalize();
+    if (! ok)
+        ABCA_THROW( "can't finalize Git group" );
 
     writeToDisk();
+
+    m_group.reset();
 }
 
 //-*****************************************************************************
@@ -98,33 +91,6 @@ CpwData::getProperty( const std::string &iName )
     WeakBpwPtr wptr = (*fiter).second;
 
     return wptr.lock();
-}
-
-//-*****************************************************************************
-GitGroupPtr CpwData::getGroup()
-{
-    // If we've already made it (or set it), return it!
-    if ( m_group )
-    {
-        return m_group;
-    }
-
-    ABCA_ASSERT( m_parentGroup, "invalid parent group" );
-
-    // Create the Git group corresponding to this property.
-    if ( m_name != "" )
-    {
-        return m_parentGroup->addGroup( m_name );
-    } else
-    {
-        m_group = m_parentGroup;
-    }
-
-    ABCA_ASSERT( m_group,
-                 "Could not create compound property group named: "
-                 << m_name );
-
-    return m_group;
 }
 
 //-*****************************************************************************

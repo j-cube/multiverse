@@ -66,7 +66,9 @@ CpwImpl::CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                  m_header->header.getName().find('/') == std::string::npos,
                  "Invalid name" );
 
-    m_data.reset( new CpwData( m_header->name(), iParentGroup ) );
+    GitGroupPtr iGroup = iParentGroup->addGroup( m_header->name() );
+
+    m_data.reset( new CpwData( m_header->name(), iGroup ) );
 
     // Write the property header.
     UNIMPLEMENTED("WritePropertyInfo()");
