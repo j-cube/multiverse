@@ -126,7 +126,7 @@ void AwImpl::init()
     ABCA_ASSERT( m_repo_ptr, "invalid git repository object");
 
     //GitGroupPtr topGroupPtr(new GitGroup(m_repo_ptr, "/"));
-    GitGroupPtr topGroupPtr = m_repo_ptr->addGroup("/");
+    GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
     GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
     m_data.reset( new OwData( abcGroupPtr, "ABC", m_metaData ) );
@@ -289,12 +289,12 @@ AwImpl::~AwImpl()
 
 std::string AwImpl::relPathname() const
 {
-    return "/";
+    return m_repo_ptr->rootGroup()->relPathname();
 }
 
 std::string AwImpl::absPathname() const
 {
-    return m_repo_ptr->pathname();
+    return m_repo_ptr->rootGroup()->absPathname();
 }
 
 void AwImpl::writeToDisk()

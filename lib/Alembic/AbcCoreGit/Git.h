@@ -37,6 +37,8 @@ public:
     // create a top-level group from this repo
     GitGroupPtr addGroup( const std::string& name );
 
+    GitGroupPtr rootGroup();
+
     const std::string& pathname()                 { return m_pathname; }
     git_repository *g_repository() const          { return m_repo; }
 
@@ -51,6 +53,8 @@ private:
     git_repository  *m_repo;
     git_config      *m_repo_cfg;
     git_odb         *m_odb;
+
+    GitGroupPtr     m_root_group_ptr;
 };
 
 typedef Alembic::Util::shared_ptr<GitRepo> GitRepoPtr;

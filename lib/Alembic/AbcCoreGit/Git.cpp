@@ -84,8 +84,17 @@ GitRepo::~GitRepo()
 // create a group and add it as a child to this group
 GitGroupPtr GitRepo::addGroup( const std::string& name )
 {
+    ABCA_ASSERT( (name != "/") || (! m_root_group_ptr.get()), "Root group '/' already exists" );
     GitGroupPtr child(new GitGroup( shared_from_this(), name ));
     return child;
+}
+
+GitGroupPtr GitRepo::rootGroup()
+{
+    if (! m_root_group_ptr.get())
+        m_root_group_ptr = addGroup("/");
+
+    return m_root_group_ptr;
 }
 
 std::string GitRepo::repr(bool extended) const
