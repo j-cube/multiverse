@@ -14,6 +14,8 @@
 #include <Alembic/AbcCoreGit/MetaDataMap.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
+#include <json/json.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -68,11 +70,17 @@ WriteObjectHeader( std::vector< Util::uint8_t > & ioData,
                    const AbcA::ObjectHeader &iHeader,
                    MetaDataMapPtr iMap );
 
+#ifdef OBSOLETE
 //-*****************************************************************************
 void
 WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
                    Util::uint32_t  iMaxSample,
                    const AbcA::TimeSampling &iTsmp );
+#endif /* OBSOLETE */
+
+Json::Value
+jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
+                       const AbcA::TimeSampling &iTsmp );
 
 } // End namespace ALEMBIC_VERSION_NS
 

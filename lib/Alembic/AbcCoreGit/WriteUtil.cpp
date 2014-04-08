@@ -463,6 +463,7 @@ void WriteObjectHeader( std::vector< Util::uint8_t > & ioData,
     }
 }
 
+#ifdef OBSOLETE
 //-*****************************************************************************
 void WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
                     Util::uint32_t  iMaxSample,
@@ -488,6 +489,39 @@ void WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
         pushChrono( ioData, samps[i] );
     }
 
+}
+#endif /* OBSOLETE */
+
+Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
+                                   const AbcA::TimeSampling &iTsmp )
+{
+    Json::Value root( Json::objectValue );
+
+    root["iMaxSample"] = iMaxSample;
+
+    AbcA::TimeSamplingType tst = iTsmp.getTimeSamplingType();
+
+    chrono_t tpc = tst.getTimePerCycle();
+
+    root["timePerCycle"] = tpc;
+
+    const std::vector < chrono_t > & samps = iTsmp.getStoredTimes();
+    ABCA_ASSERT( samps.size() > 0, "No TimeSamples to write!");
+
+    Util::uint32_t spc = ( Util::uint32_t ) samps.size();
+
+    root["size"] = spc;
+
+    Json::Value values( Json::arrayValue );
+
+    for ( std::size_t i = 0; i < samps.size(); ++i )
+    {
+        values.append( samps[i] );
+    }
+
+    root["values"] = values;
+
+    return root;
 }
 
 } // End namespace ALEMBIC_VERSION_NS

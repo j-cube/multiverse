@@ -70,6 +70,11 @@ public:
     virtual void setMaxNumSamplesForTimeSamplingIndex( Util::uint32_t iIndex,
                                                       AbcA::index_t iMaxIndex );
 
+    std::string relPathname() const;
+    std::string absPathname() const;
+
+    void writeToDisk();
+
 private:
     void init();
     std::string m_fileName;
@@ -86,6 +91,8 @@ private:
 
     WrittenSampleMap m_writtenSampleMap;
     MetaDataMapPtr m_metaDataMap;
+
+    bool m_written;
 };
 
 } // End namespace ALEMBIC_VERSION_NS

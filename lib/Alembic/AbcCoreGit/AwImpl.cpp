@@ -12,6 +12,10 @@
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -52,6 +56,7 @@ AwImpl::AwImpl( const std::string &iFileName,
   : m_fileName( iFileName )
   , m_metaData( iMetaData )
   , m_metaDataMap( new MetaDataMap() )
+  , m_written( false )
 {
     int error;
 
@@ -253,6 +258,7 @@ AwImpl::~AwImpl()
     // let go of our reference to the data for the top object
     m_data.reset();
 
+    std::cout << "AwImpl MetaData: '" << m_metaData.serialize() << "'" << std::endl;
     TODO( "encode and write time samplings?");
 #if 0
     // encode and write the time samplings and max samples into data
@@ -277,6 +283,60 @@ AwImpl::~AwImpl()
         m_metaDataMap->write( m_archive.getGroup() );
     }
 #endif
+
+    writeToDisk();
+}
+
+std::string AwImpl::relPathname() const
+{
+    return "/";
+}
+
+std::string AwImpl::absPathname() const
+{
+    return m_repo_ptr->pathname();
+}
+
+void AwImpl::writeToDisk()
+{
+    if (! m_written)
+    {
+        TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+
+        Json::Value root( Json::objectValue );
+
+        root["kind"] = "Archive";
+
+        root["metadata"] = m_metaData.serialize();
+
+        Json::Value jsonTimeSamplings( Json::arrayValue );
+
+        Util::uint32_t numSamplings = getNumTimeSamplings();
+        root["numTimeSamplings"] = numSamplings;
+        for ( Util::uint32_t i = 0; i < numSamplings; ++i )
+        {
+            Util::uint32_t maxSample = m_maxSamples[i];
+            AbcA::TimeSamplingPtr timePtr = getTimeSampling( i );
+            jsonTimeSamplings.append( jsonWriteTimeSampling( maxSample, *timePtr ) );
+        }
+        root["timeSamplings"] = jsonTimeSamplings;
+
+        Json::StyledWriter writer;
+        std::string output = writer.write( root );
+
+        std::string jsonPathname = absPathname() + "/archive.json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
+
+        m_written = true;
+    } else
+    {
+        TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 } // End namespace ALEMBIC_VERSION_NS
