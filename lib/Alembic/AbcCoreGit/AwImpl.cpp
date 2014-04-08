@@ -258,32 +258,6 @@ AwImpl::~AwImpl()
     // let go of our reference to the data for the top object
     m_data.reset();
 
-    std::cout << "AwImpl MetaData: '" << m_metaData.serialize() << "'" << std::endl;
-    TODO( "encode and write time samplings?");
-#if 0
-    // encode and write the time samplings and max samples into data
-    if ( m_archive.isValid() )
-    {
-        // encode and write the Metadata for the archive, since the top level
-        // meta data can be kinda big and is very specialized don't worry
-        // about putting it into the meta data map
-        std::string metaData = m_metaData.serialize();
-        m_archive.getGroup()->addData( metaData.size(), metaData.c_str() );
-
-        std::vector< Util::uint8_t > data;
-        Util::uint32_t numSamplings = getNumTimeSamplings();
-        for ( Util::uint32_t i = 0; i < numSamplings; ++i )
-        {
-            Util::uint32_t maxSample = m_maxSamples[i];
-            AbcA::TimeSamplingPtr timePtr = getTimeSampling( i );
-            WriteTimeSampling( data, maxSample, *timePtr );
-        }
-
-        m_archive.getGroup()->addData( data.size(), &( data.front() ) );
-        m_metaDataMap->write( m_archive.getGroup() );
-    }
-#endif
-
     writeToDisk();
 }
 
