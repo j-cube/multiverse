@@ -30,6 +30,78 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+bool file_exists(const std::string& pathname)
+{
+    struct stat info;
+
+    if (stat(pathname.c_str(), &info) != 0)
+    {
+        if ((errno == ENOENT) || (errno == ENOTDIR))
+            return false;       // does not exist
+
+        // error
+        return false;
+    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
+    {
+        // directory
+        return true;
+    } else
+    {
+        // file or something else
+        return true;
+    }
+
+    return true;
+}
+
+bool isdir(const std::string& pathname)
+{
+    struct stat info;
+
+    if (stat(pathname.c_str(), &info) != 0)
+    {
+        if ((errno == ENOENT) || (errno == ENOTDIR))
+            return false;       // does not exist
+
+        // error
+        return false;
+    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
+    {
+        // directory
+        return true;
+    } else
+    {
+        // file or something else
+        return false;
+    }
+
+    return false;
+}
+
+bool isfile(const std::string& pathname)
+{
+    struct stat info;
+
+    if (stat(pathname.c_str(), &info) != 0)
+    {
+        if ((errno == ENOENT) || (errno == ENOTDIR))
+            return false;       // does not exist
+
+        // error
+        return false;
+    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
+    {
+        // directory
+        return false;
+    } else
+    {
+        // file or something else
+        return true;
+    }
+
+    return true;
+}
+
 /* Function with behaviour like `mkdir -p'  */
 int mkpath(const std::string& path, mode_t mode)
 {

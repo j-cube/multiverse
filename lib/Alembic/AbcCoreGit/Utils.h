@@ -89,6 +89,9 @@ while( 0 )
 
 #endif /* end of ! DEBUG */
 
+bool file_exists(const std::string& pathname);
+bool isdir(const std::string& pathname);
+bool isfile(const std::string& pathname);
 int mkpath(const std::string& path, mode_t mode = 0777);
 
 } // End namespace ALEMBIC_VERSION_NS
