@@ -13,6 +13,9 @@
 #include <Alembic/AbcCoreGit/Utils.h>
 #include <git2.h>
 
+#include <iostream>
+#include <sstream>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -27,12 +30,53 @@ class GitData;
 typedef Alembic::Util::shared_ptr<GitData> GitDataPtr;
 typedef Alembic::Util::shared_ptr<const GitData> GitDataConstPtr;
 
+// enum-like functionality in a struct (http://stackoverflow.com/a/2506286)
+struct GitMode
+{
+    enum Type
+    {
+        Read, Write, ReadWrite
+    };
+
+    GitMode(Type t) : m_t(t) {}
+    GitMode(const GitMode& other) : m_t(other.m_t) {}
+    GitMode& operator= (const GitMode &rhs) { m_t = rhs.m_t; return *this; }
+    bool operator== (const GitMode &rhs) { return (m_t == rhs.m_t); }
+    bool operator== (const Type &rhs) { return (m_t == rhs); }
+    operator Type () const { return m_t; }
+
+    std::string repr(bool extended = false) const { std::ostringstream ss; ss << *this; return ss.str(); }
+
+    friend inline bool operator== (const GitMode &lhs, const GitMode &rhs) { return (lhs.m_t == rhs.m_t); }
+    friend std::ostream& operator<< ( std::ostream& out, const GitMode& value );
+
+private:
+    Type m_t;
+    //prevent automatic conversion for any other built-in types such as bool, int, etc
+    template<typename T> operator T () const;
+
+    //prevent automatic operator==(int)
+    bool operator== (int);
+};
+
 //-*****************************************************************************
 class GitRepo : public Alembic::Util::enable_shared_from_this<GitRepo>
 {
 public:
+    GitRepo( const std::string& pathname, GitMode mode );
     GitRepo( const std::string& pathname, git_repository *repo, git_config *cfg );
     virtual ~GitRepo();
+
+    const GitMode& mode() const { return m_mode; }
+
+    int32_t formatVersion() const;
+    int32_t libVersion() const;
+
+    bool isValid() const;
+
+    bool isClean() const;
+
+    bool isFrozen() const;      // frozen means not correctly and completely written
 
     // create a top-level group from this repo
     GitGroupPtr addGroup( const std::string& name );
@@ -48,7 +92,10 @@ public:
 
     std::string repr(bool extended=false) const;
 
+    friend std::ostream& operator<< ( std::ostream& out, const GitRepo& value );
+
 private:
+    GitMode         m_mode;
     std::string     m_pathname;
     git_repository  *m_repo;
     git_config      *m_repo_cfg;
@@ -59,6 +106,13 @@ private:
 
 typedef Alembic::Util::shared_ptr<GitRepo> GitRepoPtr;
 typedef Alembic::Util::shared_ptr<const GitRepo> GitRepoConstPtr;
+
+
+inline std::ostream& operator<< ( std::ostream& out, const GitRepo& value )
+{
+    out << value.repr();
+    return out;
+}
 
 //-*****************************************************************************
 class GitObject : public Alembic::Util::enable_shared_from_this<GitObject>

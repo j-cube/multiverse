@@ -26,6 +26,32 @@ namespace ALEMBIC_VERSION_NS {
 #define GIT_SUCCESS 0
 #endif /* GIT_SUCCESS */
 
+static bool gitlib_initialized = false;
+
+// TODO: find a better way to initialize and cleanup libgit2
+static void gitlib_initialize()
+{
+    if (! gitlib_initialized)
+    {
+        git_threads_init();
+
+        gitlib_initialized = true;
+    }
+}
+
+// TODO: call gitlib_cleanup() somewhere
+#if 0
+static void gitlib_cleanup()
+{
+    if (gitlib_initialized)
+    {
+        git_threads_shutdown();
+
+        gitlib_initialized = false;
+    }
+}
+#endif /* 0 */
+
 static std::string pathjoin(std::string p1, std::string p2, char pathsep = '/')
 {
     if (p1.length() == 0)
@@ -55,13 +81,112 @@ void git_check_error(int error_code, const std::string& action)
         " - " << ((error && error->message) ? error->message : "???") );
 }
 
+std::ostream& operator<< ( std::ostream& out, const GitMode& value )
+{
+    switch (value)
+    {
+    case GitMode::Read:
+        out << "R";
+        break;
+    case GitMode::Write:
+        out << "W";
+        break;
+    case GitMode::ReadWrite:
+        out << "R/W";
+        break;
+    default:
+        out << "UNKNOWN";
+        break;
+    }
+    return out;
+}
+
 //-*****************************************************************************
 GitRepo::GitRepo( const std::string& pathname, git_repository *repo, git_config *cfg ) :
-    m_pathname(pathname), m_repo(repo), m_repo_cfg(cfg), m_odb(NULL)
+    m_mode(GitMode::Write), m_pathname(pathname), m_repo(repo), m_repo_cfg(cfg), m_odb(NULL)
 {
+    gitlib_initialize();
+
     if (m_repo)
     {
         int error = git_repository_odb(&m_odb, m_repo);
+        git_check_error(error, "accessing git repository database");
+    }
+}
+
+GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
+    m_mode(mode), m_pathname(pathname), m_odb(NULL)
+{
+    TRACE( "GitRepo::GitRepo(pathname:'" << pathname << "' mode:" << mode );
+
+    gitlib_initialize();
+
+    int error;
+
+    git_repository *repo = NULL;
+    git_config *cfg = NULL;
+
+    std::string git_dir = m_pathname + "/.git";
+
+    if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
+    {
+        if (! isdir(m_pathname))
+        {
+            TRACE( "initializing Git repository '" << m_pathname << "'" );
+            error = git_repository_init (&repo, m_pathname.c_str(), /* is_bare */ 0);
+            git_check_error(error, "initializing git repository");
+            if (( error != GIT_SUCCESS ) || ( !repo ))
+            {
+                ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+            }
+            git_repository_config(&cfg, repo /* , NULL, NULL */);
+
+            git_config_set_int32 (cfg, "core.repositoryformatversion", 0);
+            git_config_set_bool (cfg, "core.filemode", 1);
+            git_config_set_bool (cfg, "core.bare", 0);
+            git_config_set_bool (cfg, "core.logallrefupdates", 1);
+            git_config_set_bool (cfg, "core.ignorecase", 1);
+
+            // set the version of the Alembic git backend
+            // This expresses the AbcCoreGit version - how properties, are stored within Git, etc.
+            git_config_set_int32 (cfg, "alembic.formatversion", ALEMBIC_GIT_FILE_VERSION);
+            // This is the Alembic library version XXYYZZ
+            // Where XX is the major version, YY is the minor version
+            // and ZZ is the patch version
+            git_config_set_int32 (cfg, "alembic.libversion", ALEMBIC_LIBRARY_VERSION);
+
+            //git_repository_set_workdir(repo, m_fileName);
+
+            git_repository_free(repo);
+            repo = NULL;
+            //Sleep (1000);
+        } else
+        {
+            TRACE( "Git repository '" << m_pathname << "' exists, opening (for writing)" );
+        }
+    }
+
+    error = git_repository_open (&repo, git_dir.c_str());
+    git_check_error(error, "opening git repository");
+    if (( error != GIT_SUCCESS ) || ( !repo ))
+    {
+        ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
+    }
+    if (repo)
+    {
+        error = git_repository_config(&cfg, repo /* , NULL, NULL */);
+        if (( error != GIT_SUCCESS ) || ( !cfg ))
+        {
+            ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
+        }
+    }
+
+    m_repo = repo;
+    m_repo_cfg = cfg;
+
+    if (m_repo)
+    {
+        error = git_repository_odb(&m_odb, m_repo);
         git_check_error(error, "accessing git repository database");
     }
 }
@@ -79,6 +204,47 @@ GitRepo::~GitRepo()
         // TODO: should we free() m_odb (git_odb *)?
         m_odb = NULL;
     }
+}
+
+int32_t GitRepo::formatVersion() const
+{
+    int error;
+
+    int32_t formatversion = -1;
+
+    error = git_config_get_int32(&formatversion, g_config(), "alembic.formatversion");
+    git_check_error(error, "getting alembic.formatversion config value");
+
+    return formatversion;
+}
+
+int32_t GitRepo::libVersion() const
+{
+    int error;
+
+    int32_t libversion = -1;
+
+    error = git_config_get_int32(&libversion, g_config(), "alembic.libversion");
+    git_check_error(error, "getting alembic.libversion config value");
+
+    return libversion;
+}
+
+bool GitRepo::isValid() const
+{
+    return m_repo ? true : false;
+}
+
+bool GitRepo::isClean() const
+{
+    // [TODO]: implement git clean check
+    return false;
+}
+
+bool GitRepo::isFrozen() const
+{
+    // [TODO]: implement frozen check
+    return false;
 }
 
 // create a group and add it as a child to this group
@@ -100,8 +266,9 @@ GitGroupPtr GitRepo::rootGroup()
 std::string GitRepo::repr(bool extended) const
 {
     std::ostringstream ss;
+
     if (extended)
-        ss << "<GitRepo path:'" << m_pathname << "'>";
+        ss << "<GitRepo path:'" << m_pathname << "' mode:" << m_mode << ">";
     else
         ss << "'" << m_pathname << "'";
     return ss.str();

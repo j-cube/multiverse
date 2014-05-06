@@ -20,36 +20,6 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
-#ifndef GIT_SUCCESS
-#define GIT_SUCCESS 0
-#endif /* GIT_SUCCESS */
-
-static bool gitlib_initialized = false;
-
-// TODO: find a better way to initialize and cleanup libgit2
-static void gitlib_initialize()
-{
-    if (! gitlib_initialized)
-    {
-        git_threads_init();
-
-        gitlib_initialized = true;
-    }
-}
-
-// TODO: call gitlib_cleanup() somewhere
-#if 0
-static void gitlib_cleanup()
-{
-    if (gitlib_initialized)
-    {
-        git_threads_shutdown();
-
-        gitlib_initialized = false;
-    }
-}
-#endif /* 0 */
-
 //-*****************************************************************************
 AwImpl::AwImpl( const std::string &iFileName,
                 const AbcA::MetaData &iMetaData )
@@ -58,8 +28,6 @@ AwImpl::AwImpl( const std::string &iFileName,
   , m_metaDataMap( new MetaDataMap() )
   , m_written( false )
 {
-    int error;
-
     TRACE("AwImpl::AwImpl('" << iFileName << "')");
 
     // add default time sampling
@@ -67,52 +35,7 @@ AwImpl::AwImpl( const std::string &iFileName,
     m_timeSamples.push_back(ts);
     m_maxSamples.push_back(0);
 
-    git_repository *repo = NULL;
-    git_config *cfg = NULL;
-
-    gitlib_initialize();
-
-    // open/create the archive (repo)
-    // TODO: we'll need to open an existing repo and perform a commit with this new
-    // version instead of "truncating" an existing one
-    TODO("beware - saving to an existing repo is not supported");
-    error = git_repository_init (&repo, m_fileName.c_str(), /* is_bare */ 0);
-    git_check_error(error, "initializing git repository");
-    if (( error != GIT_SUCCESS ) || ( !repo ))
-    {
-        ABCA_THROW( "Could not open file: " << m_fileName << " (git repo)");
-    }
-    git_repository_config(&cfg, repo /* , NULL, NULL */);
-
-    git_config_set_int32 (cfg, "core.repositoryformatversion", 0);
-    git_config_set_bool (cfg, "core.filemode", 1);
-    git_config_set_bool (cfg, "core.bare", 0);
-    git_config_set_bool (cfg, "core.logallrefupdates", 1);
-    git_config_set_bool (cfg, "core.ignorecase", 1);
-
-    // set the version of the Alembic git backend
-    // This expresses the AbcCoreGit version - how properties, are stored within Git, etc.
-    git_config_set_int32 (cfg, "alembic.formatversion", ALEMBIC_GIT_FILE_VERSION);
-    // This is the Alembic library version XXYYZZ
-    // Where XX is the major version, YY is the minor version
-    // and ZZ is the patch version
-    git_config_set_int32 (cfg, "alembic.libversion", ALEMBIC_LIBRARY_VERSION);
-
-    //git_repository_set_workdir(repo, m_fileName);
-
-    git_repository_free(repo);
-    repo = NULL;
-    //Sleep (1000);
-
-    std::string git_dir = m_fileName + "/.git";
-    error = git_repository_open (&repo, git_dir.c_str());
-    git_check_error(error, "opening git repository");
-    if (( error != GIT_SUCCESS ) || ( !repo ))
-    {
-        ABCA_THROW( "Could not open file: " << m_fileName << " (git repo)");
-    }
-    git_repository_config(&cfg, repo /* , NULL, NULL */);
-    m_repo_ptr.reset( new GitRepo(m_fileName, repo, cfg) );
+    m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Write) );
 
     // init the repo
     init();
