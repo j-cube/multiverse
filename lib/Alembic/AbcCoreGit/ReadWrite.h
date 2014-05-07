@@ -28,24 +28,24 @@ public:
                 const ::Alembic::AbcCoreAbstract::MetaData &iMetaData ) const;
 };
 
-// //-*****************************************************************************
-// //! Will return a shared pointer to the archive reader
-// //! This version creates a cache associated with the archive.
-// class ReadArchive
-// {
-// public:
-//     ReadArchive();
+//-*****************************************************************************
+//! Will return a shared pointer to the archive reader
+//! This version creates a cache associated with the archive.
+class ReadArchive
+{
+public:
+    ReadArchive();
 
-//     // open the file
-//     ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
-//     operator()( const std::string &iFileName ) const;
+    // open the file
+    ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
+    operator()( const std::string &iFileName ) const;
 
-//     // The given cache is ignored.
-//     ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
-//     operator()( const std::string &iFileName,
-//                 ::Alembic::AbcCoreAbstract::ReadArraySampleCachePtr iCache
-//               ) const;
-// };
+    // The given cache is ignored.
+    ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
+    operator()( const std::string &iFileName,
+                ::Alembic::AbcCoreAbstract::ReadArraySampleCachePtr iCache
+              ) const;
+};
 
 } // End namespace ALEMBIC_VERSION_NS
 
@@ -55,4 +55,3 @@ using namespace ALEMBIC_VERSION_NS;
 } // End namespace Alembic
 
 #endif
-

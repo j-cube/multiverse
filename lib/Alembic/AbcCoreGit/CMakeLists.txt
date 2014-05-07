@@ -10,7 +10,7 @@
 SET( CXX_FILES
   # AprImpl.cpp
   ApwImpl.cpp
-  # ArImpl.cpp
+  ArImpl.cpp
   AwImpl.cpp
   # CacheImpl.cpp
   # CprData.cpp
@@ -43,7 +43,7 @@ SET( H_FILES
   All.h
   # AprImpl.h
   ApwImpl.h
-  # ArImpl.h
+  ArImpl.h
   AwImpl.h
   # CacheImpl.h
   # CprData.h
