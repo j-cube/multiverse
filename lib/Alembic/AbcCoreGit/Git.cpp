@@ -170,6 +170,7 @@ GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
     git_check_error(error, "opening git repository");
     if (( error != GIT_SUCCESS ) || ( !repo ))
     {
+        TRACE("error opening repository from '" << git_dir << "'");
         ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
     }
     if (repo)
@@ -177,6 +178,7 @@ GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
         error = git_repository_config(&cfg, repo /* , NULL, NULL */);
         if (( error != GIT_SUCCESS ) || ( !cfg ))
         {
+            TRACE("error fetching config for repository '" << git_dir << "'");
             ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
         }
     }
