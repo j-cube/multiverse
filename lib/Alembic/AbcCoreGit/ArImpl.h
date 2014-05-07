@@ -71,6 +71,15 @@ public:
 
     const std::vector< AbcA::MetaData > & getIndexedMetaData();
 
+    std::string relPathname() const;
+    std::string absPathname() const;
+
+    bool readFromDisk();
+
+    std::string repr(bool extended=false) const;
+
+    friend std::ostream& operator<< ( std::ostream& out, const ArImpl& value );
+
 private:
     void init();
 
@@ -91,7 +100,15 @@ private:
     ObjectHeaderPtr m_header;
 
     std::vector< AbcA::MetaData > m_indexMetaData;
+
+    bool m_read;
 };
+
+inline std::ostream& operator<< ( std::ostream& out, const ArImpl& value )
+{
+    out << value.repr();
+    return out;
+}
 
 } // End namespace ALEMBIC_VERSION_NS
 

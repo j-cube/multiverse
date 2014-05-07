@@ -24,8 +24,8 @@ SET( CXX_FILES
   Git.cpp
   # GitUtil.cpp
   MetaDataMap.cpp
-  # OrData.cpp
-  # OrImpl.cpp
+  OrData.cpp
+  OrImpl.cpp
   OwData.cpp
   OwImpl.cpp
   # ReadUtil.cpp
@@ -58,8 +58,8 @@ SET( H_FILES
   # GitUtil.h
   # Foundation.h
   MetaDataMap.h
-  # OrData.h
-  # OrImpl.h
+  OrData.h
+  OrImpl.h
   OwData.h
   OwImpl.h
   # ReadUtil.h

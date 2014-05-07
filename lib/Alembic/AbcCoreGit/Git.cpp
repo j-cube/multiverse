@@ -246,7 +246,7 @@ bool GitRepo::isClean() const
 bool GitRepo::isFrozen() const
 {
     // [TODO]: implement frozen check
-    return false;
+    return true;
 }
 
 // create a group and add it as a child to this group

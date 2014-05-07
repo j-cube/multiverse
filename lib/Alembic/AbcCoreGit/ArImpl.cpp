@@ -7,9 +7,14 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcCoreGit/ArImpl.h>
-//#include <Alembic/AbcCoreGit/OrData.h>
-//#include <Alembic/AbcCoreGit/OrImpl.h>
+#include <Alembic/AbcCoreGit/OrData.h>
+#include <Alembic/AbcCoreGit/OrImpl.h>
 //#include <Alembic/AbcCoreGit/ReadUtil.h>
+#include <Alembic/AbcCoreGit/Utils.h>
+
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -19,8 +24,13 @@ namespace ALEMBIC_VERSION_NS {
 ArImpl::ArImpl( const std::string &iFileName )
   : m_fileName( iFileName )
   , m_header( new AbcA::ObjectHeader() )
+  , m_read( false )
 {
+    TRACE("ArImpl::ArImpl('" << iFileName << "'");
+
     m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Read) );
+
+    TRACE("repo valid:" << (m_repo_ptr->isValid() ? "TRUE" : "FALSE"));
 
     ABCA_ASSERT( m_repo_ptr->isValid(),
                  "Could not open as Git repository: " << m_fileName );
@@ -70,6 +80,8 @@ void ArImpl::init()
         delete [] buf;
     }
 #endif /* 0 */
+
+    readFromDisk();
 }
 
 //-*****************************************************************************
@@ -92,13 +104,10 @@ AbcA::ObjectReaderPtr ArImpl::getTop()
     AbcA::ObjectReaderPtr ret = m_top.lock();
     if ( ! ret )
     {
-        TODO( "create an OrImpl" );
-#if 0
         // time to make a new one
         ret = Alembic::Util::shared_ptr<OrImpl>(
             new OrImpl( shared_from_this(), m_data, m_header ) );
         m_top = ret;
-#endif
     }
 
     return ret;
@@ -140,6 +149,74 @@ ArImpl::~ArImpl()
 const std::vector< AbcA::MetaData > & ArImpl::getIndexedMetaData()
 {
     return m_indexMetaData;
+}
+
+std::string ArImpl::relPathname() const
+{
+    return m_repo_ptr->rootGroup()->relPathname();
+}
+
+std::string ArImpl::absPathname() const
+{
+    return m_repo_ptr->rootGroup()->absPathname();
+}
+
+bool ArImpl::readFromDisk()
+{
+    if (! m_read)
+    {
+        TRACE("ArImpl::readFromDisk() path:'" << absPathname() << "' (READING)");
+
+        Json::Value root;
+        Json::Reader reader;
+
+        std::string jsonPathname = absPathname() + "/archive.json";
+        std::ifstream jsonFile(jsonPathname.c_str());
+        std::stringstream jsonBuffer;
+        jsonBuffer << jsonFile.rdbuf();
+        jsonFile.close();
+
+        bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+        if (! parsingSuccessful)
+        {
+            ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+            return false;
+        }
+
+        std::string v_kind = root.get("kind", "UNKNOWN").asString();
+        ABCA_ASSERT( (v_kind == "Archive"), "invalid archive kind" );
+
+        std::string v_metadata = root.get("metadata", "").asString();
+        m_header->getMetaData().deserialize( v_metadata );
+
+        TRACE("kind:" << v_kind);
+        TRACE("metadata:" << v_metadata);
+
+        // TODO: read other json fields from archive
+        TODO("read time samplings, etc...");
+
+        TRACE("completed read from disk for ArImpl" << *this);
+        m_read = true;
+    } else
+    {
+        TRACE("ArImpl::readFromDisk() path:'" << absPathname() << "' (skipping, already read)");
+    }
+
+    ABCA_ASSERT( m_read, "data not read" );
+    return true;
+}
+
+std::string ArImpl::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        ss << "<ArImpl(name:'" << getName() << "')>";
+    } else
+    {
+        ss << "'" << getName() << "'";
+    }
+    return ss.str();
 }
 
 } // End namespace ALEMBIC_VERSION_NS
