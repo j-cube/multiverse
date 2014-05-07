@@ -124,6 +124,7 @@ public:
 
     GitRepoPtr repo()                             { return m_repo_ptr; }
     GitRepoConstPtr repo() const                  { return m_repo_ptr; }
+    const GitMode& mode() const                   { return repo()->mode(); }
 
     git_repository *g_repository() const          { return repo()->g_repository(); }
 
@@ -181,6 +182,8 @@ public:
     bool isChild() const                          { return (!isTopLevel()); }
 
     GitRepoPtr repo()                             { return m_repo_ptr; }
+    GitRepoConstPtr repo() const                  { return m_repo_ptr; }
+    const GitMode& mode() const                   { return repo()->mode(); }
     GitGroupPtr parent()                          { return m_parent_ptr; }
     const std::string& name() const               { return m_name; }
     std::string fullname() const;
