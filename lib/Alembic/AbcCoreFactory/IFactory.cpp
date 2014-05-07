@@ -36,6 +36,7 @@
 
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 #include <Alembic/AbcCoreFactory/IFactory.h>
 
 namespace Alembic {
@@ -75,6 +76,17 @@ Alembic::Abc::IArchive IFactory::getArchive( const std::string & iFileName,
     if ( archive.valid() )
     {
         oType = kHDF5;
+        archive.getErrorHandler().setPolicy( m_policy );
+        return archive;
+    }
+
+    // try Git at last, use kQuietNoop in case we fail
+    Alembic::AbcCoreGit::ReadArchive git;
+    archive = Alembic::Abc::IArchive( git, iFileName,
+        Alembic::Abc::ErrorHandler::kQuietNoopPolicy, m_cachePtr );
+    if ( archive.valid() )
+    {
+        oType = kGit;
         archive.getErrorHandler().setPolicy( m_policy );
         return archive;
     }
