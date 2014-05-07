@@ -369,7 +369,7 @@ void GitGroup::addData(GitDataPtr iData)
 // reference an existing group
 void GitGroup::addGroup(GitGroupPtr iGroup)
 {
-    UNIMPLEMENTED("GitGroup::addData(GitGroupPtr);");
+    UNIMPLEMENTED("GitGroup::addGroup(GitGroupPtr);");
 }
 
 // convenience function for adding empty data
