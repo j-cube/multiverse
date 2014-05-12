@@ -14,7 +14,10 @@
 #include <Alembic/AbcCoreGit/WriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 #include <iostream>
+#include <fstream>
 #include <string>
+
+#include <json/json.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -24,7 +27,8 @@ namespace ALEMBIC_VERSION_NS {
 OwData::OwData( GitGroupPtr iGroup,
                 const std::string &iName,
                 const AbcA::MetaData &iMetaData ) :
-    m_group( iGroup )
+      m_group( iGroup )
+    , m_written( false )
 {
     // Check validity of all inputs.
     ABCA_ASSERT( m_group, "Invalid group" );
@@ -233,6 +237,45 @@ void OwData::writeToDisk()
     TRACE("OwData::writeToDisk() path:'" << absPathname() << "'");
     ABCA_ASSERT( m_group, "invalid group" );
     m_group->writeToDisk();
+
+    if (! m_written)
+    {
+        TRACE("OwData::writeToDisk() path:'" << absPathname() << "' (WRITING)");
+
+        TRACE("create '" << absPathname() << ".json'");
+
+        Json::Value root( Json::objectValue );
+
+        root["name"] = name();
+        root["kind"] = "Object";
+
+        Json::Value jsonChildrenNames( Json::arrayValue );
+
+        Util::uint32_t numChildren = getNumChildren();
+        root["num_children"] = numChildren;
+        for ( Util::uint32_t i = 0; i < numChildren; ++i )
+        {
+            const AbcA::ObjectHeader& childHeader = getChildHeader( i );
+            jsonChildrenNames.append( childHeader.getName() );
+        }
+        root["children"] = jsonChildrenNames;
+
+        Json::StyledWriter writer;
+        std::string output = writer.write( root );
+
+        std::string jsonPathname = absPathname() + ".json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
+
+        m_written = true;
+    } else
+    {
+        TRACE("OwData::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
+    }
+
+    ABCA_ASSERT( m_written, "data not written" );
 }
 
 

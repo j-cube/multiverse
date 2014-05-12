@@ -80,6 +80,8 @@ private:
 
     // child hashes
     std::vector< Util::uint64_t > m_hashes;
+
+    bool m_written;
 };
 
 typedef Alembic::Util::shared_ptr<OwData> OwDataPtr;
