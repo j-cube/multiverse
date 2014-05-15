@@ -260,6 +260,23 @@ void OwData::writeToDisk()
         }
         root["children"] = jsonChildrenNames;
 
+        if ( ! m_data )
+        {
+            TRACE("OwData::writeToDisk() top compound pointer not available!");
+
+            root["num_properties"] = 0;
+
+            Json::Value jsonPropertiesNames( Json::arrayValue );
+            root["properties"] = jsonPropertiesNames;
+        } else
+        {
+            root["num_properties"] = 1;
+
+            Json::Value jsonPropertiesNames( Json::arrayValue );
+            jsonPropertiesNames.append( m_data->name() );
+            root["properties"] = jsonPropertiesNames;
+        }
+
         Json::StyledWriter writer;
         std::string output = writer.write( root );
 
