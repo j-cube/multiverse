@@ -243,7 +243,17 @@ void CpwImpl::writeToDisk()
         root["kind"] = "CompoundProperty";
 
         root["index"] = TypedSampleStore<size_t>::JsonFromValue( m_index );
-        root["num_properties"] = TypedSampleStore<size_t>::JsonFromValue( getNumProperties() );
+
+        size_t numProperties = getNumProperties();
+        root["num_properties"] = TypedSampleStore<size_t>::JsonFromValue( numProperties );
+
+        Json::Value jsonPropertiesNames( Json::arrayValue );
+        for ( size_t i = 0; i < numProperties; ++i )
+        {
+            const AbcA::PropertyHeader& propHeader = getPropertyHeader( i );
+            jsonPropertiesNames.append( propHeader.getName() );
+        }
+        root["properties"] = jsonPropertiesNames;
 
         Json::Value propInfo( Json::objectValue );
         propInfo["isScalarLike"] = m_header->isScalarLike;
