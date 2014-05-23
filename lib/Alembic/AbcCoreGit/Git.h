@@ -47,7 +47,7 @@ struct GitMode
 
     std::string repr(bool extended = false) const { std::ostringstream ss; ss << *this; return ss.str(); }
 
-    friend inline bool operator== (const GitMode &lhs, const GitMode &rhs) { return (lhs.m_t == rhs.m_t); }
+    //friend inline bool operator== (const GitMode &lhs, const GitMode &rhs) { return (lhs.m_t == rhs.m_t); }
     friend std::ostream& operator<< ( std::ostream& out, const GitMode& value );
 
 private:
@@ -192,6 +192,7 @@ public:
     std::string pathname() const                  { return relPathname(); }
 
     void writeToDisk();
+    bool readFromDisk();
 
     std::string repr(bool extended=false) const;
 
@@ -203,6 +204,7 @@ private:
     std::string     m_name;
 
     bool            m_written;
+    bool            m_read;
 };
 
 //-*****************************************************************************

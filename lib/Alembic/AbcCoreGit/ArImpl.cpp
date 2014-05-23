@@ -26,7 +26,7 @@ ArImpl::ArImpl( const std::string &iFileName )
   , m_header( new AbcA::ObjectHeader() )
   , m_read( false )
 {
-    TRACE("ArImpl::ArImpl('" << iFileName << "'");
+    TRACE("ArImpl::ArImpl('" << iFileName << "')");
 
     m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Read) );
 
@@ -54,6 +54,7 @@ void ArImpl::init()
     GitGroupPtr group = m_repo_ptr->rootGroup();
 
     TODO( "read time samples and max");
+    TODO( "read indexed metadata" );
 #if 0
     ReadTimeSamplesAndMax( group->getData( 4, 0 ),
                            m_timeSamples, m_maxSamples );
@@ -67,21 +68,7 @@ void ArImpl::init()
     m_header->setName( "ABC" );
     m_header->setFullName( "/" );
 
-    TODO( "read archive metadata" );
-#if 0
-    // read archive metadata
-    data = group->getData( 3, 0 );
-    if ( data->getSize() > 0 )
-    {
-        char * buf = new char[ data->getSize() ];
-        data->read( data->getSize(), buf, 0, 0 );
-        std::string metaData(buf, data->getSize() );
-        m_header->getMetaData().deserialize( metaData );
-        delete [] buf;
-    }
-#endif /* 0 */
-
-    readFromDisk();
+//    readFromDisk();
 }
 
 //-*****************************************************************************
@@ -104,6 +91,8 @@ AbcA::ObjectReaderPtr ArImpl::getTop()
     AbcA::ObjectReaderPtr ret = m_top.lock();
     if ( ! ret )
     {
+        readFromDisk();
+
         // time to make a new one
         ret = Alembic::Util::shared_ptr<OrImpl>(
             new OrImpl( shared_from_this(), m_data, m_header ) );
@@ -163,46 +152,70 @@ std::string ArImpl::absPathname() const
 
 bool ArImpl::readFromDisk()
 {
-    if (! m_read)
-    {
-        TRACE("ArImpl::readFromDisk() path:'" << absPathname() << "' (READING)");
-
-        Json::Value root;
-        Json::Reader reader;
-
-        std::string jsonPathname = absPathname() + "/archive.json";
-        std::ifstream jsonFile(jsonPathname.c_str());
-        std::stringstream jsonBuffer;
-        jsonBuffer << jsonFile.rdbuf();
-        jsonFile.close();
-
-        bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
-        if (! parsingSuccessful)
-        {
-            ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-            return false;
-        }
-
-        std::string v_kind = root.get("kind", "UNKNOWN").asString();
-        ABCA_ASSERT( (v_kind == "Archive"), "invalid archive kind" );
-
-        std::string v_metadata = root.get("metadata", "").asString();
-        m_header->getMetaData().deserialize( v_metadata );
-
-        TRACE("kind:" << v_kind);
-        TRACE("metadata:" << v_metadata);
-
-        // TODO: read other json fields from archive
-        TODO("read time samplings, etc...");
-
-        TRACE("completed read from disk for ArImpl" << *this);
-        m_read = true;
-    } else
+    if (m_read)
     {
         TRACE("ArImpl::readFromDisk() path:'" << absPathname() << "' (skipping, already read)");
+        return true;
     }
 
+    ABCA_ASSERT( !m_read, "already read" );
+
+    TRACE("[ArImpl " << *this << "] ArImpl::readFromDisk() path:'" << absPathname() << "' (READING)");
+
+    Json::Value root;
+    Json::Reader reader;
+
+    std::string jsonPathname = absPathname() + "/archive.json";
+    std::ifstream jsonFile(jsonPathname.c_str());
+    std::stringstream jsonBuffer;
+    jsonBuffer << jsonFile.rdbuf();
+    jsonFile.close();
+
+    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    if (! parsingSuccessful)
+    {
+        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+        return false;
+    }
+
+    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    ABCA_ASSERT( (v_kind == "Archive"), "invalid archive kind" );
+
+    // read archive metadata
+    std::string v_metadata = root.get("metadata", "").asString();
+    m_header->getMetaData().deserialize( v_metadata );
+
+    TRACE("[ArImpl " << *this << "] kind:" << v_kind);
+    TRACE("[ArImpl " << *this << "] metadata:" << v_metadata);
+
+    // TODO: read other json fields from archive
+    TODO("read time samplings, etc...");
+
+    m_read = true;
+
+    // read top object ("/ABC")
+
+    GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
+    GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
+
+    TODO( "read indexed metadata" );
+#if 0
+    ReadTimeSamplesAndMax( group->getData( 4, 0 ),
+                           m_timeSamples, m_maxSamples );
+
+    ReadIndexedMetaData( group->getData( 5, 0 ), m_indexMetaData );
+
+#endif /* 0 */
+    ABCA_ASSERT( !m_data.get(), "OrData exists already" );
+    assert( !m_data.get() );
+    m_data.reset( new OrData( /* GitGroupPtr */ abcGroupPtr,
+            /* parent name */ "",
+            /* thread id */ 0,
+            /* archive reader */ *this,
+            /* indexed metadata */ m_indexMetaData ) );
+
     ABCA_ASSERT( m_read, "data not read" );
+    TRACE("[ArImpl " << *this << "] completed read from disk");
     return true;
 }
 

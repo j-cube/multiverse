@@ -11,6 +11,11 @@
 // #include <Alembic/AbcCoreGit/CprData.h>
 // #include <Alembic/AbcCoreGit/CprImpl.h>
 // #include <Alembic/AbcCoreGit/ReadUtil.h>
+#include <Alembic/AbcCoreGit/Utils.h>
+
+#include <iostream>
+#include <fstream>
+#include <json/json.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -22,7 +27,7 @@ OrData::OrData( GitGroupPtr iGroup,
                 std::size_t iThreadId,
                 AbcA::ArchiveReader & iArchive,
                 const std::vector< AbcA::MetaData > & iIndexedMetaData )
-    : m_children( NULL )
+    : m_children( NULL ), m_read( false )
 {
     ABCA_ASSERT( iGroup, "Invalid object data group" );
 
@@ -60,6 +65,8 @@ OrData::OrData( GitGroupPtr iGroup,
             new CprData( group, iThreadId, iArchive, iIndexedMetaData ) );
     }
 #endif
+
+    readFromDisk();
 }
 
 //-*****************************************************************************
@@ -185,6 +192,92 @@ void OrData::getChildrenHash( Util::Digest & oDigest, size_t iThreadId )
         data->read( 16, oDigest.d, data->getSize() - 16, iThreadId );
     }
 #endif
+}
+
+bool OrData::readFromDisk()
+{
+    if (m_read)
+    {
+        TRACE("OrData::readFromDisk() path:'" << absPathname() << "' (skipping, already read)");
+        return true;
+    }
+
+    ABCA_ASSERT( !m_read, "already read" );
+
+    TRACE("[OrData " << *this << "] OrData::readFromDisk() path:'" << absPathname() << "' (READING)");
+    ABCA_ASSERT( m_group, "invalid group" );
+
+    m_group->readFromDisk();
+
+    Json::Value root;
+    Json::Reader reader;
+
+    std::string jsonPathname = absPathname() + ".json";
+    std::ifstream jsonFile(jsonPathname.c_str());
+    std::stringstream jsonBuffer;
+    jsonBuffer << jsonFile.rdbuf();
+    jsonFile.close();
+
+    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    if (! parsingSuccessful)
+    {
+        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+        return false;
+    }
+
+    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    ABCA_ASSERT( (v_kind == "Object"), "invalid object kind" );
+
+    // read number and names of properties
+    //Util::uint32_t v_num_properties = root.get("num_properties", 0).asUInt();
+    Json::Value v_properties = root["properties"];
+    std::vector<std::string> properties;
+    for (Json::Value::iterator it = v_properties.begin(); it != v_properties.end(); ++it)
+    {
+        properties.push_back( (*it).asString() );
+    }
+
+    // read number and names of children
+    //Util::uint32_t v_num_children = root.get("num_children", 0).asUInt();
+    Json::Value v_children = root["children"];
+    std::vector<std::string> children;
+    for (Json::Value::iterator it = v_children.begin(); it != v_children.end(); ++it)
+    {
+        children.push_back( (*it).asString() );
+    }
+
+    TODO("read properties");
+    TRACE("[OrData " << *this << "] # properties: " << properties.size());
+    for (std::vector<std::string>::const_iterator it = properties.begin(); it != properties.end(); ++it)
+    {
+        TRACE("  property: '" << *it << "'");
+    }
+
+    TODO("read children");
+    TRACE("[OrData " << *this << "] # children: " << children.size());
+    for (std::vector<std::string>::const_iterator it = children.begin(); it != children.end(); ++it)
+    {
+        TRACE("  child: '" << *it << "'");
+    }
+
+    m_read = true;
+
+    ABCA_ASSERT( m_read, "data not read" );
+    TRACE("[OrData " << *this << "]  completed read from disk");
+    return true;
+}
+
+std::string OrData::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        ss << "<OrData(name:'" << name() << "')>";
+    } else
+    {
+        ss << "'" << name() << "'";
+    }
+    return ss.str();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

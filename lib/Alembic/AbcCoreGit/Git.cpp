@@ -316,10 +316,14 @@ GitObject::~GitObject()
 
 //-*****************************************************************************
 GitGroup::GitGroup( GitRepoPtr repo, const std::string& name ) :
-    m_repo_ptr(repo), m_name(name), m_written(false)
+    m_repo_ptr(repo), m_name(name), m_written(false), m_read(false)
 {
     // top-level group
     TRACE("GitGroup::GitGroup(repo) created:" << repr());
+
+    const GitMode& mode_ = mode();
+    if ((mode_ == GitMode::Read) || (mode_ == GitMode::ReadWrite))
+        readFromDisk();
 }
 
 GitGroup::GitGroup( GitGroupPtr parent, const std::string& name ) :
@@ -327,12 +331,18 @@ GitGroup::GitGroup( GitGroupPtr parent, const std::string& name ) :
 {
     // child group
     TRACE("GitGroup::GitGroup(parent) created:" << repr());
+
+    const GitMode& mode_ = mode();
+    if ((mode_ == GitMode::Read) || (mode_ == GitMode::ReadWrite))
+        readFromDisk();
 }
 
 //-*****************************************************************************
 GitGroup::~GitGroup()
 {
-    writeToDisk();
+    const GitMode& mode_ = mode();
+    if ((mode_ == GitMode::Write) || (mode_ == GitMode::ReadWrite))
+        writeToDisk();
 
     // not necessary, but better clean up memory in case of nasty bugs...
     m_parent_ptr.reset();
@@ -407,6 +417,10 @@ std::string GitGroup::absPathname() const
 
 void GitGroup::writeToDisk()
 {
+    const GitMode& mode_ = mode();
+    if ((mode_ != GitMode::Write) && (mode_ != GitMode::ReadWrite))
+        return;
+
     if (! m_written)
     {
         TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (WRITING)");
@@ -420,6 +434,27 @@ void GitGroup::writeToDisk()
     }
 
     ABCA_ASSERT( m_written, "data not written" );
+}
+
+bool GitGroup::readFromDisk()
+{
+    const GitMode& mode_ = mode();
+    if ((mode_ != GitMode::Read) && (mode_ != GitMode::ReadWrite))
+        return false;
+
+    if (! m_read)
+    {
+        TRACE("GitGroup::readFromDisk() path:'" << absPathname() << "' (READING)");
+        ABCA_ASSERT(isdir(absPathname()), "directory '" << absPathname() << "' doesn't exist");
+
+        m_read = true;
+    } else
+    {
+        TRACE("GitGroup::readFromDisk() path:'" << absPathname() << "' (skipping, already read)");
+    }
+
+    ABCA_ASSERT( m_read, "data not read" );
+    return m_read;
 }
 
 std::string GitGroup::repr(bool extended) const

@@ -21,6 +21,9 @@ class CprData;
 // data class owned by OrImpl, or ArImpl if it is a "top" object.
 // it owns and makes child objects
 
+class OrData;
+typedef Alembic::Util::shared_ptr<OrData> OrDataPtr;
+
 class OrData : public Alembic::Util::enable_shared_from_this<OrData>
 {
 public:
@@ -53,6 +56,17 @@ public:
 
     void getChildrenHash( Util::Digest & oDigest, size_t iThreadId );
 
+    const std::string& name() const               { ABCA_ASSERT(m_group, "invalid group"); return m_group->name(); }
+    std::string relPathname() const               { ABCA_ASSERT(m_group, "invalid group"); return m_group->relPathname(); }
+    std::string absPathname() const               { ABCA_ASSERT(m_group, "invalid group"); return m_group->absPathname(); }
+
+    bool readFromDisk();
+
+    std::string repr(bool extended=false) const;
+
+    friend std::ostream& operator<< ( std::ostream& out, const OrData& value );
+    friend std::ostream& operator<< ( std::ostream& out, OrDataPtr value );
+
 private:
 
     GitGroupPtr m_group;
@@ -74,9 +88,21 @@ private:
     Alembic::Util::weak_ptr< AbcA::CompoundPropertyReader > m_top;
     Alembic::Util::shared_ptr < CprData > m_data;
     Alembic::Util::mutex m_cprlock;
+
+    bool m_read;
 };
 
-typedef Alembic::Util::shared_ptr<OrData> OrDataPtr;
+inline std::ostream& operator<< ( std::ostream& out, const OrData& value )
+{
+    out << value.repr();
+    return out;
+}
+
+inline std::ostream& operator<< ( std::ostream& out, OrDataPtr value )
+{
+    out << value->repr();
+    return out;
+}
 
 } // End namespace ALEMBIC_VERSION_NS
 
