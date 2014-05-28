@@ -52,8 +52,7 @@ OwImpl::OwImpl( AbcA::ObjectWriterPtr iParent,
     m_archive = m_parent->getArchive();
     ABCA_ASSERT( m_archive, "Invalid archive" );
 
-    m_data.reset( new OwData( iGroup, m_header->getName(),
-                              m_header->getMetaData() ) );
+    m_data.reset( new OwData( iGroup, m_header ) );
 }
 
 //-*****************************************************************************

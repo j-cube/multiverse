@@ -25,25 +25,26 @@ namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
 OwData::OwData( GitGroupPtr iGroup,
-                const std::string &iName,
-                const AbcA::MetaData &iMetaData ) :
+                ObjectHeaderPtr iHeader ) :
       m_group( iGroup )
+    , m_header( iHeader )
     , m_written( false )
 {
     // Check validity of all inputs.
     ABCA_ASSERT( m_group, "Invalid group" );
+    ABCA_ASSERT( m_header, "Invalid header" );
 
-	TRACE("OwData::OwData(group:'" << m_group->fullname() << "', name:'" << iName << "')");
+    TRACE("OwData::OwData(group:'" << m_group->fullname() << "', name:'" << m_header->getName() << "')");
 
     // Create the Git group corresponding to this object.
-    //m_group.reset( new GitGroup( iParentGroup, iName ) );
+    //m_group.reset( new GitGroup( iParentGroup, m_header->getName() ) );
     GitGroupPtr cpw_group = m_group->addGroup( ".prop" );
     ABCA_ASSERT( cpw_group,
-                 "Could not create group for top compound property '.prop' in object: " << iName );
+                 "Could not create group for top compound property '.prop' in object: " << m_header->getName() );
     m_data = Alembic::Util::shared_ptr<CpwData>(
         new CpwData( ".prop", cpw_group ) );
 
-    AbcA::PropertyHeader topHeader( ".prop", iMetaData );
+    AbcA::PropertyHeader topHeader( ".prop", m_header->getMetaData() );
     UNIMPLEMENTED("WritePropertyInfo()");
 #if 0
     WritePropertyInfo( m_group, topHeader, false, 0, 0, 0, 0 );
@@ -248,6 +249,13 @@ void OwData::writeToDisk()
 
         root["name"] = name();
         root["kind"] = "Object";
+
+        assert(name() == m_header->getName());
+        ABCA_ASSERT(name() == m_header->getName(), "group name differs from header name!");
+
+        //root["hName"] = m_header->getName();
+        root["fullName"] = m_header->getFullName();
+        root["metadata"] = m_header->getMetaData().serialize();
 
         Json::Value jsonChildrenNames( Json::arrayValue );
 

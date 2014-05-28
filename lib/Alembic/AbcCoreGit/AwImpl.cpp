@@ -52,7 +52,10 @@ void AwImpl::init()
     GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
     GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
-    m_data.reset( new OwData( abcGroupPtr, "ABC", m_metaData ) );
+    //m_data.reset( new OwData( abcGroupPtr, "ABC", m_metaData ) );
+    TODO("pass also `fullName` to AwImpl OwData ObjectHeader or not?!?");
+    m_data.reset( new OwData( abcGroupPtr,
+        Alembic::Util::shared_ptr<AbcA::ObjectHeader>(new AbcA::ObjectHeader( "ABC", "/", m_metaData )) ) );     // TODO: pass also fullName or not?
 
     // seed with the common empty keys
     AbcA::ArraySampleKey emptyKey;

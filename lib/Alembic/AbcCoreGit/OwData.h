@@ -29,8 +29,7 @@ class OwData : public Alembic::Util::enable_shared_from_this<OwData>
 {
 public:
     OwData( GitGroupPtr iGroup,
-            const std::string &iName,
-            const AbcA::MetaData &iMetaData );
+            ObjectHeaderPtr iHeader );
 
     ~OwData();
 
@@ -65,6 +64,9 @@ public:
 private:
     // The group corresponding to the object
     GitGroupPtr m_group;
+
+    // The header for this object.
+    ObjectHeaderPtr m_header;
 
     typedef std::vector<ObjectHeaderPtr> ChildHeaders;
     typedef std::map<std::string,WeakOwPtr> MadeChildren;
