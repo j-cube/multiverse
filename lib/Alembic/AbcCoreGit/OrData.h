@@ -61,6 +61,7 @@ public:
     std::string absPathname() const               { ABCA_ASSERT(m_group, "invalid group"); return m_group->absPathname(); }
 
     bool readFromDisk();
+    bool readFromDiskChildHeader(size_t i);
 
     std::string repr(bool extended=false) const;
 
@@ -73,6 +74,9 @@ private:
 
     struct Child
     {
+        std::size_t index;
+        std::string name;
+        bool read;
         ObjectHeaderPtr header;
         WeakOrPtr made;
         Alembic::Util::mutex lock;

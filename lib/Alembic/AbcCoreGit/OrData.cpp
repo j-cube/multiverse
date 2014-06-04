@@ -113,6 +113,11 @@ OrData::getChildHeader( AbcA::ObjectReaderPtr iParent, size_t i )
     ABCA_ASSERT( i < m_childrenMap.size(),
         "Out of range index in OrData::getChildHeader: " << i );
 
+    if (! m_children[i].read)
+        readFromDiskChildHeader( i );
+
+    assert( m_children[i].read );
+    assert( m_children[i].header );
     return *( m_children[i].header );
 }
 
@@ -150,8 +155,14 @@ OrData::getChild( AbcA::ObjectReaderPtr iParent, size_t i )
     ABCA_ASSERT( i < m_childrenMap.size(),
         "Out of range index in OrData::getChild: " << i );
 
+    if (! m_children[i].read)
+        readFromDiskChildHeader( i );
+
     Alembic::Util::scoped_lock l( m_children[i].lock );
     AbcA::ObjectReaderPtr optr = m_children[i].made.lock();
+
+    assert( m_children[i].read );
+    assert( m_children[i].header );
 
     if ( ! optr )
     {
@@ -253,17 +264,88 @@ bool OrData::readFromDisk()
         TRACE("  property: '" << *it << "'");
     }
 
-    TODO("read children");
     TRACE("[OrData " << *this << "] # children: " << children.size());
+    assert(! m_children);
+    ABCA_ASSERT( !m_children, "m_children already set" );
+    m_children = new Child[ children.size() ];
+    std::size_t i = 0;
     for (std::vector<std::string>::const_iterator it = children.begin(); it != children.end(); ++it)
     {
         TRACE("  child: '" << *it << "'");
+        m_childrenMap[*it] = i;
+        m_children[i].index = i;
+        m_children[i].name = *it;
+        m_children[i].read = false;
+
+        i++;
     }
 
     m_read = true;
 
     ABCA_ASSERT( m_read, "data not read" );
     TRACE("[OrData " << *this << "]  completed read from disk");
+    return true;
+}
+
+bool OrData::readFromDiskChildHeader(size_t i)
+{
+    ABCA_ASSERT( m_read, "data not read" );
+    assert( m_children );
+    ABCA_ASSERT( m_children, "children info not yet read from disk" );
+
+    ABCA_ASSERT( i < m_childrenMap.size(),
+        "Out of range index in OrData::readFromDiskChildHeader: " << i );
+
+    if (m_children[i].read)
+    {
+        TRACE("OrData::readFromDiskChildHeader(" << i << ") name:'" << m_children[i].name << "' (skipping, already read)");
+        return true;
+    }
+
+    ABCA_ASSERT( !m_children[i].read, "child data already read" );
+
+    ABCA_ASSERT( m_group, "invalid group" );
+
+    GitGroupPtr childGroup = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, m_children[i].name ) );
+
+    ABCA_ASSERT( childGroup, "invalid child group" );
+
+    TRACE("[OrData " << *this << "] OrData::readFromDiskChildHeader(" << i << ") name:'" << m_children[i].name << "' path:'" << childGroup->absPathname() << "' (READING)");
+
+    childGroup->readFromDisk();
+
+    Json::Value root;
+    Json::Reader reader;
+
+    std::string jsonPathname = childGroup->absPathname() + ".json";
+    std::ifstream jsonFile(jsonPathname.c_str());
+    std::stringstream jsonBuffer;
+    jsonBuffer << jsonFile.rdbuf();
+    jsonFile.close();
+
+    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    if (! parsingSuccessful)
+    {
+        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+        return false;
+    }
+
+    std::string v_name = root.get("name", "UNKNOWN").asString();
+    ABCA_ASSERT( (v_name == m_children[i].name), "actual child name differs from value stored in parent" );
+
+    std::string v_fullName = root.get("fullName", "UNKNOWN").asString();
+
+    std::string v_metadata = root.get("metadata", "").asString();
+    AbcA::MetaData metadata;
+    metadata.deserialize( v_metadata );
+
+    assert( !m_children[i].header );
+    m_children[i].header = Alembic::Util::shared_ptr<AbcA::ObjectHeader>( new AbcA::ObjectHeader( v_name, v_fullName, metadata ) );
+
+    m_children[i].read = true;
+
+    ABCA_ASSERT( m_children[i].read, "child data not read" );
+    TRACE("[OrData " << *this << "]  completed read child " << i << " (name:'" << m_children[i].name << "') data from disk");
     return true;
 }
 
