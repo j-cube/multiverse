@@ -53,8 +53,6 @@ void ArImpl::init()
 
     GitGroupPtr group = m_repo_ptr->rootGroup();
 
-    TODO( "read time samples and max");
-    TODO( "read indexed metadata" );
 #if 0
     ReadTimeSamplesAndMax( group->getData( 4, 0 ),
                            m_timeSamples, m_maxSamples );
@@ -68,7 +66,7 @@ void ArImpl::init()
     m_header->setName( "ABC" );
     m_header->setFullName( "/" );
 
-//    readFromDisk();
+    readFromDisk();
 }
 
 //-*****************************************************************************
@@ -91,8 +89,6 @@ AbcA::ObjectReaderPtr ArImpl::getTop()
     AbcA::ObjectReaderPtr ret = m_top.lock();
     if ( ! ret )
     {
-        readFromDisk();
-
         // time to make a new one
         ret = Alembic::Util::shared_ptr<OrImpl>(
             new OrImpl( shared_from_this(), m_data, m_header ) );
@@ -150,6 +146,22 @@ std::string ArImpl::absPathname() const
     return m_repo_ptr->rootGroup()->absPathname();
 }
 
+static void ReadIndexedMetaData( Json::Value json,
+                     std::vector< AbcA::MetaData > & oMetaDataVec )
+{
+    // add the default empty meta data
+    oMetaDataVec.push_back( AbcA::MetaData() );
+
+    std::vector<std::string> children;
+    for (Json::Value::iterator it = json.begin(); it != json.end(); ++it)
+    {
+        std::string metaData = (*it).asString();
+        AbcA::MetaData md;
+        md.deserialize( metaData );
+        oMetaDataVec.push_back( md );
+    }
+}
+
 bool ArImpl::readFromDisk()
 {
     if (m_read)
@@ -198,14 +210,14 @@ bool ArImpl::readFromDisk()
     GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
     GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
-    TODO( "read indexed metadata" );
+    TODO( "read time samples and max");
 #if 0
     ReadTimeSamplesAndMax( group->getData( 4, 0 ),
                            m_timeSamples, m_maxSamples );
-
-    ReadIndexedMetaData( group->getData( 5, 0 ), m_indexMetaData );
-
 #endif /* 0 */
+
+    ReadIndexedMetaData( root["indexedMetaData"], m_indexMetaData );
+
     ABCA_ASSERT( !m_data.get(), "OrData exists already" );
     assert( !m_data.get() );
     m_data.reset( new OrData( /* GitGroupPtr */ abcGroupPtr,
