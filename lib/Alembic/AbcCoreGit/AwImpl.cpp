@@ -221,6 +221,8 @@ void AwImpl::writeToDisk()
         }
         root["timeSamplings"] = jsonTimeSamplings;
 
+        root["indexedMetaData"] = m_metaDataMap->toJSON();
+
         Json::StyledWriter writer;
         std::string output = writer.write( root );
 

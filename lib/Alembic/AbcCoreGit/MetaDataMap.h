@@ -12,6 +12,8 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
+#include <json/json.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -29,6 +31,10 @@ public:
     // 0 will be returned if iStr is empty
     Util::uint32_t getIndex( const std::string & iStr );
     void write( GitGroupPtr iParent );
+
+    std::vector<std::string> toVector();
+    Json::Value toJSON();
+
 private:
     std::map< std::string, Util::uint32_t > m_map;
 };

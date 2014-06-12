@@ -79,6 +79,43 @@ void MetaDataMap::write( GitGroupPtr iParent )
     iParent->addData( buf.size(), ( const void * )&buf.front() );
 }
 
+//-*****************************************************************************
+std::vector<std::string> MetaDataMap::toVector()
+{
+    std::vector<std::string> mdVec;
+
+    if ( m_map.empty() )
+    {
+        return mdVec;
+    }
+
+    mdVec.resize( m_map.size() );
+
+    // lets put each string into it's vector slot
+    std::map< std::string, Util::uint32_t >::iterator it, itEnd;
+    for ( it = m_map.begin(), itEnd = m_map.end(); it != itEnd; ++it )
+    {
+        mdVec[ it->second ] = it->first;
+    }
+
+    return mdVec;
+}
+
+//-*****************************************************************************
+Json::Value MetaDataMap::toJSON()
+{
+    Json::Value values( Json::arrayValue );
+
+    std::vector<std::string> mdVec = toVector();
+    std::vector<std::string>::const_iterator it;
+    for ( it = mdVec.begin(); it != mdVec.end(); ++it )
+    {
+        values.append( *it );
+    }
+
+    return values;
+}
+
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
 } // End namespace Alembic
