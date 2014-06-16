@@ -56,17 +56,22 @@ OrData::OrData( GitGroupPtr iGroup,
     }
 #endif
 
+    readFromDisk();
+
     TODO("create m_data (Cpr)");
 #if 0
-    if ( numChildren > 0 && m_group->isChildGroup( 0 ) )
+    std::size_t numChildren = m_childrenMap.size();
+
+    GitGroupPtr cpw_group = m_group->addGroup( ".prop" );
+    ABCA_ASSERT( cpw_group,
+                 "Could not create group for top compound property '.prop' in object: " << name() );
+
+    if ( numChildren > 0 )
     {
-        GitGroupPtr group = m_group->getGroup( 0, false, iThreadId );
         m_data = Alembic::Util::shared_ptr<CprData>(
-            new CprData( group, iThreadId, iArchive, iIndexedMetaData ) );
+            new CprData( cpw_group, iThreadId, iArchive, iIndexedMetaData ) );
     }
 #endif
-
-    readFromDisk();
 }
 
 //-*****************************************************************************
