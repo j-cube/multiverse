@@ -244,6 +244,21 @@ void CpwImpl::writeToDisk()
 
         root["index"] = TypedSampleStore<size_t>::JsonFromValue( m_index );
 
+        const AbcA::DataType& dataType = m_header->datatype();
+        {
+            std::ostringstream ss;
+            ss << PODName( dataType.getPod() );
+            root["typename"] = ss.str();
+        }
+
+        root["extent"] = dataType.getExtent();
+
+        {
+            std::ostringstream ss;
+            ss << dataType;
+            root["type"] = ss.str();
+        }
+
         size_t numProperties = getNumProperties();
         root["num_properties"] = TypedSampleStore<size_t>::JsonFromValue( numProperties );
 
