@@ -7,7 +7,7 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcCoreGit/CprData.h>
-//#include <Alembic/AbcCoreGit/CprImpl.h>
+#include <Alembic/AbcCoreGit/CprImpl.h>
 //#include <Alembic/AbcCoreGit/SprImpl.h>
 //#include <Alembic/AbcCoreGit/AprImpl.h>
 #include <Alembic/AbcCoreGit/ArImpl.h>
@@ -236,8 +236,6 @@ CprData::getCompoundProperty( AbcA::CompoundPropertyReaderPtr iParent,
     assert( m_subProperties[propIndex].read );
     assert( m_subProperties[propIndex].header );
 
-    UNIMPLEMENTED("return Compound property (implement CprImpl)");
-#if 0
     SubProperty & sub = m_subProperties[propIndex];
 
     if ( !(sub.header->header.isCompound()) )
@@ -251,13 +249,17 @@ CprData::getCompoundProperty( AbcA::CompoundPropertyReaderPtr iParent,
     AbcA::BasePropertyReaderPtr bptr = sub.made.lock();
     if ( ! bptr )
     {
+        Alembic::Util::shared_ptr<  ArImpl > implPtr =
+            Alembic::Util::dynamic_pointer_cast< ArImpl, AbcA::ArchiveReader > (
+                iParent->getObject()->getArchive() );
+
         GitGroupPtr group = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, sub.name ) );
 
         ABCA_ASSERT( group, "Compound Property not backed by a valid group.");
 
         // Make a new one.
         bptr = Alembic::Util::shared_ptr<CprImpl>(
-            new CprImpl( iParent, group, sub.header, streamId->getID(),
+            new CprImpl( iParent, group, sub.header, /* iThreadId */0,
                          implPtr->getIndexedMetaData() ) );
 
         sub.made = bptr;
@@ -267,8 +269,6 @@ CprData::getCompoundProperty( AbcA::CompoundPropertyReaderPtr iParent,
         Alembic::Util::dynamic_pointer_cast<AbcA::CompoundPropertyReader,
         AbcA::BasePropertyReader>( bptr );
     return ret;
-#endif
-    return AbcA::CompoundPropertyReaderPtr();
 }
 
 bool CprData::readFromDisk()
