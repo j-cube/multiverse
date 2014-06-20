@@ -8,8 +8,8 @@
 
 #include <Alembic/AbcCoreGit/OrData.h>
 #include <Alembic/AbcCoreGit/OrImpl.h>
-// #include <Alembic/AbcCoreGit/CprData.h>
-// #include <Alembic/AbcCoreGit/CprImpl.h>
+#include <Alembic/AbcCoreGit/CprData.h>
+#include <Alembic/AbcCoreGit/CprImpl.h>
 // #include <Alembic/AbcCoreGit/ReadUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
@@ -33,33 +33,8 @@ OrData::OrData( GitGroupPtr iGroup,
 
     m_group = iGroup;
 
-    TODO("read object headers");
-#if 0
-    std::size_t numChildren = m_group->getNumChildren();
-
-    if ( numChildren > 0 && m_group->isChildData( numChildren - 1 ) )
-    {
-        std::vector< ObjectHeaderPtr > headers;
-        ReadObjectHeaders( m_group, numChildren - 1, iThreadId,
-                           iParentName, iIndexedMetaData, headers );
-
-        if ( !headers.empty() )
-        {
-            m_children = new Child[ headers.size() ];
-        }
-
-        for ( std::size_t i = 0; i < headers.size(); ++i )
-        {
-            m_childrenMap[headers[i]->getName()] = i;
-            m_children[i].header = headers[i];
-        }
-    }
-#endif
-
     readFromDisk();
 
-    TODO("create m_data (Cpr)");
-#if 0
     std::size_t numChildren = m_childrenMap.size();
 
     GitGroupPtr cpw_group = m_group->addGroup( ".prop" );
@@ -71,7 +46,6 @@ OrData::OrData( GitGroupPtr iGroup,
         m_data = Alembic::Util::shared_ptr<CprData>(
             new CprData( cpw_group, iThreadId, iArchive, iIndexedMetaData ) );
     }
-#endif
 }
 
 //-*****************************************************************************
@@ -90,9 +64,6 @@ OrData::getProperties( AbcA::ObjectReaderPtr iParent )
     Alembic::Util::scoped_lock l( m_cprlock );
     AbcA::CompoundPropertyReaderPtr ret = m_top.lock();
 
-    UNIMPLEMENTED("getProperties()");
-    TODO("create CprImpl");
-#if 0
     if ( ! ret )
     {
         // time to make a new one
@@ -100,7 +71,6 @@ OrData::getProperties( AbcA::ObjectReaderPtr iParent )
             new CprImpl( iParent, m_data ) );
         m_top = ret;
     }
-#endif
 
     return ret;
 }
