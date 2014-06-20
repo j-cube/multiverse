@@ -14,7 +14,7 @@ SET( CXX_FILES
   AwImpl.cpp
   # CacheImpl.cpp
   CprData.cpp
-  # CprImpl.cpp
+  CprImpl.cpp
   CpwData.cpp
   CpwImpl.cpp
   # DataTypeRegistry.cpp
@@ -47,7 +47,7 @@ SET( H_FILES
   AwImpl.h
   # CacheImpl.h
   CprData.h
-  # CprImpl.h
+  CprImpl.h
   CpwData.h
   CpwImpl.h
   # DataTypeRegistry.h

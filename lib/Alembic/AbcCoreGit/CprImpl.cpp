@@ -1,0 +1,135 @@
+//-*****************************************************************************
+//
+// Copyright (c) 2014,
+//
+// All rights reserved.
+//
+//-*****************************************************************************
+
+#include <Alembic/AbcCoreGit/CprImpl.h>
+
+namespace Alembic {
+namespace AbcCoreGit {
+namespace ALEMBIC_VERSION_NS {
+
+//-*****************************************************************************
+//-*****************************************************************************
+// CLASS
+//-*****************************************************************************
+//-*****************************************************************************
+
+//-*****************************************************************************
+CprImpl::CprImpl( AbcA::CompoundPropertyReaderPtr iParent,
+                  GitGroupPtr iGroup,
+                  PropertyHeaderPtr iHeader,
+                  std::size_t iThreadId,
+                  const std::vector< AbcA::MetaData > & iIndexedMetaData )
+    : m_parent( iParent )
+    , m_header( iHeader )
+{
+    ABCA_ASSERT( m_parent, "Invalid parent in CprImpl(Compound)" );
+    ABCA_ASSERT( m_header, "invalid header in CprImpl(Compound)" );
+
+    AbcA::PropertyType pType = m_header->header.getPropertyType();
+    if ( pType != AbcA::kCompoundProperty )
+    {
+        ABCA_THROW( "Tried to create compound property with the wrong "
+                    "property type: " << pType );
+    }
+
+    // Set object.
+    AbcA::ObjectReaderPtr optr = m_parent->getObject();
+    ABCA_ASSERT( optr, "Invalid object in CprImpl::CprImpl(Compound)" );
+    m_object = optr;
+
+    m_data.reset( new CprData( iGroup, iThreadId, *( m_object->getArchive() ),
+                               iIndexedMetaData ) );
+}
+
+//-*****************************************************************************
+CprImpl::CprImpl( AbcA::ObjectReaderPtr iObject,
+                  CprDataPtr iData )
+    : m_object( iObject )
+    , m_data( iData )
+{
+    ABCA_ASSERT( m_object, "Invalid object in CprImpl(Object)" );
+    ABCA_ASSERT( m_data, "Invalid data in CprImpl(Object)" );
+
+    std::string emptyName;
+    m_header.reset( new PropertyHeaderAndFriends( emptyName,
+                                              m_object->getMetaData() ) );
+}
+
+//-*****************************************************************************
+CprImpl::~CprImpl()
+{
+    // Nothing
+}
+
+//-*****************************************************************************
+const AbcA::PropertyHeader &CprImpl::getHeader() const
+{
+    ABCA_ASSERT( m_header, "Invalid header" );
+    return m_header->header;
+}
+
+AbcA::ObjectReaderPtr CprImpl::getObject()
+{
+    return m_object;
+}
+
+//-*****************************************************************************
+AbcA::CompoundPropertyReaderPtr CprImpl::getParent()
+{
+    return m_parent;
+}
+
+//-*****************************************************************************
+AbcA::CompoundPropertyReaderPtr CprImpl::asCompoundPtr()
+{
+    return shared_from_this();
+}
+
+//-*****************************************************************************
+size_t CprImpl::getNumProperties()
+{
+    return m_data->getNumProperties();
+}
+
+//-*****************************************************************************
+const AbcA::PropertyHeader & CprImpl::getPropertyHeader( size_t i )
+{
+    return m_data->getPropertyHeader( asCompoundPtr(), i );
+}
+
+//-*****************************************************************************
+const AbcA::PropertyHeader *
+CprImpl::getPropertyHeader( const std::string &iName )
+{
+    return m_data->getPropertyHeader( asCompoundPtr(), iName );
+}
+
+//-*****************************************************************************
+AbcA::ScalarPropertyReaderPtr
+CprImpl::getScalarProperty( const std::string &iName )
+{
+    return m_data->getScalarProperty( asCompoundPtr(), iName );
+}
+
+//-*****************************************************************************
+AbcA::ArrayPropertyReaderPtr
+CprImpl::getArrayProperty( const std::string &iName )
+{
+    return m_data->getArrayProperty( asCompoundPtr(), iName );
+}
+
+//-*****************************************************************************
+AbcA::CompoundPropertyReaderPtr
+CprImpl::getCompoundProperty( const std::string &iName )
+{
+    return m_data->getCompoundProperty( asCompoundPtr(), iName );
+}
+
+} // End namespace ALEMBIC_VERSION_NS
+} // End namespace AbcCoreGit
+} // End namespace Alembic
