@@ -15,6 +15,8 @@
 
 #include <Alembic/Util/PlainOldDataType.h>
 
+#include "Utils.h"
+
 #include <iostream>
 #include <fstream>
 #include <json/json.h>
@@ -362,18 +364,14 @@ bool CprData::readFromDiskSubHeader(size_t i)
 
     ABCA_ASSERT( m_group, "invalid group" );
 
-    GitGroupPtr subGroup = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, m_subProperties[i].name ) );
+    std::string subAbsPathname = pathjoin(absPathname(), m_subProperties[i].name);
 
-    ABCA_ASSERT( subGroup, "invalid child (sub-) group" );
-
-    TRACE("[CprData " << *this << "] CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' path:'" << subGroup->absPathname() << "' (READING)");
-
-    subGroup->readFromDisk();
+    TRACE("[CprData " << *this << "] CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' path:'" << subAbsPathname << "' (READING)");
 
     Json::Value root;
     Json::Reader reader;
 
-    std::string jsonPathname = subGroup->absPathname() + ".json";
+    std::string jsonPathname = subAbsPathname + ".json";
     std::ifstream jsonFile(jsonPathname.c_str());
     std::stringstream jsonBuffer;
     jsonBuffer << jsonFile.rdbuf();
@@ -443,6 +441,7 @@ bool CprData::readFromDiskSubHeader(size_t i)
 
         header->timeSamplingIndex = v_timeSamplingIndex;
 
+        TRACE("[CprData " << *this << "]  timeSamplingIndex:" << v_timeSamplingIndex);
         header->header.setTimeSampling( m_archive.getTimeSampling( header->timeSamplingIndex ) );
     }
 
