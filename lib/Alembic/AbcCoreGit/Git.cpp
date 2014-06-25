@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <errno.h>
 
+#include "Utils.h"
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -51,24 +53,6 @@ static void gitlib_cleanup()
     }
 }
 #endif /* 0 */
-
-static std::string pathjoin(std::string p1, std::string p2, char pathsep = '/')
-{
-    if (p1.length() == 0)
-        return p2;
-    if (p2.length() == 0)
-        return p1;
-
-    ABCA_ASSERT(p1.length() > 0, "invalid string length");
-    ABCA_ASSERT(p2.length() > 0, "invalid string length");
-
-    char p_last_ch = *p1.rbegin();
-    char first_ch = p2[0];
-    if ((p_last_ch == pathsep) || (first_ch == pathsep))
-        return p1 + p2;
-    return p1 + pathsep + p2;
-
-}
 
 void git_check_error(int error_code, const std::string& action)
 {

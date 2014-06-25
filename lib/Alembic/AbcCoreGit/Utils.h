@@ -94,6 +94,8 @@ bool isdir(const std::string& pathname);
 bool isfile(const std::string& pathname);
 int mkpath(const std::string& path, mode_t mode = 0777);
 
+std::string pathjoin(const std::string& p1, const std::string& p2, char pathsep = '/');
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;

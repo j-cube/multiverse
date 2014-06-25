@@ -129,6 +129,24 @@ int mkpath(const std::string& path, mode_t mode)
     return rv;
 }
 
+std::string pathjoin(const std::string& p1, const std::string& p2, char pathsep)
+{
+    if (p1.length() == 0)
+        return p2;
+    if (p2.length() == 0)
+        return p1;
+
+    ABCA_ASSERT(p1.length() > 0, "invalid string length");
+    ABCA_ASSERT(p2.length() > 0, "invalid string length");
+
+    char p_last_ch = *p1.rbegin();
+    char first_ch = p2[0];
+    if ((p_last_ch == pathsep) || (first_ch == pathsep))
+        return p1 + p2;
+    return p1 + pathsep + p2;
+
+}
+
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
 } // End namespace Alembic
