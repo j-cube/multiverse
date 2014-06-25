@@ -7,7 +7,7 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcCoreGit/CpwData.h>
-#include <Alembic/AbcCoreGit/WriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/SpwImpl.h>
 #include <Alembic/AbcCoreGit/ApwImpl.h>
 #include <Alembic/AbcCoreGit/CpwImpl.h>

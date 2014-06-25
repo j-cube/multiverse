@@ -9,7 +9,7 @@
 #include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/OwData.h>
 #include <Alembic/AbcCoreGit/OwImpl.h>
-#include <Alembic/AbcCoreGit/WriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
 #include <iostream>

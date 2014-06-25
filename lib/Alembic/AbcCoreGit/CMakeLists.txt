@@ -36,7 +36,7 @@ SET( CXX_FILES
   # StringReadUtil.cpp
   # StringWriteUtil.cpp
   Utils.cpp
-  WriteUtil.cpp
+  ReadWriteUtil.cpp
 )
 
 SET( H_FILES
@@ -72,7 +72,7 @@ SET( H_FILES
   # StringReadUtil.h
   # StringWriteUtil.h
   Utils.h
-  WriteUtil.h
+  ReadWriteUtil.h
   WrittenSampleMap.h
   # WrittenArraySampleMap.h
 )

@@ -6,7 +6,7 @@
 //
 //-*****************************************************************************
 
-#include <Alembic/AbcCoreGit/WriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
@@ -522,6 +522,47 @@ Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
     root["values"] = values;
 
     return root;
+}
+
+void jsonReadTimeSamples( Json::Value jsonTimeSamples,
+                       std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
+                       std::vector < AbcA::index_t > & oMaxSamples )
+{
+    for (Json::Value::iterator it = jsonTimeSamples.begin(); it != jsonTimeSamples.end(); ++it)
+    {
+        Json::Value element = *it;
+
+        Util::uint32_t iMaxSample = element.get("iMaxSample", 0).asUInt();
+
+        oMaxSamples.push_back( iMaxSample );
+
+        chrono_t tpc = element.get("timePerCycle", 0.0).asDouble();
+        //Util::uint32_t size = element.get("size", 0).asUInt();
+
+        Json::Value v_values = element["values"];
+        std::vector<chrono_t> sampleTimes;
+        for (Json::Value::iterator v_it = v_values.begin(); v_it != v_values.end(); ++v_it)
+        {
+            Json::Value v_value = *v_it;
+            sampleTimes.push_back( v_value.asDouble() );
+        }
+
+        Util::uint32_t numSamples = sampleTimes.size();
+
+        AbcA::TimeSamplingType::AcyclicFlag acf =
+            AbcA::TimeSamplingType::kAcyclic;
+
+        AbcA::TimeSamplingType tst( acf );
+        if ( tpc != AbcA::TimeSamplingType::AcyclicTimePerCycle() )
+        {
+            tst = AbcA::TimeSamplingType( numSamples, tpc );
+        }
+
+        AbcA::TimeSamplingPtr tptr(
+            new AbcA::TimeSampling( tst, sampleTimes ) );
+
+        oTimeSamples.push_back( tptr );
+    }
 }
 
 } // End namespace ALEMBIC_VERSION_NS

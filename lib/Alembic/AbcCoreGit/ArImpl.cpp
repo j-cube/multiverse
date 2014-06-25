@@ -9,7 +9,7 @@
 #include <Alembic/AbcCoreGit/ArImpl.h>
 #include <Alembic/AbcCoreGit/OrData.h>
 #include <Alembic/AbcCoreGit/OrImpl.h>
-//#include <Alembic/AbcCoreGit/ReadUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
 #include <iostream>
@@ -200,8 +200,12 @@ bool ArImpl::readFromDisk()
     TRACE("[ArImpl " << *this << "] kind:" << v_kind);
     TRACE("[ArImpl " << *this << "] metadata:" << v_metadata);
 
+    //Util::uint32_t v_numTimeSamplings = root.get("numTimeSamplings", 0).asUInt();
+    Json::Value v_timeSamplings = root["timeSamplings"];
+    jsonReadTimeSamples( v_timeSamplings, m_timeSamples, m_maxSamples );
+
     // TODO: read other json fields from archive
-    TODO("read time samplings, etc...");
+    TODO("read other archive data etc...");
 
     m_read = true;
 

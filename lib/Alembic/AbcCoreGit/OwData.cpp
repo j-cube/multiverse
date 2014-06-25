@@ -11,7 +11,7 @@
 #include <Alembic/AbcCoreGit/CpwData.h>
 #include <Alembic/AbcCoreGit/CpwImpl.h>
 #include <Alembic/AbcCoreGit/AwImpl.h>
-#include <Alembic/AbcCoreGit/WriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 #include <iostream>
 #include <fstream>

@@ -11,7 +11,7 @@
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/WrittenSampleMap.h>
-#include <Alembic/AbcCoreGit/WriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
 namespace Alembic {

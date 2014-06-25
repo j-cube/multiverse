@@ -6,8 +6,8 @@
 //
 //-*****************************************************************************
 
-#ifndef _Alembic_AbcCoreGit_WriteUtil_h_
-#define _Alembic_AbcCoreGit_WriteUtil_h_
+#ifndef _Alembic_AbcCoreGit_ReadWriteUtil_h_
+#define _Alembic_AbcCoreGit_ReadWriteUtil_h_
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/WrittenSampleMap.h>
@@ -82,6 +82,10 @@ Json::Value
 jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
                        const AbcA::TimeSampling &iTsmp );
 
+void jsonReadTimeSamples( Json::Value jsonTimeSamples,
+                       std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
+                       std::vector < AbcA::index_t > & oMaxSamples );
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;
@@ -89,4 +93,4 @@ using namespace ALEMBIC_VERSION_NS;
 } // End namespace AbcCoreGit
 } // End namespace Alembic
 
-#endif /* _Alembic_AbcCoreGit_WriteUtil_h_ */
+#endif /* _Alembic_AbcCoreGit_ReadWriteUtil_h_ */
