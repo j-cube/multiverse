@@ -8,7 +8,7 @@
 
 #include <Alembic/AbcCoreGit/CprData.h>
 #include <Alembic/AbcCoreGit/CprImpl.h>
-//#include <Alembic/AbcCoreGit/SprImpl.h>
+#include <Alembic/AbcCoreGit/SprImpl.h>
 //#include <Alembic/AbcCoreGit/AprImpl.h>
 #include <Alembic/AbcCoreGit/ArImpl.h>
 #include <Alembic/AbcCoreGit/Utils.h>
@@ -129,8 +129,6 @@ CprData::getScalarProperty( AbcA::CompoundPropertyReaderPtr iParent,
     assert( m_subProperties[propIndex].read );
     assert( m_subProperties[propIndex].header );
 
-    UNIMPLEMENTED("return Scalar property (implement SprImpl)");
-#if 0
     SubProperty & sub = m_subProperties[propIndex];
 
     if ( !(sub.header->header.isScalar()) )
@@ -144,13 +142,14 @@ CprData::getScalarProperty( AbcA::CompoundPropertyReaderPtr iParent,
     AbcA::BasePropertyReaderPtr bptr = sub.made.lock();
     if ( ! bptr )
     {
-        GitGroupPtr group = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, sub.name ) );
-
-        ABCA_ASSERT( group, "Scalar Property not backed by a valid group.");
+        TRACE("Going to read SprImpl for parent group: " << getGroup()->name() << " sub-property: " << sub.name << "  header: " << sub.header->name());
+        //GitGroupPtr group = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, sub.name ) );
+        //ABCA_ASSERT( group, "Scalar Property not backed by a valid group.");
 
         // Make a new one.
+        TRACE("CprData::getScalarProperty() create a new SprImpl");
         bptr = Alembic::Util::shared_ptr<SprImpl>(
-            new SprImpl( iParent, group, sub.header ) );
+            new SprImpl( iParent, getGroup(), sub.header ) );
         sub.made = bptr;
     }
 
@@ -158,8 +157,6 @@ CprData::getScalarProperty( AbcA::CompoundPropertyReaderPtr iParent,
         Alembic::Util::dynamic_pointer_cast<AbcA::ScalarPropertyReader,
         AbcA::BasePropertyReader>( bptr );
     return ret;
-#endif
-    return AbcA::ScalarPropertyReaderPtr();
 }
 
 //-*****************************************************************************
@@ -430,7 +427,7 @@ bool CprData::readFromDiskSubHeader(size_t i)
 
     if (!header->header.isCompound())
     {
-        header->header.setDataType( AbcA::DataType( Alembic::Util::PODFromName(v_type), v_extent ) );
+        header->header.setDataType( AbcA::DataType( Alembic::Util::PODFromName(v_typename), v_extent ) );
 
         header->isHomogenous = v_isHomogenous;
 

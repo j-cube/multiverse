@@ -31,7 +31,7 @@ SET( CXX_FILES
   # ReadUtil.cpp
   ReadWrite.cpp
   SampleStore.cpp
-  # SprImpl.cpp
+  SprImpl.cpp
   SpwImpl.cpp
   # StringReadUtil.cpp
   # StringWriteUtil.cpp

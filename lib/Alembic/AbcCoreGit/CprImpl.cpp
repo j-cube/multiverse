@@ -130,6 +130,35 @@ CprImpl::getCompoundProperty( const std::string &iName )
     return m_data->getCompoundProperty( asCompoundPtr(), iName );
 }
 
+CprImplPtr CprImpl::getTParent() const
+{
+    Util::shared_ptr< CprImpl > parent =
+       Alembic::Util::dynamic_pointer_cast< CprImpl,
+        AbcA::CompoundPropertyReader > ( m_parent );
+    return parent;
+}
+
+std::string CprImpl::repr(bool extended) const
+{
+    std::ostringstream ss;
+    if (extended)
+    {
+        if (m_parent)
+        {
+            CprImplPtr parentPtr = getTParent();
+
+            ss << "<CprImpl(parent:" << parentPtr->repr() << ", header:'" << m_header->name() << "')>";
+        } else
+        {
+            ss << "<CprImpl(TOP, " << ", header:'" << m_header->name() << "')>";
+        }
+    } else
+    {
+        ss << "'" << m_header->name() << "'";
+    }
+    return ss.str();
+}
+
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
 } // End namespace Alembic

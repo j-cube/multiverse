@@ -47,6 +47,7 @@ public:
     virtual std::string repr(bool extended = false) const = 0;
 
     virtual Json::Value json() const = 0;
+    virtual void fromJson(const Json::Value& root) = 0;
 
     friend std::ostream& operator<< ( std::ostream& out, const AbstractTypedSampleStore& value );
 };
@@ -104,6 +105,9 @@ public:
 
     virtual Json::Value json() const;
     static Json::Value JsonFromValue( const T& iValue );
+    static T ValueFromJson( const Json::Value& jsonValue );
+
+    virtual void fromJson(const Json::Value& root);
 
 private:
     TypedSampleStore();

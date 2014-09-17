@@ -66,6 +66,8 @@ public:
     friend std::ostream& operator<< ( std::ostream& out, CprDataPtr value );
 
 private:
+    GitGroupPtr getGroup() { return m_group; }
+
     AbcA::ArchiveReader& m_archive;
 
     GitGroupPtr m_group;

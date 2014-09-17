@@ -17,6 +17,9 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class CprImpl;
+typedef Util::shared_ptr<CprImpl> CprImplPtr;
+
 //-*****************************************************************************
 class CprImpl
     : public AbcA::CompoundPropertyReader
@@ -66,6 +69,13 @@ public:
     virtual AbcA::CompoundPropertyReaderPtr
     getCompoundProperty( const std::string &iName );
 
+    CprImplPtr getTParent() const;
+
+    std::string repr(bool extended=false) const;
+
+    const std::string& name() const               { return m_data ? m_data->name() : m_header->name(); }
+    std::string relPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->relPathname(); }
+    std::string absPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->absPathname(); }
 
 private:
 
@@ -80,6 +90,17 @@ private:
 
     CprDataPtr m_data;
 };
+
+inline CprImplPtr getCprImplPtr(AbcA::CompoundPropertyReaderPtr aCprPtr)
+{
+    ABCA_ASSERT( aCprPtr, "Invalid pointer to AbcA::CompoundPropertyReader" );
+    Util::shared_ptr< CprImpl > concretePtr =
+       Alembic::Util::dynamic_pointer_cast< CprImpl,
+        AbcA::CompoundPropertyReader > ( aCprPtr );
+    return concretePtr;
+}
+
+#define CONCRETE_CPRPTR(aCprPtr)   getCprImplPtr(aCprPtr)
 
 } // End namespace ALEMBIC_VERSION_NS
 
