@@ -30,6 +30,8 @@ public:
 
     virtual const void *getDataPtr() const = 0;
 
+    virtual void getSample( void *iIntoLocation, int index ) = 0;
+
     virtual void addSample( const void *iSamp ) = 0;
     virtual void addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
     virtual void setFromPreviousSample() = 0;                       // duplicate last added sample
@@ -80,6 +82,10 @@ public:
 
     const T& operator[](int index) const            { return m_data[index]; }
     T& operator[](int index)                        { return m_data[index]; }
+
+    virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
+    virtual void getSampleT( T* iIntoLocation, int index );
+    virtual void getSample( void *iIntoLocation, int index );
 
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }

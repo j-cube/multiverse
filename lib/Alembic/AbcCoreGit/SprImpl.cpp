@@ -88,20 +88,10 @@ bool SprImpl::isConstant()
 //-*****************************************************************************
 void SprImpl::getSample( index_t iSampleIndex, void * iIntoLocation )
 {
-    size_t index = m_header->verifyIndex( iSampleIndex );
+    TRACE( "SprImpl::getSample(iSampleIndex:" << iSampleIndex << ")");
+    // size_t index = m_header->verifyIndex( iSampleIndex );
 
-    (void)index;
-#if 0
-    StreamIDPtr streamId = Alembic::Util::dynamic_pointer_cast< ArImpl,
-        AbcA::ArchiveReader > ( getObject()->getArchive() )->getStreamID();
-
-    std::size_t id = streamId->getID();
-    Ogawa::IDataPtr data = m_group->getData( index, id );
-    ReadData( iIntoLocation, data, id,
-              m_header->header.getDataType(),
-              m_header->header.getDataType().getPod() );
-#endif /* 0 */
-    UNIMPLEMENTED("SprImpl::getSample() (use SampleStore)");
+    m_store->getSample( iIntoLocation, iSampleIndex );
 }
 
 //-*****************************************************************************
@@ -207,6 +197,7 @@ bool SprImpl::readFromDisk()
         return false;
     }
 
+    // TRACE( "SprImpl::readFromDisk - read JSON:" << jsonBuffer.str() );
     TODO("add SprImpl core read functionality");
 
     m_store->fromJson( root["data"] );

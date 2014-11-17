@@ -58,6 +58,92 @@ void TypedSampleStore<T>::copyFrom( const void* iData )
 }
 
 template <typename T>
+void TypedSampleStore<T>::getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex )
+{
+    Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
+
+    TRACE( "TypedSampleStore::getSamplePiece(dataIndex:" << dataIndex << " index:" << index << " subIndex:" << subIndex << ")   #bytes:" << PODNumBytes( curPod ) );
+    ABCA_ASSERT( (curPod != Alembic::Util::kStringPOD) && (curPod != Alembic::Util::kWstringPOD),
+        "Can't convert " << m_dataType <<
+        "to non-std::string / non-std::wstring" );
+
+    *iIntoLocation = m_data[dataIndex];
+}
+
+template <typename T>
+void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
+{
+    Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
+
+    TRACE( "TypedSampleStore::getSample() index:" << index << "  #bytes:" << PODNumBytes( curPod ) );
+    ABCA_ASSERT( (curPod != Alembic::Util::kStringPOD) && (curPod != Alembic::Util::kWstringPOD),
+        "Can't convert " << m_dataType <<
+        "to non-std::string / non-std::wstring" );
+
+    if (rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
+        size_t baseIndex = (index * extent);
+        for (size_t i = 0; i < extent; ++i)
+            getSamplePieceT( iIntoLocation + i, baseIndex + i, index, i );
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+        size_t baseIndex = (index * pods_per_sample);
+
+        for (size_t i = 0; i < pods_per_sample; ++i)
+            getSamplePieceT( iIntoLocation + i, baseIndex + i, index, i );
+    }
+}
+
+template <>
+void TypedSampleStore<std::string>::getSampleT( std::string* iIntoLocation, int index )
+{
+    Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
+
+    TODO("FIXME!!!");
+
+    ABCA_ASSERT( curPod == Alembic::Util::kStringPOD,
+        "Can't convert " << m_dataType <<
+        "to std::string" );
+
+    std::string src = m_data[index];
+    std::string * strPtr =
+        reinterpret_cast< std::string * > ( iIntoLocation );
+
+    size_t numChars = src.size() + 1;
+    char * buf = new char[ numChars + 1 ];
+    std::copy(src.begin(), src.end(), buf);
+    buf[src.size()] = '\0';
+
+    std::size_t startStr = 0;
+    std::size_t strPos = 0;
+
+    for ( std::size_t i = 0; i < numChars; ++i )
+    {
+        if ( buf[i] == 0 )
+        {
+            strPtr[strPos] = buf + startStr;
+            startStr = i + 1;
+            strPos ++;
+        }
+    }
+
+    delete [] buf;
+}
+
+template <typename T>
+void TypedSampleStore<T>::getSample( void *iIntoLocation, int index )
+{
+    T* iIntoLocationT = reinterpret_cast<T*>(iIntoLocation);
+    getSampleT(iIntoLocationT, index);
+}
+
+template <typename T>
 void TypedSampleStore<T>::addSample( const T* iSamp )
 {
     if (rank() == 0)
