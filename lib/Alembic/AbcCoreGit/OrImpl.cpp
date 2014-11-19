@@ -36,18 +36,21 @@ OrImpl::OrImpl( AbcA::ObjectReaderPtr iParent,
     m_archive = m_parent->getArchiveImpl();
     ABCA_ASSERT( m_archive, "Invalid archive in OrImpl(Object)" );
 
+    TRACE("OrImpl::OrImpl() from parent - header:" << iHeader->getFullName() << " parent:" << iParentGroup->fullname() << " (" << iParentGroup->pathname() << ")");
 #if 0
     StreamIDPtr streamId = m_archive->getStreamID();
     std::size_t id = streamId->getID();
 #endif
     // NOTE: we could create groups for OrImpl by saving children names on write side
     // and reading back them from json
-    TODO("create GitGroup and instantiate m_data");
-#if 0
-    GitGroupPtr group = iParentGroup->getGroup( iGroupIndex, false, id );
-    m_data.reset( new OrData( group, iHeader->getFullName(), id,
+    TODO("eliminate OrData iThreadId");
+
+    // Create the Git group corresponding to this object and corresponding OrData
+    GitGroupPtr group = iParentGroup->addGroup( iHeader->getName() );
+    ABCA_ASSERT( group,
+                 "Could not create group for OrImpl " << iHeader->getFullName() );
+    m_data.reset( new OrData( group, iHeader->getFullName(), 0,
         *m_archive, m_archive->getIndexedMetaData() ) );
-#endif
 }
 
 //-*****************************************************************************
@@ -97,29 +100,34 @@ AbcA::CompoundPropertyReaderPtr OrImpl::getProperties()
 //-*****************************************************************************
 size_t OrImpl::getNumChildren()
 {
+    ABCA_ASSERT( m_data, "Invalid data in OrImpl::getNumChildren()" );
     return m_data->getNumChildren();
 }
 
 //-*****************************************************************************
 const AbcA::ObjectHeader & OrImpl::getChildHeader( size_t i )
 {
+    ABCA_ASSERT( m_data, "Invalid data in OrImpl::getChildHeader()" );
     return m_data->getChildHeader( asObjectPtr(), i );
 }
 
 //-*****************************************************************************
 const AbcA::ObjectHeader * OrImpl::getChildHeader( const std::string &iName )
 {
+    ABCA_ASSERT( m_data, "Invalid data in OrImpl::getChildHeader()" );
     return m_data->getChildHeader( asObjectPtr(), iName );
 }
 
 //-*****************************************************************************
 AbcA::ObjectReaderPtr OrImpl::getChild( const std::string &iName )
 {
+    ABCA_ASSERT( m_data, "Invalid data in OrImpl::getChild()" );
     return m_data->getChild( asObjectPtr(), iName );
 }
 
 AbcA::ObjectReaderPtr OrImpl::getChild( size_t i )
 {
+    ABCA_ASSERT( m_data, "Invalid data in OrImpl::getChild()" );
     return m_data->getChild( asObjectPtr(), i );
 }
 
