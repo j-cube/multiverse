@@ -295,6 +295,89 @@ std::string TypedSampleStore<T>::repr(bool extended) const
     return ss.str();
 }
 
+
+/*
+ * ScalarProperty: # of samples is fixed
+ * ArrayProperty: # of samples is variable
+ *
+ * dimensions: array of integers (eg: [], [ 1 ], [ 6 ])
+ * rank:       dimensions.rank() == len(dimensions) (eg: 0, 1, ...)
+ * extent:     number of scalar values in basic element
+ *
+ * example: dimensions = [2, 2], rank = 3, type = f
+ * corresponds to a 2x2 matrix of vectors made of 3 floating point values (3f)
+ *
+ * ScalarProperty has rank 0 and ArrayProperty rank > 0 ?
+ *
+ * # points per sample: dimensions.numPoints() == product of all dimensions' values
+ *
+ */
+
+class JsonArrayBuffer
+{
+public:
+    JsonArrayBuffer(size_t dim) :
+        m_arr(Json::arrayValue), m_el(Json::arrayValue), m_dim(dim), m_cnt(0) {}
+    virtual ~JsonArrayBuffer() {}
+
+    operator Json::Value() { return json(); }
+
+    Json::Value json()
+    {
+        _flush();
+        Json::Value r = m_arr;
+        clear();
+        return r;
+    }
+
+    JsonArrayBuffer& clear()
+    {
+        m_arr = Json::Value( Json::arrayValue );
+        m_el = Json::Value( Json::arrayValue );
+        m_cnt = 0;
+        return *this;
+    }
+
+    template <typename V>
+    JsonArrayBuffer& push( const V& value )
+    {
+        if (m_dim <= 0)
+        {
+            m_arr.append( TypedSampleStore<V>::JsonFromValue(value) );
+            return *this;
+        }
+
+        m_el.append( TypedSampleStore<V>::JsonFromValue(value) );
+        m_cnt++;
+        if (m_cnt >= m_dim)
+        {
+            m_arr.append( m_el );
+            m_el = Json::Value( Json::arrayValue );
+            m_cnt = 0;
+        }
+
+        return *this;
+    }
+
+private:
+    JsonArrayBuffer& _flush()
+    {
+        if (m_cnt >= 1)
+        {
+            m_arr.append( m_el );
+            m_el = Json::Value( Json::arrayValue );
+            m_cnt = 0;
+        }
+        return *this;
+    }
+
+    Json::Value m_arr;
+    Json::Value m_el;
+    size_t      m_dim;
+    size_t      m_cnt;
+};
+
+
 template <typename T>
 Json::Value TypedSampleStore<T>::json() const
 {
@@ -354,29 +437,14 @@ Json::Value TypedSampleStore<T>::json() const
     {
         ABCA_ASSERT( extent > 1, "wrong extent" );
 
-        Json::Value arr( Json::arrayValue );
-        size_t count = 0;
+        JsonArrayBuffer e_ab( extent );
 
         typename std::vector<T>::const_iterator it;
         for (it = m_data.begin(); it != m_data.end(); ++it)
         {
-            arr.append( JsonFromValue(*it) );
-            count++;
-
-            if (count >= extent)
-            {
-                data.append( arr );
-                arr = Json::Value( Json::arrayValue );
-                count = 0;
-            }
+            e_ab.push( (*it) );
         }
-
-        if (count >= 1)
-        {
-            data.append( arr );
-            arr = Json::Value( Json::arrayValue );
-            count = 0;
-        }
+        data = e_ab;
     }
 
     root["data"] = data;
