@@ -31,8 +31,9 @@ public:
     virtual const void *getDataPtr() const = 0;
 
     virtual void getSample( void *iIntoLocation, int index ) = 0;
+    virtual void getSample( AbcA::ArraySamplePtr& oSample, int index ) = 0;
 
-    virtual void addSample( const void *iSamp ) = 0;
+    virtual void addSample( const void *iSamp, const std::string& key = "" ) = 0;
     virtual void addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
     virtual void setFromPreviousSample() = 0;                       // duplicate last added sample
 
@@ -86,12 +87,13 @@ public:
     virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
     virtual void getSampleT( T* iIntoLocation, int index );
     virtual void getSample( void *iIntoLocation, int index );
+    virtual void getSample( AbcA::ArraySamplePtr& oSample, int index );
 
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
-    virtual void addSample( const T* iSamp );                       // rank-0 sample
-    virtual void addSample( const void *iSamp );                    // rank-0 sample
+    virtual void addSample( const T* iSamp, const std::string& key = "" );
+    virtual void addSample( const void *iSamp, const std::string& key = "" );
 
     virtual void addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
 
@@ -123,6 +125,8 @@ private:
     AbcA::Dimensions m_dimensions;
 
     std::vector<T> m_data;
+    std::map< std::string, std::vector<size_t> > m_key_pos;
+    std::map<size_t, std::string> m_pos_key;
 };
 
 AbstractTypedSampleStore* BuildSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );

@@ -144,8 +144,35 @@ void TypedSampleStore<T>::getSample( void *iIntoLocation, int index )
 }
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const T* iSamp )
+void TypedSampleStore<T>::getSample( AbcA::ArraySamplePtr& oSample, int index )
 {
+    // how much space do we need?
+    Util::Dimensions dims = getDimensions();
+
+    oSample = AbcA::AllocateArraySample( getDataType(), dims );
+
+    ABCA_ASSERT( oSample->getDataType() == m_dataType,
+        "DataType on ArraySample oSamp: " << oSample->getDataType() <<
+        ", does not match the DataType of the SampleStore: " <<
+        m_dataType );
+
+    getSample( const_cast<void*>( oSample->getData() ), index );
+
+    // AbcA::ArraySample::Key key = oSample->getKey();
+}
+
+template <typename T>
+void TypedSampleStore<T>::addSample( const T* iSamp, const std::string& key )
+{
+    if (!key.empty())
+    {
+        TRACE("SampleStore::addSample(key:'" << key << "')");
+        size_t at = m_data.size();
+        if (! m_key_pos.count(key))
+            m_key_pos[key] = std::vector<size_t>();
+        m_key_pos[key].push_back( at );
+        m_pos_key[at] = key;
+    }
     if (rank() == 0)
     {
         size_t extent = m_dataType.getExtent();
@@ -165,10 +192,10 @@ void TypedSampleStore<T>::addSample( const T* iSamp )
 }
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const void *iSamp )
+void TypedSampleStore<T>::addSample( const void *iSamp, const std::string& key )
 {
     const T* iSampT = reinterpret_cast<const T*>(iSamp);
-    addSample(iSampT);
+    addSample(iSampT, key);
 }
 
 template <typename T>
@@ -179,7 +206,9 @@ void TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
         ", does not match the DataType of the SampleStore: " <<
         m_dataType );
 
-    addSample( iSamp.getData() );
+    AbcA::ArraySample::Key key = iSamp.getKey();
+
+    addSample( iSamp.getData(), key.digest.str() );
 }
 
 template <typename T>
@@ -291,6 +320,24 @@ Json::Value TypedSampleStore<T>::json() const
     root["num_samples"] = TypedSampleStore<size_t>::JsonFromValue( getNumSamples() );
 
     root["dimensions"] = TypedSampleStore<AbcA::Dimensions>::JsonFromValue( getDimensions() );
+
+    {
+        Json::Value pos_k( Json::arrayValue );
+
+        std::map<size_t, std::string>::const_iterator p_it;
+        for (p_it = m_pos_key.begin(); p_it != m_pos_key.end(); ++p_it)
+        {
+            size_t at = (*p_it).first;
+            const std::string& key = (*p_it).second;
+
+            Json::Value el( Json::arrayValue );
+            el.append( TypedSampleStore<size_t>::JsonFromValue( at ) );
+            el.append( key );
+            pos_k.append( el );
+        }
+
+        root["keys"] = pos_k;
+    }
 
     Json::Value data( Json::arrayValue );
 
@@ -552,6 +599,30 @@ void TypedSampleStore<T>::fromJson(const Json::Value& root)
     }
 
     ABCA_ASSERT( getNumSamples() == v_num_samples, "wrong number of samples" );
+
+    // read back keys
+
+    Json::Value v_keys = root["keys"];
+
+    for (Json::Value::iterator it = v_keys.begin(); it != v_keys.end(); ++it)
+    {
+        ABCA_ASSERT( (*it).isArray(), "wrong kind of 'keys' element" );
+
+        if ((*it).isArray())
+        {
+            Json::Value& sub = *it;
+            Json::Value j_pos = sub[0];
+            Json::Value j_key = sub[1];
+
+            size_t at = static_cast<size_t>(j_pos.asUInt64());
+            std::string key = j_key.asString();
+
+            if (! m_key_pos.count(key))
+                m_key_pos[key] = std::vector<size_t>();
+            m_key_pos[key].push_back( at );
+            m_pos_key[at] = key;
+        }
+    }
 }
 
 AbstractTypedSampleStore* BuildSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims )

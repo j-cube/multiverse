@@ -8,7 +8,7 @@
 
 # C++ files for this project
 SET( CXX_FILES
-  # AprImpl.cpp
+  AprImpl.cpp
   ApwImpl.cpp
   ArImpl.cpp
   AwImpl.cpp
@@ -41,7 +41,7 @@ SET( CXX_FILES
 
 SET( H_FILES
   All.h
-  # AprImpl.h
+  AprImpl.h
   ApwImpl.h
   ArImpl.h
   AwImpl.h

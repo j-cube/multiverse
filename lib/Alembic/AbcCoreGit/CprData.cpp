@@ -9,7 +9,7 @@
 #include <Alembic/AbcCoreGit/CprData.h>
 #include <Alembic/AbcCoreGit/CprImpl.h>
 #include <Alembic/AbcCoreGit/SprImpl.h>
-//#include <Alembic/AbcCoreGit/AprImpl.h>
+#include <Alembic/AbcCoreGit/AprImpl.h>
 #include <Alembic/AbcCoreGit/ArImpl.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
@@ -180,8 +180,6 @@ CprData::getArrayProperty( AbcA::CompoundPropertyReaderPtr iParent,
     assert( m_subProperties[propIndex].read );
     assert( m_subProperties[propIndex].header );
 
-    UNIMPLEMENTED("return Array property (implement AprImpl)");
-#if 0
     SubProperty & sub = m_subProperties[propIndex];
 
     if ( !(sub.header->header.isArray()) )
@@ -195,13 +193,15 @@ CprData::getArrayProperty( AbcA::CompoundPropertyReaderPtr iParent,
     AbcA::BasePropertyReaderPtr bptr = sub.made.lock();
     if ( ! bptr )
     {
-        GitGroupPtr group = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, sub.name ) );
+        // Ogawa
+        //GitGroupPtr group = Alembic::Util::shared_ptr<GitGroup>( new GitGroup( m_group, sub.name ) );
+        GitGroupPtr myGroup = getGroup();
 
-        ABCA_ASSERT( group, "Array Property not backed by a valid group.");
+        ABCA_ASSERT( myGroup, "Array Property not backed by a valid group.");
 
         // Make a new one.
         bptr = Alembic::Util::shared_ptr<AprImpl>(
-            new AprImpl( iParent, group, sub.header ) );
+            new AprImpl( iParent, myGroup, sub.header ) );
 
         sub.made = bptr;
     }
@@ -210,8 +210,6 @@ CprData::getArrayProperty( AbcA::CompoundPropertyReaderPtr iParent,
         Alembic::Util::dynamic_pointer_cast<AbcA::ArrayPropertyReader,
         AbcA::BasePropertyReader>( bptr );
     return ret;
-#endif
-    return AbcA::ArrayPropertyReaderPtr();
 }
 
 //-*****************************************************************************
