@@ -14,6 +14,102 @@ namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
 template <typename T>
+void TRACE_VALUE(std::string msg, T v)
+{
+    TRACE(msg << "UNKNOWN TYPE");
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::bool_t v)
+{
+    TRACE(msg << " (u::bool_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::uint8_t v)
+{
+    TRACE(msg << " (u::uint8_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::int8_t v)
+{
+    TRACE(msg << " (u::int8_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::uint16_t v)
+{
+    TRACE(msg << " (u::uint16_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::int16_t v)
+{
+    TRACE(msg << " (u::int16_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::uint32_t v)
+{
+    TRACE(msg << " (u::uint32_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::int32_t v)
+{
+    TRACE(msg << " (u::int32_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::uint64_t v)
+{
+    TRACE(msg << " (u::uint64_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::int64_t v)
+{
+    TRACE(msg << " (u::int64_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::float16_t v)
+{
+    TRACE(msg << " (u::float16_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::float32_t v)
+{
+    TRACE(msg << " (u::float32_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::float64_t v)
+{
+    TRACE(msg << " (u::float64_t) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::string v)
+{
+    TRACE(msg << " (u::string) " << v);
+}
+
+template <>
+void TRACE_VALUE(std::string msg, Util::wstring v)
+{
+    TRACE(msg << " (u::wstring) (DON'T KNOW HOW TO REPRESENT)");
+}
+
+template <>
+void TRACE_VALUE(std::string msg, char v)
+{
+    TRACE(msg << " (char) " << v);
+}
+
+template <typename T>
 TypedSampleStore<T>::TypedSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims )
     : m_dataType(iDataType)
     , m_dimensions(iDims)
