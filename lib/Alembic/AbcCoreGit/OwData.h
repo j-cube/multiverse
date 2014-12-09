@@ -19,6 +19,7 @@ namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
 // Forwards
+class AwImpl;
 class CpwData;
 
 typedef int git_group_t;
@@ -60,6 +61,8 @@ public:
     std::string absPathname() const               { ABCA_ASSERT(m_group, "invalid group"); return m_group->absPathname(); }
 
     void writeToDisk();
+
+    Alembic::Util::shared_ptr< AwImpl > getArchiveImpl() const;
 
 private:
     // The group corresponding to the object

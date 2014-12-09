@@ -17,6 +17,8 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class AwImpl;
+
 class OwImpl;
 typedef Util::shared_ptr<OwImpl> OwImplPtr;
 
@@ -78,7 +80,10 @@ public:
 
     void writeToDisk();
 
+    Alembic::Util::shared_ptr< AwImpl > getArchiveImpl() const;
+
 private:
+
     // The parent object, NULL if it is the "top" object
     AbcA::ObjectWriterPtr m_parent;
 

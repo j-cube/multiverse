@@ -17,6 +17,8 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class AwImpl;
+
 // data class owned by CpwImpl, or OwImpl if it is a "top" object
 // it owns and makes child properties as well as the group GitGroupPtr
 // when necessary
@@ -69,6 +71,7 @@ public:
     void writeToDisk();
 
 private:
+    friend class CpwImpl;
 
     GitGroupPtr getGroup() { return m_group; }
 

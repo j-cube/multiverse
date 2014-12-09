@@ -233,6 +233,14 @@ void AwImpl::writeToDisk()
         jsonFile.close();
 
         m_written = true;
+
+        ABCA_ASSERT( m_repo_ptr, "invalid git repository object");
+
+        std::string jsonRelPathname = m_repo_ptr->relpath(jsonPathname);
+
+        m_repo_ptr->add(jsonRelPathname);
+        m_repo_ptr->write_index();
+        m_repo_ptr->commit("commit new version to alembic file");
     } else
     {
         TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");

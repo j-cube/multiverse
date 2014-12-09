@@ -60,6 +60,8 @@ public:
 
     void writeToDisk();
 
+    Alembic::Util::shared_ptr< AwImpl > getArchiveImpl() const;
+
 protected:
     // Previous written array sample identifier!
     WrittenSampleIDPtr m_previousWrittenSampleID;

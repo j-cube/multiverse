@@ -87,7 +87,8 @@ std::ostream& operator<< ( std::ostream& out, const GitMode& value )
 
 //-*****************************************************************************
 GitRepo::GitRepo( const std::string& pathname, git_repository *repo, git_config *cfg ) :
-    m_mode(GitMode::Write), m_pathname(pathname), m_repo(repo), m_repo_cfg(cfg), m_odb(NULL)
+    m_mode(GitMode::Write), m_pathname(pathname), m_repo(repo), m_repo_cfg(cfg), m_odb(NULL),
+    m_index(NULL), m_index_dirty(false)
 {
     gitlib_initialize();
 
@@ -95,11 +96,14 @@ GitRepo::GitRepo( const std::string& pathname, git_repository *repo, git_config 
     {
         int error = git_repository_odb(&m_odb, m_repo);
         git_check_error(error, "accessing git repository database");
+
+        error = git_repository_index(&m_index, m_repo);
+        git_check_error(error, "opening repository index");
     }
 }
 
 GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
-    m_mode(mode), m_pathname(pathname), m_odb(NULL)
+    m_mode(mode), m_pathname(pathname), m_odb(NULL), m_index(NULL), m_index_dirty(false)
 {
     TRACE( "GitRepo::GitRepo(pathname:'" << pathname << "' mode:" << mode );
 
@@ -174,11 +178,24 @@ GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
     {
         error = git_repository_odb(&m_odb, m_repo);
         git_check_error(error, "accessing git repository database");
+
+        error = git_repository_index(&m_index, m_repo);
+        git_check_error(error, "opening repository index");
     }
 }
 
 GitRepo::~GitRepo()
 {
+    if (m_index)
+    {
+        if (m_index_dirty)
+            write_index();
+
+        git_index_free(m_index);
+        m_index = NULL;
+        m_index_dirty = false;
+    }
+
     if (m_repo)
     {
         git_repository_free(m_repo);
@@ -258,6 +275,143 @@ std::string GitRepo::repr(bool extended) const
     else
         ss << "'" << m_pathname << "'";
     return ss.str();
+}
+
+bool GitRepo::add(const std::string& path)
+{
+    ABCA_ASSERT( m_repo, "libgit2 repository must be open" );
+    ABCA_ASSERT( m_index, "libgit2 index must be open" );
+
+    TRACE("adding '" << path << "' to git index");
+    int error = git_index_add_bypath(m_index, path.c_str());
+    if (! lg2_check_error(error, "adding file to git index"))
+        return false;
+    m_index_dirty = true;
+
+    return true;
+}
+
+bool GitRepo::write_index()
+{
+    ABCA_ASSERT( m_repo, "libgit2 repository must be open" );
+    ABCA_ASSERT( m_index, "libgit2 index must be open" );
+
+    if (! m_index_dirty)
+    {
+        TRACE("git index not changed, skipping write...");
+        return true;
+    }
+
+    TRACE("writing git index");
+    int error = git_index_write(m_index);
+    if (! lg2_check_error(error, "writing git index"))
+        return false;
+    m_index_dirty = false;
+
+    return true;
+}
+
+bool GitRepo::commit(const std::string& message) const
+{
+    git_signature *sig;
+    git_oid tree_id, commit_id;
+    git_tree *tree;
+
+    git_oid head_oid;
+    git_commit *head_commit = NULL;
+
+    int error;
+
+    ABCA_ASSERT( m_repo, "libgit2 repository must be open" );
+    ABCA_ASSERT( m_index, "libgit2 index must be open" );
+
+    /** First use the config to initialize a commit signature for the user. */
+
+    error = git_signature_default(&sig, m_repo);
+    if (! lg2_check_error(error, "obtaining commit signature. Perhaps 'user.name' and 'user.email' are not set."))
+        return false;
+
+    /* Now let's create an empty tree for this commit */
+
+    /**
+     * Outside of this example, you could call git_index_add_bypath()
+     * here to put actual files into the index.  For our purposes, we'll
+     * leave it empty for now.
+     */
+
+    error = git_index_write_tree(&tree_id, m_index);
+    if (! lg2_check_error(error, "writing initial tree from index"))
+        return false;
+
+    error = git_tree_lookup(&tree, m_repo, &tree_id);
+    if (! lg2_check_error(error, "looking up initial tree"))
+        return false;
+
+    /**
+     * Ready to create the initial commit.
+     *
+     * Normally creating a commit would involve looking up the current
+     * HEAD commit and making that be the parent of the initial commit,
+     * but here this is the first commit so there will be no parent.
+     */
+
+    if (git_reference_name_to_id(&head_oid, m_repo, "HEAD") < 0)
+    {
+        TRACE("HEAD not found (no previous commits)");
+        head_commit = NULL;
+    } else
+    {
+        error = git_commit_lookup(&head_commit, m_repo, &head_oid);
+        if (! lg2_check_error(error, "looking up HEAD commit"))
+            return false;
+    }
+
+    if (! head_commit)
+    {
+        TRACE("Performing first commit.");
+        error = git_commit_create_v(
+                    &commit_id, m_repo, "HEAD", sig, sig,
+                    NULL, message.c_str(), tree, 0);
+        if (! lg2_check_error(error, "creating the initial commit"))
+            return false;
+    } else
+    {
+        error = git_commit_create_v(
+                    &commit_id, m_repo, "HEAD", sig, sig,
+                    NULL, message.c_str(), tree, 1, head_commit);
+        if (! lg2_check_error(error, "creating the commit"))
+            return false;
+    }
+
+    /** Clean up so we don't leak memory. */
+
+    git_tree_free(tree);
+    git_signature_free(sig);
+
+    return true;
+}
+
+std::string GitRepo::relpath(const std::string& pathname_) const
+{
+    return relative_path(real_path(pathname_), real_path(pathname()));
+}
+
+bool GitRepo::lg2_check_error(int error_code, const std::string& action) const
+{
+    if (! error_code)
+       return true;
+
+    const git_error *error = giterr_last();
+
+    std::cerr << "libgit2 error " << error_code << " " << action <<
+        " - " << ((error && error->message) ? error->message : "???") <<
+        std::endl;
+    std::cerr.flush();
+
+    ABCA_THROW( "libgit2 error " << error_code << " " << action <<
+        " - " << ((error && error->message) ? error->message : "???") );
+
+    return false;
 }
 
 //-*****************************************************************************

@@ -75,6 +75,17 @@ OwData::getProperties( AbcA::ObjectWriterPtr iParent )
     return ret;
 }
 
+Alembic::Util::shared_ptr< AwImpl > OwData::getArchiveImpl() const
+{
+    AbcA::CompoundPropertyWriterPtr top = m_top.lock();
+    ABCA_ASSERT( top, "must have top CompoundPropertyWriter set" );
+
+    Util::shared_ptr< CpwImpl > cpw =
+       Alembic::Util::dynamic_pointer_cast< CpwImpl,
+        AbcA::CompoundPropertyWriter > ( top );
+    return cpw->getArchiveImpl();
+}
+
 //-*****************************************************************************
 size_t OwData::getNumChildren()
 {
@@ -295,6 +306,12 @@ void OwData::writeToDisk()
         jsonFile.close();
 
         m_written = true;
+
+        GitRepoPtr repo_ptr = m_group->repo();
+        ABCA_ASSERT( repo_ptr, "invalid git repository object");
+
+        std::string jsonRelPathname = repo_ptr->relpath(jsonPathname);
+        repo_ptr->add(jsonRelPathname);
     } else
     {
         TRACE("OwData::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");

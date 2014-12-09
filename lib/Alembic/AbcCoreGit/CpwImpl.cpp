@@ -291,6 +291,12 @@ void CpwImpl::writeToDisk()
         jsonFile.close();
 
         m_written = true;
+
+        GitRepoPtr repo_ptr = m_data->getGroup()->repo();
+        ABCA_ASSERT( repo_ptr, "invalid git repository object");
+
+        std::string jsonRelPathname = repo_ptr->relpath(jsonPathname);
+        repo_ptr->add(jsonRelPathname);
     } else
     {
         TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");

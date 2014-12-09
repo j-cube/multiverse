@@ -189,6 +189,14 @@ void OwImpl::writeToDisk()
     m_data->writeToDisk();
 }
 
+Alembic::Util::shared_ptr< AwImpl > OwImpl::getArchiveImpl() const
+{
+    Util::shared_ptr< AwImpl > archive =
+       Alembic::Util::dynamic_pointer_cast< AwImpl,
+        AbcA::ArchiveWriter > ( m_archive );
+    return archive;
+}
+
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit

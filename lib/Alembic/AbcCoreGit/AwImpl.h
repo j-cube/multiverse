@@ -21,6 +21,9 @@ namespace ALEMBIC_VERSION_NS {
 //-*****************************************************************************
 class OwData;
 
+class AwImpl;
+typedef Util::shared_ptr<AwImpl> AwImplPtr;
+
 //-*****************************************************************************
 class AwImpl : public AbcA::ArchiveWriter
              , public Alembic::Util::enable_shared_from_this<AwImpl>

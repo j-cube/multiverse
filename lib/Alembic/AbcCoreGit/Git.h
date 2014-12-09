@@ -78,13 +78,20 @@ public:
 
     bool isFrozen() const;      // frozen means not correctly and completely written
 
+    bool add(const std::string& path);
+    bool write_index();
+    bool commit(const std::string& message) const;
+
+    std::string relpath(const std::string& pathname) const;
+
     // create a top-level group from this repo
     GitGroupPtr addGroup( const std::string& name );
 
     GitGroupPtr rootGroup();
 
-    const std::string& pathname()                 { return m_pathname; }
+    const std::string& pathname() const           { return m_pathname; }
     git_repository *g_repository() const          { return m_repo; }
+    git_index *g_index() const                    { return m_index; }
 
     git_config *g_config() const                  { return m_repo_cfg; }
 
@@ -95,11 +102,15 @@ public:
     friend std::ostream& operator<< ( std::ostream& out, const GitRepo& value );
 
 private:
+    bool lg2_check_error(int error_code, const std::string& action) const;
+
     GitMode         m_mode;
     std::string     m_pathname;
     git_repository  *m_repo;
     git_config      *m_repo_cfg;
     git_odb         *m_odb;
+    git_index       *m_index;
+    bool            m_index_dirty;
 
     GitGroupPtr     m_root_group_ptr;
 };

@@ -12,10 +12,13 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/CpwData.h>
 #include <Alembic/AbcCoreGit/Git.h>
+#include <Alembic/AbcCoreGit/OwImpl.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
+
+class AwImpl;
 
 class CpwImpl;
 typedef Util::shared_ptr<CpwImpl> CpwImplPtr;
@@ -94,6 +97,11 @@ public:
     std::string absPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->absPathname(); }
 
     void writeToDisk();
+
+    Alembic::Util::shared_ptr< AwImpl > getArchiveImpl() const
+    {
+        return getOwImplPtr(m_object)->getArchiveImpl();
+    }
 
 private:
 

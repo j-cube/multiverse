@@ -359,12 +359,28 @@ void SpwImpl::writeToDisk()
         jsonFile.close();
 
         m_written = true;
+
+        GitRepoPtr repo_ptr = m_group->repo();
+        ABCA_ASSERT( repo_ptr, "invalid git repository object");
+
+        std::string jsonRelPathname = repo_ptr->relpath(jsonPathname);
+        repo_ptr->add(jsonRelPathname);
     } else
     {
         TRACE("SpwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
     }
 
     ABCA_ASSERT( m_written, "data not written" );
+}
+
+Alembic::Util::shared_ptr< AwImpl > SpwImpl::getArchiveImpl() const
+{
+    ABCA_ASSERT( m_parent, "must have parent CompoundPropertyWriter set" );
+
+    Util::shared_ptr< CpwImpl > cpw =
+       Alembic::Util::dynamic_pointer_cast< CpwImpl,
+        AbcA::CompoundPropertyWriter > ( m_parent );
+    return cpw->getArchiveImpl();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

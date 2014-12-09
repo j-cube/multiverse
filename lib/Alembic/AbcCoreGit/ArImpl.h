@@ -19,6 +19,9 @@ namespace ALEMBIC_VERSION_NS {
 //-*****************************************************************************
 class OrData;
 
+class ArImpl;
+typedef Util::shared_ptr<ArImpl> ArImplPtr;
+
 //-*****************************************************************************
 class ArImpl
     : public AbcA::ArchiveReader
