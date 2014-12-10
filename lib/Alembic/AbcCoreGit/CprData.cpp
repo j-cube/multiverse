@@ -287,6 +287,12 @@ bool CprData::readFromDisk()
     Json::Reader reader;
 
     std::string jsonPathname = absPathname() + ".json";
+    if (! file_exists(jsonPathname))
+    {
+        TRACE("[CprData " << *this << "]  no '" << jsonPathname << "' present, assuming no properties do exist...");
+        return true;
+    }
+
     std::ifstream jsonFile(jsonPathname.c_str());
     std::stringstream jsonBuffer;
     jsonBuffer << jsonFile.rdbuf();
