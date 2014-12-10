@@ -465,7 +465,8 @@ GitGroup::GitGroup( GitRepoPtr repo, const std::string& name ) :
 }
 
 GitGroup::GitGroup( GitGroupPtr parent, const std::string& name ) :
-    m_repo_ptr(parent->repo()), m_parent_ptr(parent), m_name(name)
+    m_repo_ptr(parent->repo()), m_parent_ptr(parent), m_name(name),
+    m_written(false), m_read(false)
 {
     // child group
     TRACE("GitGroup::GitGroup(parent) created:" << repr());
@@ -485,6 +486,9 @@ GitGroup::~GitGroup()
     // not necessary, but better clean up memory in case of nasty bugs...
     m_parent_ptr.reset();
     m_repo_ptr.reset();
+
+    m_written = false;
+    m_read = false;
 }
 
 // create a group and add it as a child to this group
