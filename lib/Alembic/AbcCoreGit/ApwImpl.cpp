@@ -131,12 +131,12 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
         m_header->header.getDataType() );
 
     // The Key helps us analyze the sample.
-     AbcA::ArraySample::Key key = iSamp.getKey();
+    AbcA::ArraySample::Key key = iSamp.getKey();
 
-     // mask out the non-string POD since Git can safely share the same data
-     // even if it originated from a different POD
-     // the non-fixed sizes of our strings (plus added null characters) makes
-     // determing the sie harder so strings are handled seperately
+    // mask out the non-string POD since Git can safely share the same data
+    // even if it originated from a different POD
+    // the non-fixed sizes of our strings (plus added null characters) makes
+    // determing the sie harder so strings are handled seperately
     if ( key.origPOD != Alembic::Util::kStringPOD &&
          key.origPOD != Alembic::Util::kWstringPOD )
     {
@@ -144,14 +144,29 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
         key.readPOD = Alembic::Util::kInt8POD;
     }
 
+    AbcA::Dimensions dims = iSamp.getDimensions();
+    if (dims.numPoints() == 0)
+        dims = m_dims;
+
+    // TRACE("ApwImpl::setSample() n:" << m_header->name() << " idx:" << m_header->nextSampleIndex << " key:" << key.digest.str() << " dims:" << dims << " (m_dims:" << m_dims << ") type:" << m_header->datatype());
+
+    // We need to write the sample
+    UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
+    if ( m_header->nextSampleIndex == 0  ||
+         !( m_previousWrittenSampleID &&
+            key == m_previousWrittenSampleID->getKey() ) )
+    {
+        m_dims = iSamp.getDimensions();
+    }
+
     if (! m_store.get())
     {
-        m_store.reset( BuildSampleStore( m_header->datatype(), iSamp.getDimensions() ) );
+        m_store.reset( BuildSampleStore( m_header->datatype(), dims ) );
     }
     m_store->addSample( iSamp );
 
     // We need to write the sample
-    UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
+    //UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
 #if 0
     if ( m_header->nextSampleIndex == 0  ||
          !( m_previousWrittenSampleID &&

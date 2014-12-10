@@ -33,9 +33,11 @@ public:
     virtual void getSample( void *iIntoLocation, int index ) = 0;
     virtual void getSample( AbcA::ArraySamplePtr& oSample, int index ) = 0;
 
-    virtual void addSample( const void *iSamp, const std::string& key = "" ) = 0;
+    virtual void addSample( const void *iSamp, const AbcA::ArraySample::Key& key ) = 0;
     virtual void addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
     virtual void setFromPreviousSample() = 0;                       // duplicate last added sample
+
+    virtual bool getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey ) = 0;
 
     virtual size_t getNumSamples() const = 0;
 
@@ -84,6 +86,9 @@ public:
     const T& operator[](int index) const            { return m_data[index]; }
     T& operator[](int index)                        { return m_data[index]; }
 
+    virtual int sampleIndexToDataIndex( int sampleIndex );
+    virtual int dataIndexToSampleIndex( int dataIndex );
+
     virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
     virtual void getSampleT( T* iIntoLocation, int index );
     virtual void getSample( void *iIntoLocation, int index );
@@ -92,12 +97,14 @@ public:
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
-    virtual void addSample( const T* iSamp, const std::string& key = "" );
-    virtual void addSample( const void *iSamp, const std::string& key = "" );
+    virtual void addSample( const T* iSamp, const AbcA::ArraySample::Key& key );
+    virtual void addSample( const void *iSamp, const AbcA::ArraySample::Key& key );
 
     virtual void addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
 
     virtual void setFromPreviousSample();                           // duplicate last added sample
+
+    virtual bool getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey );
 
     virtual size_t getNumSamples() const;
 
@@ -126,7 +133,7 @@ private:
 
     std::vector<T> m_data;
     std::map< std::string, std::vector<size_t> > m_key_pos;
-    std::map<size_t, std::string> m_pos_key;
+    std::map<size_t, AbcA::ArraySample::Key> m_pos_key;
 };
 
 AbstractTypedSampleStore* BuildSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );

@@ -128,8 +128,8 @@ std::pair<index_t, chrono_t> AprImpl::getNearIndex( chrono_t iTime )
 //-*****************************************************************************
 bool AprImpl::getKey( index_t iSampleIndex, AbcA::ArraySampleKey & oKey )
 {
-    UNIMPLEMENTED("AprImpl::getKey()");
-    return false;
+    return m_store->getKey( iSampleIndex, oKey );
+
 #if 0
     oKey.readPOD = m_header->header.getDataType().getPod();
     oKey.origPOD = oKey.readPOD;

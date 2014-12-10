@@ -154,6 +154,49 @@ void TypedSampleStore<T>::copyFrom( const void* iData )
 }
 
 template <typename T>
+int TypedSampleStore<T>::sampleIndexToDataIndex( int sampleIndex )
+{
+    if (rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
+
+        return sampleIndex * extent;
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+
+        return sampleIndex * pods_per_sample;
+    }
+}
+
+template <typename T>
+int TypedSampleStore<T>::dataIndexToSampleIndex( int dataIndex )
+{
+    if (dataIndex == 0)
+        return 0;
+
+    if (rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
+
+        return dataIndex / extent;
+    } else
+    {
+        assert( rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = m_dimensions.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+
+        return dataIndex / pods_per_sample;
+    }
+}
+
+template <typename T>
 void TypedSampleStore<T>::getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex )
 {
     Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
@@ -257,23 +300,68 @@ void TypedSampleStore<T>::getSample( AbcA::ArraySamplePtr& oSample, int index )
     // AbcA::ArraySample::Key key = oSample->getKey();
 }
 
-template <typename T>
-void TypedSampleStore<T>::addSample( const T* iSamp, const std::string& key )
+// type traits
+template <typename T> struct scalar_traits
 {
-    if (!key.empty())
-    {
-        TRACE("SampleStore::addSample(key:'" << key << "')");
-        size_t at = m_data.size();
-        if (! m_key_pos.count(key))
-            m_key_pos[key] = std::vector<size_t>();
-        m_key_pos[key].push_back( at );
-        m_pos_key[at] = key;
-    }
+    static T Zero() { return static_cast<T>(0); }
+};
+
+template <>
+struct scalar_traits<bool>
+{
+    static bool Zero() { return false; }
+};
+
+template <>
+struct scalar_traits<Util::bool_t>
+{
+    static Util::bool_t Zero() { return false; }
+};
+
+template <>
+struct scalar_traits<float>
+{
+    static float Zero() { return 0.0; }
+};
+
+template <>
+struct scalar_traits<double>
+{
+    static double Zero() { return 0.0; }
+};
+
+template <>
+struct scalar_traits<std::string>
+{
+    static std::string Zero() { return ""; }
+};
+
+template <typename T>
+void TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key )
+{
+    std::string key_str = key.digest.str();
+
+    TRACE("SampleStore::addSample(key:'" << key_str << "' #bytes:" << key.numBytes << ")");
+
+    size_t at = m_data.size();
+    if (! m_key_pos.count(key_str))
+        m_key_pos[key_str] = std::vector<size_t>();
+    m_key_pos[key_str].push_back( at );
+    m_pos_key[at] = key;
+
     if (rank() == 0)
     {
         size_t extent = m_dataType.getExtent();
-        for (size_t i = 0; i < extent; ++i)
-            addSamplePiece( iSamp[i] );
+
+        if (! iSamp)
+        {
+            for (size_t i = 0; i < extent; ++i)
+                addSamplePiece( scalar_traits<T>::Zero() );
+        } else
+        {
+            for (size_t i = 0; i < extent; ++i)
+                addSamplePiece( iSamp[i] );
+        }
     } else
     {
         assert( rank() >= 1 );
@@ -282,13 +370,20 @@ void TypedSampleStore<T>::addSample( const T* iSamp, const std::string& key )
         size_t points_per_sample = m_dimensions.numPoints();
         size_t pods_per_sample = points_per_sample * extent;
 
-        for (size_t i = 0; i < pods_per_sample; ++i)
-            addSamplePiece( iSamp[i] );
+        if (! iSamp)
+        {
+            for (size_t i = 0; i < pods_per_sample; ++i)
+                addSamplePiece( scalar_traits<T>::Zero() );
+        } else
+        {
+            for (size_t i = 0; i < pods_per_sample; ++i)
+                addSamplePiece( iSamp[i] );
+        }
     }
 }
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const void *iSamp, const std::string& key )
+void TypedSampleStore<T>::addSample( const void *iSamp, const AbcA::ArraySample::Key& key )
 {
     const T* iSampT = reinterpret_cast<const T*>(iSamp);
     addSample(iSampT, key);
@@ -304,7 +399,7 @@ void TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
 
     AbcA::ArraySample::Key key = iSamp.getKey();
 
-    addSample( iSamp.getData(), key.digest.str() );
+    addSample( iSamp.getData(), key );
 }
 
 template <typename T>
@@ -349,13 +444,32 @@ void TypedSampleStore<T>::setFromPreviousSample()                           // d
 }
 
 template <typename T>
+bool TypedSampleStore<T>::getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey )
+{
+    int dataIndex = sampleIndexToDataIndex( iSampleIndex );
+
+    if (m_pos_key.count(dataIndex))
+    {
+        oKey = m_pos_key[dataIndex];
+        return true;
+    }
+
+    return false;
+}
+
+template <typename T>
 size_t TypedSampleStore<T>::getNumSamples() const
 {
     if (rank() == 0)
     {
-        ABCA_ASSERT( (m_data.size() % m_dataType.getExtent()) == 0,
+        size_t data_count = m_data.size();
+
+        if (data_count == 0)
+            return 0;
+
+        ABCA_ASSERT( (data_count % m_dataType.getExtent()) == 0,
                       "wrong number of PODs in SampleStore" );
-        return m_data.size() / m_dataType.getExtent();
+        return data_count / m_dataType.getExtent();
     } else
     {
         assert( rank() >= 1 );
@@ -363,9 +477,14 @@ size_t TypedSampleStore<T>::getNumSamples() const
         size_t points_per_sample = m_dimensions.numPoints();
         size_t pods_per_sample = points_per_sample * m_dataType.getExtent();
 
-        ABCA_ASSERT( (m_data.size() % pods_per_sample) == 0,
+        size_t data_count = m_data.size();
+
+        if (data_count == 0)
+            return 0;
+
+        ABCA_ASSERT( (data_count % pods_per_sample) == 0,
                       "wrong number of PODs in SampleStore" );
-        return m_data.size() / pods_per_sample;
+        return data_count / pods_per_sample;
     }
 }
 
@@ -401,7 +520,7 @@ std::string TypedSampleStore<T>::repr(bool extended) const
  * extent:     number of scalar values in basic element
  *
  * example: dimensions = [2, 2], rank = 3, type = f
- * corresponds to a 2x2 matrix of vectors made of 3 floating point values (3f)
+ * corresponds to a 2x2 matrix of vectors made of 3 ing point values (3f)
  *
  * ScalarProperty has rank 0 and ArrayProperty rank > 0 ?
  *
@@ -473,6 +592,12 @@ private:
     size_t      m_cnt;
 };
 
+std::string pod2str(const Alembic::Util::PlainOldDataType& pod)
+{
+    std::ostringstream ss;
+    ss << PODName( pod );
+    return ss.str();
+}
 
 template <typename T>
 Json::Value TypedSampleStore<T>::json() const
@@ -503,15 +628,22 @@ Json::Value TypedSampleStore<T>::json() const
     {
         Json::Value pos_k( Json::arrayValue );
 
-        std::map<size_t, std::string>::const_iterator p_it;
+        std::map<size_t, AbcA::ArraySample::Key>::const_iterator p_it;
         for (p_it = m_pos_key.begin(); p_it != m_pos_key.end(); ++p_it)
         {
             size_t at = (*p_it).first;
-            const std::string& key = (*p_it).second;
+            const AbcA::ArraySample::Key& key = (*p_it).second;
 
             Json::Value el( Json::arrayValue );
             el.append( TypedSampleStore<size_t>::JsonFromValue( at ) );
-            el.append( key );
+
+            Json::Value j_key( Json::objectValue );
+            j_key["numBytes"] = TypedSampleStore<size_t>::JsonFromValue( key.numBytes );
+            j_key["origPOD"] = pod2str(key.origPOD);
+            j_key["readPOD"] = pod2str(key.readPOD);
+            j_key["digest"] = key.digest.str();
+
+            el.append( j_key );
             pos_k.append( el );
         }
 
@@ -706,6 +838,32 @@ unsigned char TypedSampleStore<unsigned char>::ValueFromJson( const Json::Value&
     return static_cast<unsigned char>(jsonValue.asUInt());
 }
 
+uint8_t hexchar2int(char input)
+{
+    if ((input >= '0') && (input <= '9'))
+        return (input - '0');
+    if ((input >= 'A') && (input <= 'F'))
+        return (input - 'A') + 10;
+    if ((input >= 'a') && (input <= 'f'))
+        return (input - 'a') + 10;
+    ABCA_THROW( "invalid input char" );
+}
+
+// This function assumes src to be a zero terminated sanitized string with
+// an even number of [0-9a-f] characters, and target to be sufficiently large
+size_t hex2bin(uint8_t *dst, const char* src)
+{
+    uint8_t *dst_orig = dst;
+
+    while (*src && src[1])
+    {
+        *dst      = hexchar2int(*(src++)) << 4;
+        *(dst++) |= hexchar2int(*(src++));
+    }
+
+    return (dst - dst_orig);
+}
+
 template <typename T>
 void TypedSampleStore<T>::fromJson(const Json::Value& root)
 {
@@ -778,12 +936,22 @@ void TypedSampleStore<T>::fromJson(const Json::Value& root)
             Json::Value j_pos = sub[0];
             Json::Value j_key = sub[1];
 
-            size_t at = static_cast<size_t>(j_pos.asUInt64());
-            std::string key = j_key.asString();
+            AbcA::ArraySample::Key key;
 
-            if (! m_key_pos.count(key))
-                m_key_pos[key] = std::vector<size_t>();
-            m_key_pos[key].push_back( at );
+            size_t at = static_cast<size_t>(j_pos.asUInt64());
+
+            std::string key_str = j_key["digest"].asString();
+
+            key.numBytes = static_cast<size_t>(j_key["numBytes"].asUInt64());
+            key.origPOD = Alembic::Util::PODFromName( j_key["origPOD"].asString() );
+            key.readPOD = Alembic::Util::PODFromName( j_key["readPOD"].asString() );
+            hex2bin(key.digest.d, key_str.c_str());
+
+            //std::string key_str = j_key.asString();
+
+            if (! m_key_pos.count(key_str))
+                m_key_pos[key_str] = std::vector<size_t>();
+            m_key_pos[key_str].push_back( at );
             m_pos_key[at] = key;
         }
     }
