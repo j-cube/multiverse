@@ -158,9 +158,12 @@ int mkpath(const std::string& path, mode_t mode)
     std::string up = up_c;
     free(up_c);
 
-    rv = mkpath(up, mode);
-    if ((rv < 0) && (errno != EEXIST))
-		return rv;
+    if ((up != path) && (! up.empty()))
+    {
+        rv = mkpath(up, mode);
+        if ((rv < 0) && (errno != EEXIST))
+        	return rv;
+    }
 
     rv = mkdir(path.c_str(), mode);
     if ((rv < 0) && (errno == EEXIST))
