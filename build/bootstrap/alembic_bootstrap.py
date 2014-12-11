@@ -243,6 +243,8 @@ def find_path( magic_file, default=False ):
 def configureCMakeBoost(srcdir, 
                         boost_include_dir=None, 
                         thread_libpath=None, 
+                        system_libpath=None,
+                        filesystem_libpath=None,
                         python_libpath=None, 
                         generator=None
                         ):
@@ -260,6 +262,18 @@ def configureCMakeBoost(srcdir,
         thread_libpath = Path(thread_libpath)
         libdir, thread_lib = thread_libpath.split()
         cmake_extra_args += " -D Boost_THREAD_LIBRARY:FILEPATH=%s" % thread_libpath
+
+    # boost system lib path
+    if system_libpath is not None:
+        system_libpath = Path(system_libpath)
+        libdir, system_lib = system_libpath.split()
+        cmake_extra_args += " -D Boost_SYSTEM_LIBRARY:FILEPATH=%s" % system_libpath
+
+    # boost filesystem lib path
+    if filesystem_libpath is not None:
+        filesystem_libpath = Path(filesystem_libpath)
+        libdir, filesystem_lib = filesystem_libpath.split()
+        cmake_extra_args += " -D Boost_FILESYSTEM_LIBRARY:FILEPATH=%s" % filesystem_libpath
     
     # boost python lib path
     if python_libpath is not None:
@@ -550,6 +564,64 @@ def find_boost_thread_lib( cmakecache = None ):
 
     mf = "libboost_thread"
     cmakevar = "Boost_THREAD_LIBRARY"
+
+    cmakedefault, defaults = get_defaults( mf, cmakevar, cmakecache )
+
+    default = None
+    if len( defaults ) > 0 or cmakedefault:
+        default = choose_defaults( defaults, cmakedefault )
+
+    boost_lib = find_path( mf, default )
+    libdir, lib = boost_lib.split()
+    print "Using Boost libraries from %s" % libdir
+    return boost_lib
+
+##-*****************************************************************************
+def find_boost_system_lib( cmakecache = None ):
+    print "Please enter the full path to the multithreaded,",
+    print "versioned Boost system static library"
+    if os.name == "posix":
+        print '(eg, "/usr/local/lib/libboost_system-gcc41-mt-1_42.a")'
+    elif os.name == "mac":
+        print '(eg, "/usr/local/lib/libboost_system-gcc41-mt-1_42.a")'
+    elif os.name == "nt":
+        print '(eg, "C:\Program Files\\Boost\\boost_1_42\\lib\\libboost_system-vc80-mt-s-1_42.lib")'
+    else:
+        # unknown OS - good luck!
+        print '(eg, "/usr/local/lib/libboost_system-gcc41-mt-1_42.a")'
+    print
+
+    mf = "libboost_system"
+    cmakevar = "Boost_system_LIBRARY"
+
+    cmakedefault, defaults = get_defaults( mf, cmakevar, cmakecache )
+
+    default = None
+    if len( defaults ) > 0 or cmakedefault:
+        default = choose_defaults( defaults, cmakedefault )
+
+    boost_lib = find_path( mf, default )
+    libdir, lib = boost_lib.split()
+    print "Using Boost libraries from %s" % libdir
+    return boost_lib
+
+##-*****************************************************************************
+def find_boost_filesystem_lib( cmakecache = None ):
+    print "Please enter the full path to the multithreaded,",
+    print "versioned Boost filesystem static library"
+    if os.name == "posix":
+        print '(eg, "/usr/local/lib/libboost_filesystem-gcc41-mt-1_42.a")'
+    elif os.name == "mac":
+        print '(eg, "/usr/local/lib/libboost_filesystem-gcc41-mt-1_42.a")'
+    elif os.name == "nt":
+        print '(eg, "C:\Program Files\\Boost\\boost_1_42\\lib\\libboost_filesystem-vc80-mt-s-1_42.lib")'
+    else:
+        # unknown OS - good luck!
+        print '(eg, "/usr/local/lib/libboost_filesystem-gcc41-mt-1_42.a")'
+    print
+
+    mf = "libboost_filesystem"
+    cmakevar = "Boost_FILESYSTEM_LIBRARY"
 
     cmakedefault, defaults = get_defaults( mf, cmakevar, cmakecache )
 
@@ -944,6 +1016,8 @@ Boost with STATIC, VERSIONED, and MULTITHREADED options turned on.
 
     boost_include_dir = None
     boost_thread_library = None
+    boost_system_library = None
+    boost_filesystem_library = None
     boost_python_library = None
 
     if options.boost_include_dir:
@@ -955,6 +1029,16 @@ Boost with STATIC, VERSIONED, and MULTITHREADED options turned on.
         boost_thread_library = options.boost_thread_library
     else:
         boost_thread_library = str(find_boost_thread_lib(cmakecache))
+
+    if options.boost_system_library:
+        boost_system_library = options.boost_system_library
+    else:
+        boost_system_library = str(find_boost_system_lib(cmakecache))
+
+    if options.boost_filesystem_library:
+        boost_filesystem_library = options.boost_filesystem_library
+    else:
+        boost_filesystem_library = str(find_boost_filesystem_lib(cmakecache))
 
     if options.boost_python_library:
         boost_python_library = options.boost_python_library
@@ -968,6 +1052,8 @@ Boost with STATIC, VERSIONED, and MULTITHREADED options turned on.
                                srcdir=srcdir,
                                boost_include_dir=boost_include_dir,
                                thread_libpath=boost_thread_library,
+                               system_libpath=boost_system_library,
+                               filesystem_libpath=boost_filesystem_library,
                                python_libpath=boost_python_library,
                                generator=options.generator
                             )
@@ -976,7 +1062,7 @@ Boost with STATIC, VERSIONED, and MULTITHREADED options turned on.
         print "Could not successfully build a Boost test executable!"
         ask_to_exit(errors)
 
-    return boost_status, boost_include_dir, boost_thread_library, boost_python_library
+    return boost_status, boost_include_dir, boost_thread_library, boost_system_library, boost_filesystem_library, boost_python_library
 
 ##-*****************************************************************************
 def configure_zlib( options, srcdir, cmakecache ):
@@ -1242,6 +1328,14 @@ def runCMake( opts, srcdir, ranBootstrap = False ):
             cmake_extra_args += ' -D Boost_THREAD_LIBRARY:FILEPATH="%s"' % \
                 opts.boost_thread_library
 
+        if opts.boost_system_library:
+            cmake_extra_args += ' -D Boost_SYSTEM_LIBRARY:FILEPATH="%s"' % \
+                opts.boost_system_library
+
+        if opts.boost_filesystem_library:
+            cmake_extra_args += ' -D Boost_FILESYSTEM_LIBRARY:FILEPATH="%s"' % \
+                opts.boost_filesystem_library
+
         if opts.boost_python_library:
             cmake_extra_args += ' -D BOOST_PYTHON_LIBRARY:FILEPATH=%s' % \
                 opts.boost_python_library
@@ -1347,6 +1441,16 @@ def makeParser( mk_cmake_basename ):
                               type="string", default=None,
                               help="libboost_thread library filepath",
                               metavar="Boost_THREAD_LIBRARY" )
+    configOptions.add_option( "--boost_system_library",
+                              dest="boost_system_library",
+                              type="string", default=None,
+                              help="libboost_system library filepath",
+                              metavar="Boost_SYSTEM_LIBRARY" )
+    configOptions.add_option( "--boost_filesystem_library",
+                              dest="boost_filesystem_library",
+                              type="string", default=None,
+                              help="libboost_filesystem library filepath",
+                              metavar="Boost_FILESYSTEM_LIBRARY" )
     configOptions.add_option( "--boost_python_library",
                               dest="boost_python_library",
                               type="string", default=None,

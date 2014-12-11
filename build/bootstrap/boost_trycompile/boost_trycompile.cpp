@@ -35,6 +35,7 @@
 //-*****************************************************************************
 
 #include <boost/thread.hpp>
+#include <boost/filesystem.hpp>
 
 
 
@@ -60,6 +61,8 @@ int main(int argc, char *argv[])
 
     boost::thread bt( hello );
     bt.join();
+
+    boost::filesystem::path p(argv[0]);
 
     return 0;
 }
