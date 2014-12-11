@@ -12,19 +12,15 @@
 #include <iomanip>
 #include <sstream>
 #include <cstdlib>
+#include <stdexcept>
 
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <cstdlib>
-
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <errno.h>
-#include <libgen.h>
 
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <boost/system/system_error.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -71,107 +67,63 @@ size_t strlcpy(char *dst, const char *src, size_t siz)
 
 bool file_exists(const std::string& pathname)
 {
-    struct stat info;
+    boost::filesystem::path p(pathname);
+    boost::system::error_code ec;
 
-    if (stat(pathname.c_str(), &info) != 0)
-    {
-        if ((errno == ENOENT) || (errno == ENOTDIR))
-            return false;       // does not exist
-
-        // error
-        return false;
-    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
-    {
-        // directory
-        return true;
-    } else
-    {
-        // file or something else
-        return true;
-    }
-
-    return true;
+    return boost::filesystem::exists(p, ec);
 }
 
 bool isdir(const std::string& pathname)
 {
-    struct stat info;
+    boost::filesystem::path p(pathname);
+    boost::system::error_code ec;
 
-    if (stat(pathname.c_str(), &info) != 0)
-    {
-        if ((errno == ENOENT) || (errno == ENOTDIR))
-            return false;       // does not exist
-
-        // error
-        return false;
-    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
-    {
-        // directory
-        return true;
-    } else
-    {
-        // file or something else
-        return false;
-    }
-
-    return false;
+    return boost::filesystem::is_directory(p, ec);
 }
 
 bool isfile(const std::string& pathname)
 {
-    struct stat info;
+    boost::filesystem::path p(pathname);
+    boost::system::error_code ec;
 
-    if (stat(pathname.c_str(), &info) != 0)
-    {
-        if ((errno == ENOENT) || (errno == ENOTDIR))
-            return false;       // does not exist
-
-        // error
-        return false;
-    } else if (info.st_mode & S_IFDIR)  // S_ISDIR() doesn't exist on windows
-    {
-        // directory
-        return false;
-    } else
-    {
-        // file or something else
-        return true;
-    }
-
-    return true;
+    return (boost::filesystem::is_regular_file(p, ec) || boost::filesystem::is_symlink(p, ec));
 }
 
 /* Function with behaviour like `mkdir -p'  */
-int mkpath(const std::string& path, mode_t mode)
+bool mkpath(const std::string& pathname, mode_t mode)
 {
-    int rv = -1;
+    boost::filesystem::path p(pathname);
+    boost::system::error_code ec;
 
-    //TRACE("mkpath('" << path << "')");
-
-    if ((path == ".") || (path == "/"))
-    	return 0;
-
-    char *up_c = strdup(path.c_str());
-    if (! up_c)
-    	return -1;
-    dirname(up_c);
-    std::string up = up_c;
-    free(up_c);
-
-    if ((up != path) && (! up.empty()))
+    if (boost::filesystem::exists(p, ec))
     {
-        rv = mkpath(up, mode);
-        if ((rv < 0) && (errno != EEXIST))
-        	return rv;
+        return boost::filesystem::is_directory(p, ec);
     }
 
-    rv = mkdir(path.c_str(), mode);
-    if ((rv < 0) && (errno == EEXIST))
-    	rv = 0;
-    return rv;
+    boost::filesystem::create_directories(p, ec);
+
+    return boost::filesystem::is_directory(p, ec);
 }
 
-std::string pathjoin(const std::string& p1, const std::string& p2, char pathsep)
+// actual Operating System pathnames
+std::string pathjoin(const std::string& pathname1, const std::string& pathname2)
+{
+    if (pathname1.length() == 0)
+        return pathname2;
+    if (pathname2.length() == 0)
+        return pathname1;
+
+    ABCA_ASSERT(pathname1.length() > 0, "invalid string length");
+    ABCA_ASSERT(pathname2.length() > 0, "invalid string length");
+
+    boost::filesystem::path p1(pathname1);
+    boost::filesystem::path p2(pathname2);
+
+    return (p1 / p2).native();
+}
+
+// "virtual" pathnames
+std::string v_pathjoin(const std::string& p1, const std::string& p2, char pathsep)
 {
     if (p1.length() == 0)
         return p2;
@@ -199,59 +151,150 @@ std::string pathjoin(const std::string& p1, const std::string& p2, char pathsep)
 
 }
 
-bool is_dir_sep(char c, char pathsep)
+std::string path_separator()
 {
-    return (c == pathsep);
+    boost::filesystem::path p_slash("/");
+    boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
+    return preferredSlash;
 }
 
-bool is_dir_sep(const std::string& s, char pathsep)
+bool ends_with_separator(const std::string& pathname)
 {
-    if (s.length() <= 0)
-        return false;
-    return (s[0] == pathsep);
+    std::string sep = path_separator();
+
+    return ((pathname.size() >= sep.size()) &&
+            (pathname.compare(pathname.size() - sep.size(), sep.size(), sep) == 0));
 }
+//#define HAS_DOT_SLASH
 
-const char *relative_path(const char *abs, const char *base)
+/**
+ * https://svn.boost.org/trac/boost/ticket/1976#comment:2
+ * 
+ * "The idea: uncomplete(/foo/new, /foo/bar) => ../new
+ *  The use case for this is any time you get a full path (from an open dialog, perhaps)
+ *  and want to store a relative path so that the group of files can be moved to a different
+ *  directory without breaking the paths. An IDE would be a simple example, so that the
+ *  project file could be safely checked out of subversion."
+ * 
+ * ALGORITHM:
+ *  iterate path and base
+ * compare all elements so far of path and base
+ * whilst they are the same, no write to output
+ * when they change, or one runs out:
+ *   write to output, ../ times the number of remaining elements in base
+ *   write to output, the remaining elements in path
+ *
+ * From:
+ *   http://stackoverflow.com/questions/5772992/get-relative-path-from-two-absolute-paths
+ *   http://stackoverflow.com/a/5773008
+ */
+static boost::filesystem::path
+naive_uncomplete(boost::filesystem::path p, boost::filesystem::path base, bool canonicalize = true)
 {
-    static char buf[PATH_MAX + 1];
-    int i = 0, j = 0;
+    using boost::filesystem::path;
+#if HAS_DOT_SLASH
+    using boost::filesystem::dot;
+    using boost::filesystem::slash;
+#endif /* HAS_DOT_SLASH */
 
-    if (!base || !base[0])
-        return abs;
-    while (base[i]) {
-        if (is_dir_sep(base[i])) {
-            if (!is_dir_sep(abs[j]))
-                return abs;
-            while (is_dir_sep(base[i]))
-                i++;
-            while (is_dir_sep(abs[j]))
-                j++;
-            continue;
-        } else if (abs[j] != base[i]) {
-            return abs;
-        }
-        i++;
-        j++;
+    // when we canonicalize, the path must exist
+    if (canonicalize)
+    {
+        p = boost::filesystem::canonical(p);
+        base = boost::filesystem::canonical(base);
     }
-    if (
-        /* "/foo" is a prefix of "/foo" */
-        abs[j] &&
-        /* "/foo" is not a prefix of "/foobar" */
-        !is_dir_sep(base[i-1]) && !is_dir_sep(abs[j])
-       )
-        return abs;
-    while (is_dir_sep(abs[j]))
-        j++;
-    if (!abs[j])
-        strcpy(buf, ".");
-    else
-        strcpy(buf, abs + j);
-    return buf;
+
+    p.make_preferred();
+    base.make_preferred();
+
+    if (p == base)
+        return "./";
+        /*!! this breaks stuff if path is a filename rather than a directory,
+             which it most likely is... but then base shouldn't be a filename so... */
+
+    boost::filesystem::path from_path, from_base, output;
+
+    boost::filesystem::path::iterator path_it = p.begin(),    path_end = p.end();
+    boost::filesystem::path::iterator base_it = base.begin(), base_end = base.end();
+
+    // check for emptiness
+    if ((path_it == path_end) || (base_it == base_end))
+        throw std::runtime_error("path or base was empty; couldn't generate relative path");
+
+#ifdef WIN32
+    // drive letters are different; don't generate a relative path
+    if (*path_it != *base_it)
+        return p;
+
+    // now advance past drive letters; relative paths should only go up
+    // to the root of the drive and not past it
+    ++path_it, ++base_it;
+#endif
+
+    // Cache system-dependent dot, double-dot and slash strings
+#if HAS_DOT_SLASH
+    const std::string _dot  = std::string(1, dot<path>::value);
+    const std::string _dots = std::string(2, dot<path>::value);
+    const std::string _sep = std::string(1, slash<path>::value);
+#else
+    const std::string _dot  = ".";
+    const std::string _dots = "..";
+    boost::filesystem::path p_slash("/");
+    boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
+    const std::string _sep = preferredSlash;
+#endif
+
+    // iterate over path and base
+    while (true) {
+
+        // compare all elements so far of path and base to find greatest common root;
+        // when elements of path and base differ, or run out:
+        if ((path_it == path_end) || (base_it == base_end) || (*path_it != *base_it)) {
+
+            // write to output, ../ times the number of remaining elements in base;
+            // this is how far we've had to come down the tree from base to get to the common root
+            for (; base_it != base_end; ++base_it) {
+                if (*base_it == _dot)
+                    continue;
+                else if (*base_it == _sep)
+                    continue;
+
+                output /= "../";
+            }
+
+            // write to output, the remaining elements in path;
+            // this is the path relative from the common root
+            boost::filesystem::path::iterator path_it_start = path_it;
+            for (; path_it != path_end; ++path_it) {
+
+                if (path_it != path_it_start)
+                    output /= "/";
+
+                if (*path_it == _dot)
+                    continue;
+                if (*path_it == _sep)
+                    continue;
+
+                output /= *path_it;
+            }
+
+            break;
+        }
+
+        // add directory level to both paths and continue iteration
+        from_path /= path(*path_it);
+        from_base /= path(*base_it);
+
+        ++path_it, ++base_it;
+    }
+
+    return output;
 }
 
-std::string relative_path(const std::string& abs, const std::string& base)
+std::string relative_path(const std::string& abs_path, const std::string& base)
 {
-    return relative_path(abs.c_str(), base.c_str());
+    boost::filesystem::path rel_p = naive_uncomplete(abs_path, base);
+    return rel_p.native();
 }
 
 /* We allow "recursive" symbolic links. Only within reason, though. */
@@ -327,8 +370,12 @@ const char *real_path(const char *path)
                 std::cerr << "pathname '" << buf << "/" << last_elem << "' too long" << std::endl;
                 return NULL;
             }
-            if (len && !is_dir_sep(buf[len-1]))
-                buf[len++] = '/';
+            if (len && !ends_with_separator(buf))
+            {
+                std::string sep = path_separator();
+                strcat(buf, sep.c_str());
+                len += sep.length();
+            }
             strcpy(buf + len, last_elem);
             free(last_elem);
             last_elem = NULL;
@@ -363,10 +410,13 @@ const char *real_path(const char *path)
     return buf;
 }
 
-std::string real_path(const std::string& path)
+std::string real_path(const std::string& pathname)
 {
-    std::string res = real_path(path.c_str());
-    return res;
+    boost::filesystem::path p(pathname);
+    boost::system::error_code ec;
+
+    boost::filesystem::path c_p = boost::filesystem::canonical(p);
+    return c_p.native();
 }
 
 } // End namespace ALEMBIC_VERSION_NS

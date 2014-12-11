@@ -95,17 +95,13 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 bool file_exists(const std::string& pathname);
 bool isdir(const std::string& pathname);
 bool isfile(const std::string& pathname);
-int mkpath(const std::string& path, mode_t mode = 0777);
+bool mkpath(const std::string& path, mode_t mode = 0777);
 
-std::string pathjoin(const std::string& p1, const std::string& p2, char pathsep = '/');
+std::string pathjoin(const std::string& p1, const std::string& p2); // actual OS paths
+std::string v_pathjoin(const std::string& p1, const std::string& p2, char pathsep = '/'); // "virtual" paths
 
-bool is_dir_sep(char c, char pathsep = '/');
-bool is_dir_sep(const std::string& s, char pathsep = '/');
-
-const char *relative_path(const char *abs, const char *base);
 std::string relative_path(const std::string& abs, const std::string& base);
 
-const char *real_path(const char *path);
 std::string real_path(const std::string& path);
 
 } // End namespace ALEMBIC_VERSION_NS

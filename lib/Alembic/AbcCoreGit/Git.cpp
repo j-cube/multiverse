@@ -539,7 +539,7 @@ std::string GitGroup::fullname() const
 
     ABCA_ASSERT( m_parent_ptr, "Invalid parent group" );
 
-    return pathjoin(m_parent_ptr->fullname(), name(), '/');
+    return v_pathjoin(m_parent_ptr->fullname(), name(), '/');
 }
 
 std::string GitGroup::relPathname() const
@@ -566,8 +566,8 @@ void GitGroup::writeToDisk()
     if (! m_written)
     {
         TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (WRITING)");
-        int rc = mkpath( absPathname(), 0777 );
-        ABCA_ASSERT((rc == 0) || (errno == EEXIST), "can't create directory '" << absPathname() << "'");
+        bool r = mkpath( absPathname(), 0777 );
+        ABCA_ASSERT(r || (errno == EEXIST), "can't create directory '" << absPathname() << "'");
 
         m_written = true;
     } else
@@ -631,8 +631,7 @@ std::string GitGroup::repr(bool extended) const
 
 bool GitGroup::finalize()
 {
-    int rc = mkpath( absPathname(), 0777 );
-    return (rc == 0);
+    return mkpath( absPathname(), 0777 );
 }
 
 GitData::GitData(GitGroupPtr iGroup, Alembic::Util::uint64_t iPos,
