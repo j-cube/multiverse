@@ -773,6 +773,8 @@ bool GitRepo::commit_index(const std::string& message) const
     /** First use the config to initialize a commit signature for the user. */
 
     rc = git_signature_default(&sig, m_repo);
+    if (rc != GIT_SUCCESS)
+        rc = git_signature_now(&sig, getenv("USERNAME"), "");
     if (! git_check_ok(rc, "obtaining commit signature. Perhaps 'user.name' and 'user.email' are not set."))
         return false;
 
