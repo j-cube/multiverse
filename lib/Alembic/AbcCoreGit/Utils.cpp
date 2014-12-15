@@ -26,15 +26,6 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
-#ifndef PATH_MAX
-#define PATH_MAX 1023
-#endif
-
-char *xstrdup(const char *string)
-{
-  return strcpy((char *)malloc(strlen(string) + 1), string);
-}
-
 /*
  * Copy src to string dst of size siz.  At most siz-1 characters
  * will be copied.  Always NUL terminates (unless siz == 0).
@@ -295,119 +286,6 @@ std::string relative_path(const std::string& abs_path, const std::string& base)
 {
     boost::filesystem::path rel_p = naive_uncomplete(abs_path, base);
     return rel_p.native();
-}
-
-/* We allow "recursive" symbolic links. Only within reason, though. */
-#define MAXDEPTH 5
-
-static inline char *find_last_dir_sep(const char *path)
-{
-    return strrchr((char *)path, '/');
-}
-
-/*
- * Use this to get the real path, i.e. resolve links. If you want an
- * absolute path but don't mind links, use absolute_path.
- *
- * If path is our buffer, then return path, as it's already what the
- * user wants.
- */
-const char *real_path(const char *path)
-{
-    static char bufs[2][PATH_MAX + 1], *buf = bufs[0], *next_buf = bufs[1];
-    char cwd[1024] = "";
-    int buf_index = 1;
-
-    int depth = MAXDEPTH;
-    char *last_elem = NULL;
-    struct stat st;
-
-    /* We've already done it */
-    if (path == buf || path == next_buf)
-        return path;
-
-    if (strlcpy(buf, path, PATH_MAX) >= PATH_MAX)
-    {
-        std::cerr << "pathname '" << path << "' too long" << std::endl;
-        return NULL;
-    }
-
-    while (depth--) {
-        if (!isdir(buf)) {
-            char *last_slash = find_last_dir_sep(buf);
-            if (last_slash) {
-                *last_slash = '\0';
-                last_elem = xstrdup(last_slash + 1);
-            } else {
-                last_elem = xstrdup(buf);
-                *buf = '\0';
-            }
-        }
-
-        if (*buf) {
-            if (!*cwd && !getcwd(cwd, sizeof(cwd)))
-            {
-                std::cerr << "can't get current working directory" << std::endl;
-                return NULL;
-            }
-
-            if (chdir(buf))
-            {
-                std::cerr << "can't set current working directory to '" << buf << "'" << std::endl;
-                return NULL;
-            }
-        }
-        if (!getcwd(buf, PATH_MAX))
-        {
-            std::cerr << "can't get current working directory" << std::endl;
-            return NULL;
-        }
-
-        if (last_elem) {
-            size_t len = strlen(buf);
-            if (len + strlen(last_elem) + 2 > PATH_MAX)
-            {
-                std::cerr << "pathname '" << buf << "/" << last_elem << "' too long" << std::endl;
-                return NULL;
-            }
-            if (len && !ends_with_separator(buf))
-            {
-                std::string sep = path_separator();
-                strcat(buf, sep.c_str());
-                len += sep.length();
-            }
-            strcpy(buf + len, last_elem);
-            free(last_elem);
-            last_elem = NULL;
-        }
-
-        if (!lstat(buf, &st) && S_ISLNK(st.st_mode)) {
-            ssize_t len = readlink(buf, next_buf, PATH_MAX);
-            if (len < 0)
-            {
-                std::cerr << "invalid symlink '" << buf << "'" << std::endl;
-                return NULL;
-            }
-            if (PATH_MAX <= len)
-            {
-                std::cerr << "symlink too long: '" << buf << "'" << std::endl;
-                return NULL;
-            }
-            next_buf[len] = '\0';
-            buf = next_buf;
-            buf_index = 1 - buf_index;
-            next_buf = bufs[buf_index];
-        } else
-            break;
-    }
-
-    if (*cwd && chdir(cwd))
-    {
-        std::cerr << "can't change current directory back to '" << cwd << "'" << std::endl;
-        return NULL;
-    }
-
-    return buf;
 }
 
 std::string real_path(const std::string& pathname)

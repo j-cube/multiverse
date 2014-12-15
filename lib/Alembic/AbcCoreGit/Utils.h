@@ -89,7 +89,6 @@ while( 0 )
 
 #endif /* end of ! DEBUG */
 
-char *xstrdup(const char *string);
 size_t strlcpy(char *dst, const char *src, size_t siz);
 
 bool file_exists(const std::string& pathname);
