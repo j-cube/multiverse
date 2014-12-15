@@ -185,6 +185,8 @@ AwImpl::~AwImpl()
     m_data.reset();
 
     writeToDisk();
+
+    TRACE(Profile());
 }
 
 std::string AwImpl::relPathname() const
@@ -203,6 +205,7 @@ void AwImpl::writeToDisk()
     {
         TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
 
+        double t_end, t_start = time_us();
         Json::Value root( Json::objectValue );
 
         root["kind"] = "Archive";
@@ -223,24 +226,36 @@ void AwImpl::writeToDisk()
 
         root["indexedMetaData"] = m_metaDataMap->toJSON();
 
+        t_end = time_us();
+        Profile::add_json_creation(t_end - t_start);
+
+        t_start = time_us();
         Json::StyledWriter writer;
         std::string output = writer.write( root );
+        t_end = time_us();
+        Profile::add_json_output(t_end - t_start);
 
+        t_start = time_us();
         std::string jsonPathname = absPathname() + "/archive.json";
         std::ofstream jsonFile;
         jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
         jsonFile << output;
         jsonFile.close();
+        t_end = time_us();
+        Profile::add_disk_write(t_end - t_start);
 
         m_written = true;
 
         ABCA_ASSERT( m_repo_ptr, "invalid git repository object");
 
+        t_start = time_us();
         std::string jsonRelPathname = m_repo_ptr->relpath(jsonPathname);
 
         m_repo_ptr->add(jsonRelPathname);
         m_repo_ptr->write_index();
         m_repo_ptr->commit("commit new version to alembic file");
+        t_end = time_us();
+        Profile::add_git(t_end - t_start);
     } else
     {
         TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");

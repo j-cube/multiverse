@@ -22,6 +22,8 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -295,6 +297,38 @@ std::string real_path(const std::string& pathname)
 
     boost::filesystem::path c_p = boost::filesystem::canonical(p);
     return c_p.native();
+}
+
+double time_us()
+{
+    static boost::posix_time::ptime ms_t_start = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::ptime ms_t_now = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::time_duration ms_t_diff = ms_t_now - ms_t_start;
+
+    return ms_t_diff.total_microseconds();
+}
+
+double time_ms()
+{
+    static boost::posix_time::ptime ms_t_start = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::ptime ms_t_now = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::time_duration ms_t_diff = ms_t_now - ms_t_start;
+
+    return ms_t_diff.total_milliseconds();
+}
+
+double Profile::s_json_creation = 0.0;
+double Profile::s_json_output = 0.0;
+double Profile::s_disk_write = 0.0;
+double Profile::s_git = 0.0;
+
+std::ostream& operator<< ( std::ostream& out, const Profile& obj )
+{
+    out << "ELAPSED - json prep:" << obj.json_creation() << "us  " <<
+        "json output:" << obj.json_output() << "us  " <<
+        "disk write:" << obj.disk_write() << "us  " <<
+        "git:" << obj.git() << "us";
+    return out;
 }
 
 } // End namespace ALEMBIC_VERSION_NS

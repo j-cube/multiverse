@@ -235,6 +235,7 @@ void CpwImpl::writeToDisk()
 
         TRACE("create '" << absPathname() << ".json'");
 
+        double t_end, t_start = time_us();
         Json::Value root( Json::objectValue );
 
 //        const AbcA::MetaData& metaData = m_header->metadata();
@@ -281,22 +282,34 @@ void CpwImpl::writeToDisk()
 
         root["info"] = propInfo;
 
+        t_end = time_us();
+        Profile::add_json_creation(t_end - t_start);
+
+        t_start = time_us();
         Json::StyledWriter writer;
         std::string output = writer.write( root );
+        t_end = time_us();
+        Profile::add_json_output(t_end - t_start);
 
+        t_start = time_us();
         std::string jsonPathname = absPathname() + ".json";
         std::ofstream jsonFile;
         jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
         jsonFile << output;
         jsonFile.close();
+        t_end = time_us();
+        Profile::add_disk_write(t_end - t_start);
 
         m_written = true;
 
         GitRepoPtr repo_ptr = m_data->getGroup()->repo();
         ABCA_ASSERT( repo_ptr, "invalid git repository object");
 
+        t_start = time_us();
         std::string jsonRelPathname = repo_ptr->relpath(jsonPathname);
         repo_ptr->add(jsonRelPathname);
+        t_end = time_us();
+        Profile::add_git(t_end - t_start);
     } else
     {
         TRACE("CpwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");

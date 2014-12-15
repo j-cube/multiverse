@@ -103,6 +103,33 @@ std::string relative_path(const std::string& abs, const std::string& base);
 
 std::string real_path(const std::string& path);
 
+double time_us();
+double time_ms();
+
+class Profile
+{
+public:
+    Profile() {}
+
+    static void add_json_creation(double amount)   { s_json_creation += amount; }
+    static void add_json_output(double amount)     { s_json_output += amount; }
+    static void add_disk_write(double amount)      { s_disk_write += amount; }
+    static void add_git(double amount)             { s_git += amount; }
+
+    static double json_creation()                  { return s_json_creation; }
+    static double json_output()                    { return s_json_output; }
+    static double disk_write()                     { return s_disk_write; }
+    static double git()                            { return s_git; }
+
+private:
+    static double s_json_creation;
+    static double s_json_output;
+    static double s_disk_write;
+    static double s_git;
+};
+
+std::ostream& operator<< ( std::ostream& out, const Profile& obj );
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;
