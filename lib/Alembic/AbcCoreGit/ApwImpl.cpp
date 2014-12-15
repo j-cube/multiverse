@@ -349,6 +349,11 @@ void ApwImpl::writeToDisk()
 
         TRACE("create '" << absPathname() << "'");
 
+        ensureSampleStore();
+
+        ABCA_ASSERT( m_store.get(),
+            "SampleStore not present!" );
+
         ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
                      "invalid number of samples in SampleStore!" );
 
@@ -426,6 +431,22 @@ Alembic::Util::shared_ptr< AwImpl > ApwImpl::getArchiveImpl() const
        Alembic::Util::dynamic_pointer_cast< CpwImpl,
         AbcA::CompoundPropertyWriter > ( m_parent );
     return cpw->getArchiveImpl();
+}
+
+void ApwImpl::ensureSampleStore()
+{
+    if (! m_store.get())
+    {
+        m_store.reset( BuildSampleStore( m_header->datatype(), AbcA::Dimensions() ) );
+    }
+}
+
+void ApwImpl::ensureSampleStore(const AbcA::Dimensions &iDims)
+{
+    if (! m_store.get())
+    {
+        m_store.reset( BuildSampleStore( m_header->datatype(), iDims ) );
+    }
 }
 
 } // End namespace ALEMBIC_VERSION_NS

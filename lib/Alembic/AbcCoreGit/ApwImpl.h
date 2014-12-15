@@ -66,6 +66,9 @@ protected:
     WrittenSampleIDPtr m_previousWrittenSampleID;
 
 private:
+    void ensureSampleStore();
+    void ensureSampleStore(const AbcA::Dimensions &iDims);
+
     // The parent compound property writer.
     AbcA::CompoundPropertyWriterPtr m_parent;
 
