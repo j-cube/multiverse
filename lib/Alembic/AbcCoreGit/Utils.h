@@ -42,7 +42,23 @@ inline bool TRACE_ENABLED() { return trace_enable; }
 #define DBG_FUNCNAME BOOST_CURRENT_FUNCTION
 
 // http://ascii-table.com/ansi-escape-sequences.php
-
+#ifdef _MSC_VER
+#define ANSI_RESET         ""
+#define ANSI_BOLD          ""
+#define ANSI_NEGATIVE      ""
+#define ANSI_COLOR_RED     ""
+#define ANSI_BOLD_RED      ""
+#define ANSI_COLOR_GREEN   ""
+#define ANSI_BOLD_GREEN    ""
+#define ANSI_COLOR_YELLOW  ""
+#define ANSI_BOLD_YELLOW   ""
+#define ANSI_COLOR_BLUE    ""
+#define ANSI_BOLD_BLUE     ""
+#define ANSI_COLOR_MAGENTA ""
+#define ANSI_BOLD_MAGENTA  ""
+#define ANSI_COLOR_CYAN    ""
+#define ANSI_BOLD_CYAN     ""
+#else
 #define ANSI_RESET         "\x1b[0m"
 #define ANSI_BOLD          "\x1b[1m"
 #define ANSI_NEGATIVE      "\x1b[7m"
@@ -58,6 +74,7 @@ inline bool TRACE_ENABLED() { return trace_enable; }
 #define ANSI_BOLD_MAGENTA  "\x1b[1;35m"
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_BOLD_CYAN     "\x1b[1;36m"
+#endif
 
 #define _T_FUNC             ANSI_COLOR_GREEN << DBG_FUNCNAME << ANSI_RESET
 #define _T_TRACE            "[" << ANSI_BOLD_YELLOW << "TRACE" << ANSI_RESET << "] "
@@ -112,6 +129,10 @@ while( 0 )
 #define TODO( TEXT )                    do { } while( 0 )
 
 #endif /* end of ! DEBUG */
+
+#ifdef _MSC_VER
+typedef int mode_t;
+#endif
 
 size_t strlcpy(char *dst, const char *src, size_t siz);
 
