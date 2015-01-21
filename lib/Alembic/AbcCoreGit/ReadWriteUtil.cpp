@@ -492,25 +492,61 @@ void WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
 }
 #endif /* OBSOLETE */
 
-Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
-                                   const AbcA::TimeSampling &iTsmp )
+Json::Value toJson( const AbcA::TimeSamplingType& value )
 {
     Json::Value root( Json::objectValue );
 
-    root["iMaxSample"] = iMaxSample;
+    root["uniform"] = value.isUniform();
+    root["cyclic"]  = value.isCyclic();
+    root["acyclic"] = value.isAcyclic();
+    root["samplesPerCycle"] = value.getNumSamplesPerCycle();
+    root["timePerCycle"] = value.getTimePerCycle();
 
-    AbcA::TimeSamplingType tst = iTsmp.getTimeSamplingType();
+    return root;
+}
 
-    chrono_t tpc = tst.getTimePerCycle();
+bool fromJson( AbcA::TimeSamplingType& result, Json::Value jsonValue )
+{
+    bool isUniform = jsonValue.get("uniform", false).asBool();
+    bool isCyclic  = jsonValue.get("cyclic", false).asBool();
+    bool isAcyclic = jsonValue.get("acyclic", false).asBool();
+    uint32_t spc = jsonValue.get("samplesPerCycle", 0).asUInt();
+    chrono_t tpc = jsonValue.get("timePerCycle", 0.0).asDouble();
 
-    root["timePerCycle"] = tpc;
+    TRACE("isUniform:" << (isUniform ? "T" : "F") << " isCyclic:" << (isCyclic ? "T" : "F") << " isAcyclic:" << (isAcyclic ? "T" : "F") << " spc:" << spc << " tpc:" << tpc);
+    if (isAcyclic)
+    {
+        result = AbcA::TimeSamplingType(AbcA::TimeSamplingType::kAcyclic);
+        return true;
+    } else if (isCyclic)
+    {
+        result = AbcA::TimeSamplingType(spc, tpc);
+        return true;
+    } else if (isUniform)
+    {
+        result = AbcA::TimeSamplingType(tpc);
+        return true;
+    } else
+    {
+        result = AbcA::TimeSamplingType();
+        return true;
+    }
 
-    const std::vector < chrono_t > & samps = iTsmp.getStoredTimes();
-    ABCA_ASSERT( samps.size() > 0, "No TimeSamples to write!");
+    return false;
+}
+
+Json::Value toJson( const AbcA::TimeSampling& value )
+{
+    Json::Value root( Json::objectValue );
+
+    root["tst"] = toJson( value.getTimeSamplingType() );
+
+    const std::vector < chrono_t > & samps = value.getStoredTimes();
+    ABCA_ASSERT( samps.size() > 0, "No TimeSamples to convert!");
 
     Util::uint32_t spc = ( Util::uint32_t ) samps.size();
 
-    root["size"] = spc;
+    root["n_times"] = spc;
 
     Json::Value values( Json::arrayValue );
 
@@ -519,47 +555,74 @@ Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
         values.append( samps[i] );
     }
 
-    root["values"] = values;
+    root["times"] = values;
 
     return root;
+}
+
+bool fromJson( AbcA::TimeSampling& result, Json::Value jsonValue )
+{
+    AbcA::TimeSamplingType tst;
+    fromJson( tst, jsonValue["tst"] );
+
+    uint32_t n_times = jsonValue.get("n_times", 0).asUInt();
+
+    Json::Value v_times = jsonValue["times"];
+    std::vector<chrono_t> sampleTimes;
+    for (Json::Value::iterator v_it = v_times.begin(); v_it != v_times.end(); ++v_it)
+    {
+        Json::Value v_time = *v_it;
+        sampleTimes.push_back( v_time.asDouble() );
+    }
+
+    Util::uint32_t spc = sampleTimes.size();
+
+    ABCA_ASSERT( (spc == n_times), "wrong # of stored time samples");
+
+    result = AbcA::TimeSampling( tst, sampleTimes );
+    return true;
+}
+
+Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
+                                   const AbcA::TimeSampling &iTsmp )
+{
+    TRACE("jsonWriteTimeSampling(iMaxSample:" << iMaxSample << ")");
+    Json::Value root( Json::objectValue );
+
+    root["maxSample"] = iMaxSample;
+    root["timeSampling"] = toJson( iTsmp );
+
+    return root;
+}
+
+void jsonReadTimeSampling( Json::Value jsonValue,
+    Util::uint32_t& oMaxSample, AbcA::TimeSampling& oTsmp )
+{
+    oMaxSample = jsonValue.get("maxSample", 0).asUInt();
+    fromJson( oTsmp, jsonValue["timeSampling"] );
 }
 
 void jsonReadTimeSamples( Json::Value jsonTimeSamples,
                        std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
                        std::vector < AbcA::index_t > & oMaxSamples )
 {
+    // oTimeSamples.clear();
+    // // add the intrinsic default sampling
+    // AbcA::TimeSamplingPtr ts( new AbcA::TimeSampling() );
+    // oTimeSamples.push_back( ts );
+
     for (Json::Value::iterator it = jsonTimeSamples.begin(); it != jsonTimeSamples.end(); ++it)
     {
         Json::Value element = *it;
 
-        Util::uint32_t iMaxSample = element.get("iMaxSample", 0).asUInt();
+        Util::uint32_t maxSample;
+        AbcA::TimeSampling* tsmp_ptr = new AbcA::TimeSampling();
 
-        oMaxSamples.push_back( iMaxSample );
+        jsonReadTimeSampling(element, maxSample, *tsmp_ptr);
 
-        chrono_t tpc = element.get("timePerCycle", 0.0).asDouble();
-        //Util::uint32_t size = element.get("size", 0).asUInt();
+        oMaxSamples.push_back( maxSample );
 
-        Json::Value v_values = element["values"];
-        std::vector<chrono_t> sampleTimes;
-        for (Json::Value::iterator v_it = v_values.begin(); v_it != v_values.end(); ++v_it)
-        {
-            Json::Value v_value = *v_it;
-            sampleTimes.push_back( v_value.asDouble() );
-        }
-
-        Util::uint32_t numSamples = sampleTimes.size();
-
-        AbcA::TimeSamplingType::AcyclicFlag acf =
-            AbcA::TimeSamplingType::kAcyclic;
-
-        AbcA::TimeSamplingType tst( acf );
-        if ( tpc != AbcA::TimeSamplingType::AcyclicTimePerCycle() )
-        {
-            tst = AbcA::TimeSamplingType( numSamples, tpc );
-        }
-
-        AbcA::TimeSamplingPtr tptr(
-            new AbcA::TimeSampling( tst, sampleTimes ) );
+        AbcA::TimeSamplingPtr tptr( tsmp_ptr );
 
         oTimeSamples.push_back( tptr );
     }
