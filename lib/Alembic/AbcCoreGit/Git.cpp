@@ -10,9 +10,11 @@
 #include <Alembic/AbcCoreGit/Utils.h>
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <cstdlib>
+#include <cassert>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -24,48 +26,146 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+
+/* --------------------------------------------------------------------
+ *   MACROS
+ * -------------------------------------------------------------------- */
+
+// uncomment the following if libgit2 is < 0.22.x (i.e.: doesn't have git_libgit2_init(), ...)
+// #define LIBGIT2_OLD
+
 #ifndef GIT_SUCCESS
 #define GIT_SUCCESS 0
 #endif /* GIT_SUCCESS */
 
-static bool gitlib_initialized = false;
+/* --------------------------------------------------------------------
+ *   PROTOTYPES
+ * -------------------------------------------------------------------- */
 
-// TODO: find a better way to initialize and cleanup libgit2
-static void gitlib_initialize()
+static bool git_check_error(int error_code, const std::string& action);
+static bool git_check_ok(int error_code, const std::string& action);
+
+#if 0
+static std::string slurp(const std::string& pathname);
+static std::string slurp(std::ifstream& in);
+#endif /* 0 */
+
+/* --------------------------------------------------------------------
+ *   UTILITY FUNCTIONS
+ * -------------------------------------------------------------------- */
+
+#if 0
+static std::string slurp(const std::string& pathname)
 {
-    if (! gitlib_initialized)
-    {
-        git_threads_init();
-
-        gitlib_initialized = true;
-    }
+    std::ifstream ifs(pathname.c_str(), std::ios::in | std::ios::binary);
+    return slurp(ifs);
 }
 
-// TODO: call gitlib_cleanup() somewhere
-#if 0
-static void gitlib_cleanup()
+static std::string slurp(std::ifstream& in)
 {
-    if (gitlib_initialized)
-    {
-        git_threads_shutdown();
-
-        gitlib_initialized = false;
-    }
+    std::stringstream sstr;
+    sstr << in.rdbuf();
+    return sstr.str();
 }
 #endif /* 0 */
 
-void git_check_error(int error_code, const std::string& action)
+static bool git_check_error(int error_code, const std::string& action)
 {
-    if ( !error_code )
-       return;
+    if (error_code == GIT_SUCCESS)
+       return false;
 
     const git_error *error = giterr_last();
 
     ABCA_THROW( "libgit2 error " << error_code << " " << action <<
         " - " << ((error && error->message) ? error->message : "???") );
+    // std::cerr << "ERROR: libgit2 error " << error_code << " - "
+    //     << action << " - "
+    //     << ((error && error->message) ? error->message : "???")
+    //     << std::endl;
+    return true;
 }
 
-std::ostream& operator<< ( std::ostream& out, const GitMode& value )
+static bool git_check_ok(int error_code, const std::string& action)
+{
+    if (error_code == GIT_SUCCESS)
+       return true;
+
+    const git_error *error = giterr_last();
+
+    ABCA_THROW( "libgit2 error " << error_code << " " << action <<
+        " - " << ((error && error->message) ? error->message : "???") );
+    // std::cerr << "ERROR: libgit2 error " << error_code << " - "
+    //     << action << " - "
+    //     << ((error && error->message) ? error->message : "???")
+    //     << std::endl;
+    return false;
+}
+
+
+/* --------------------------------------------------------------------
+ *   CLASSES
+ * -------------------------------------------------------------------- */
+
+/* --- LibGit --------------------------------------------------------- */
+
+// based on Monoid pattern of Alexandrescu's "Modern C++ Design"
+// see:
+//   http://stackoverflow.com/questions/2496918/singleton-pattern-in-c
+//   http://stackoverflow.com/a/2498423/1363486
+
+Alembic::Util::shared_ptr<LibGit> LibGit::m_instance = Alembic::Util::shared_ptr<LibGit>(static_cast<LibGit*>(NULL));
+
+LibGit::LibGit()
+{
+#ifdef LIBGIT2_OLD
+    git_threads_init();
+#else
+    git_libgit2_init();
+#endif
+}
+
+LibGit::~LibGit()
+{
+#ifdef LIBGIT2_OLD
+    git_threads_shutdown();
+#else
+    git_libgit2_shutdown();
+#endif
+}
+
+Alembic::Util::shared_ptr<LibGit> LibGit::Instance()
+{
+    if (m_instance && m_instance.get())
+        return m_instance;
+
+    m_instance.reset(new LibGit());
+    atexit(&CleanUp);
+    return m_instance;
+}
+
+bool LibGit::IsInitialized()
+{
+    return (m_instance && m_instance.get());
+}
+
+bool LibGit::Initialize()
+{
+    if (! IsInitialized())
+    {
+        Alembic::Util::shared_ptr<LibGit> ptr = Instance();
+    }
+    return IsInitialized();
+}
+
+void LibGit::CleanUp()
+{
+    m_instance.reset();
+}
+
+
+/* --- GitMode -------------------------------------------------------- */
+
+std::ostream& operator<< (std::ostream& out, const GitMode& value)
 {
     switch (value)
     {
@@ -85,197 +185,193 @@ std::ostream& operator<< ( std::ostream& out, const GitMode& value )
     return out;
 }
 
-//-*****************************************************************************
-GitRepo::GitRepo( const std::string& pathname, git_repository *repo, git_config *cfg ) :
-    m_mode(GitMode::Write), m_pathname(pathname), m_repo(repo), m_repo_cfg(cfg), m_odb(NULL),
-    m_index(NULL), m_index_dirty(false)
+
+/* --- GitRepo -------------------------------------------------------- */
+
+#if 0
+GitRepo::GitRepo(git_repository* repo, git_config* config, git_signature* signature) :
+    m_repo(repo), m_mode(GitMode::ReadWrite), m_cfg(config), m_sig(signature),
+    m_odb(NULL), m_index(NULL), m_error(false)
 {
-    gitlib_initialize();
-
-    if (m_repo)
-    {
-        int error = git_repository_odb(&m_odb, m_repo);
-        git_check_error(error, "accessing git repository database");
-
-        error = git_repository_index(&m_index, m_repo);
-        git_check_error(error, "opening repository index");
-    }
+    LibGit::Initialize();
 }
+#endif
 
-GitRepo::GitRepo( const std::string& pathname, GitMode mode ) :
-    m_mode(mode), m_pathname(pathname), m_odb(NULL), m_index(NULL), m_index_dirty(false)
+GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
+    m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
+    m_odb(NULL), m_index(NULL), m_error(false)
 {
-    TRACE( "GitRepo::GitRepo(pathname:'" << pathname << "' mode:" << mode );
+    TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
-    gitlib_initialize();
+    LibGit::Initialize();
 
-    int error;
+    bool ok = true;
+    int rc;
 
-    git_repository *repo = NULL;
-    git_config *cfg = NULL;
-
-    std::string git_dir = m_pathname + "/.git";
+    std::string dotGitPathname = pathjoin(pathname(), ".git");
 
     if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
     {
         if (! isdir(m_pathname))
         {
-            TRACE( "initializing Git repository '" << m_pathname << "'" );
-            error = git_repository_init (&repo, m_pathname.c_str(), /* is_bare */ 0);
-            git_check_error(error, "initializing git repository");
-            if (( error != GIT_SUCCESS ) || ( !repo ))
+            TRACE("initializing Git repository '" << m_pathname << "'");
+            rc = git_repository_init(&m_repo, m_pathname.c_str(), /* is_bare */ 0);
+            ok = ok && git_check_ok(rc, "initializing git repository");
+            if (! ok)
             {
-                ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+                // ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+                goto ret;
             }
-            git_repository_config(&cfg, repo /* , NULL, NULL */);
 
-            git_config_set_int32 (cfg, "core.repositoryformatversion", 0);
-            git_config_set_bool (cfg, "core.filemode", 1);
-            git_config_set_bool (cfg, "core.bare", 0);
-            git_config_set_bool (cfg, "core.logallrefupdates", 1);
-            git_config_set_bool (cfg, "core.ignorecase", 1);
+            assert(m_repo);
+
+            git_repository_config(&m_cfg, m_repo /* , NULL, NULL */);
+
+            git_config_set_int32(m_cfg, "core.repositoryformatversion", 0);
+            git_config_set_bool(m_cfg, "core.filemode", 1);
+            git_config_set_bool(m_cfg, "core.bare", 0);
+            git_config_set_bool(m_cfg, "core.logallrefupdates", 1);
+            git_config_set_bool(m_cfg, "core.ignorecase", 1);
 
             // set the version of the Alembic git backend
             // This expresses the AbcCoreGit version - how properties, are stored within Git, etc.
-            git_config_set_int32 (cfg, "alembic.formatversion", ALEMBIC_GIT_FILE_VERSION);
+            git_config_set_int32(m_cfg, "alembic.formatversion", ALEMBIC_GIT_FILE_VERSION);
             // This is the Alembic library version XXYYZZ
             // Where XX is the major version, YY is the minor version
             // and ZZ is the patch version
-            git_config_set_int32 (cfg, "alembic.libversion", ALEMBIC_LIBRARY_VERSION);
+            git_config_set_int32(m_cfg, "alembic.libversion", ALEMBIC_LIBRARY_VERSION);
 
             //git_repository_set_workdir(repo, m_fileName);
 
-            git_repository_free(repo);
-            repo = NULL;
-            //Sleep (1000);
+            git_repository_free(m_repo);
+            m_repo = NULL;
         } else
         {
-            TRACE( "Git repository '" << m_pathname << "' exists, opening (for writing)" );
+            TRACE("Git repository '" << m_pathname << "' exists, opening (for writing)");
         }
     }
 
-    error = git_repository_open (&repo, git_dir.c_str());
-    git_check_error(error, "opening git repository");
-    if (( error != GIT_SUCCESS ) || ( !repo ))
+    assert(! m_repo);
+
+    rc = git_repository_open(&m_repo, dotGitPathname.c_str());
+    ok = ok && git_check_ok(rc, "opening git repository");
+    if (!ok)
     {
-        TRACE("error opening repository from '" << git_dir << "'");
-        ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
-    }
-    if (repo)
-    {
-        error = git_repository_config(&cfg, repo /* , NULL, NULL */);
-        if (( error != GIT_SUCCESS ) || ( !cfg ))
-        {
-            TRACE("error fetching config for repository '" << git_dir << "'");
-            ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
-        }
+        TRACE("error opening repository from '" << dotGitPathname << "'");
+        //ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
+        goto ret;
     }
 
-    m_repo = repo;
-    m_repo_cfg = cfg;
+    assert(m_repo);
 
-    if (m_repo)
+    rc = git_repository_config(&m_cfg, m_repo /* , NULL, NULL */);
+    ok = ok && git_check_ok(rc, "opening git config");
+    if (!ok)
     {
-        error = git_repository_odb(&m_odb, m_repo);
-        git_check_error(error, "accessing git repository database");
+        TRACE("error fetching config for repository '" << dotGitPathname << "'");
+        //ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
+        goto ret;
+    }
+    assert(m_cfg);
 
-        error = git_repository_index(&m_index, m_repo);
-        git_check_error(error, "opening repository index");
+    rc = git_signature_default(&m_sig, m_repo);
+    ok = ok && git_check_ok(rc, "getting default signature");
+    if (! ok) goto ret;
+
+    assert(m_sig);
+
+    rc = git_repository_odb(&m_odb, m_repo);
+    ok = ok && git_check_ok(rc, "accessing git repository database");
+    if (!ok)
+    {
+        goto ret;
+    }
+
+    rc = git_repository_index(&m_index, m_repo);
+    ok = ok && git_check_ok(rc, "opening repository index");
+    if (!ok)
+    {
+        goto ret;
+    }
+
+ret:
+    m_error = m_error || (!ok);
+    if (m_error)
+    {
+        if (m_sig)
+            git_signature_free(m_sig);
+        m_sig = NULL;
+        if (m_index)
+            git_index_free(m_index);
+        m_index = NULL;
+        if (m_odb)
+            git_odb_free(m_odb);
+        m_odb = NULL;
+        if (m_cfg)
+            git_config_free(m_cfg);
+        m_cfg = NULL;
+        if (m_repo)
+            git_repository_free(m_repo);
+        m_repo = NULL;
     }
 }
 
 GitRepo::~GitRepo()
 {
     if (m_index)
-    {
-        if (m_index_dirty)
-            write_index();
-
         git_index_free(m_index);
-        m_index = NULL;
-        m_index_dirty = false;
-    }
-
+    m_index = NULL;
+    if (m_odb)
+        git_odb_free(m_odb);
+    m_odb = NULL;
+    if (m_sig)
+        git_signature_free(m_sig);
+    m_sig = NULL;
+    if (m_cfg)
+        git_config_free(m_cfg);
+    m_cfg = NULL;
     if (m_repo)
-    {
         git_repository_free(m_repo);
-        m_repo = NULL;
+    m_repo = NULL;
+}
 
-        // TODO: should we free() m_repo_cfg (git_config *)?
-        m_repo_cfg = NULL;
+GitTreebuilderPtr GitRepo::root()
+{
+    if (m_root && m_root.get())
+        return m_root;
 
-        // TODO: should we free() m_odb (git_odb *)?
-        m_odb = NULL;
-    }
+    // GitRepoPtr thisPtr(this);
+
+    m_root = GitTreebuilder::Create(ptr());
+    m_root->_set_filename("/");
+    return m_root;
 }
 
 int32_t GitRepo::formatVersion() const
 {
-    int error;
+    int rc;
 
     int32_t formatversion = -1;
 
-    error = git_config_get_int32(&formatversion, g_config(), "alembic.formatversion");
-    git_check_error(error, "getting alembic.formatversion config value");
+    rc = git_config_get_int32(&formatversion, g_config(), "alembic.formatversion");
+    git_check_error(rc, "getting alembic.formatversion config value");
 
     return formatversion;
 }
 
 int32_t GitRepo::libVersion() const
 {
-    int error;
+    int rc;
 
     int32_t libversion = -1;
 
-    error = git_config_get_int32(&libversion, g_config(), "alembic.libversion");
-    git_check_error(error, "getting alembic.libversion config value");
+    rc = git_config_get_int32(&libversion, g_config(), "alembic.libversion");
+    git_check_error(rc, "getting alembic.libversion config value");
 
     return libversion;
 }
 
-bool GitRepo::isValid() const
-{
-    return m_repo ? true : false;
-}
-
-bool GitRepo::isClean() const
-{
-    // [TODO]: implement git clean check
-    return false;
-}
-
-bool GitRepo::isFrozen() const
-{
-    // [TODO]: implement frozen check
-    return true;
-}
-
-// create a group and add it as a child to this group
-GitGroupPtr GitRepo::addGroup( const std::string& name )
-{
-    ABCA_ASSERT( (name != "/") || (! m_root_group_ptr.get()), "Root group '/' already exists" );
-    GitGroupPtr child(new GitGroup( shared_from_this(), name ));
-    return child;
-}
-
-GitGroupPtr GitRepo::rootGroup()
-{
-    if (! m_root_group_ptr.get())
-        m_root_group_ptr = addGroup("/");
-
-    return m_root_group_ptr;
-}
-
-std::string GitRepo::repr(bool extended) const
-{
-    std::ostringstream ss;
-
-    if (extended)
-        ss << "<GitRepo path:'" << m_pathname << "' mode:" << m_mode << ">";
-    else
-        ss << "'" << m_pathname << "'";
-    return ss.str();
-}
+/* index based API */
 
 bool GitRepo::add(const std::string& path)
 {
@@ -283,8 +379,8 @@ bool GitRepo::add(const std::string& path)
     ABCA_ASSERT( m_index, "libgit2 index must be open" );
 
     TRACE("adding '" << path << "' to git index");
-    int error = git_index_add_bypath(m_index, path.c_str());
-    if (! lg2_check_error(error, "adding file to git index"))
+    int rc = git_index_add_bypath(m_index, path.c_str());
+    if (! git_check_ok(rc, "adding file to git index"))
         return false;
     m_index_dirty = true;
 
@@ -303,15 +399,15 @@ bool GitRepo::write_index()
     }
 
     TRACE("writing git index");
-    int error = git_index_write(m_index);
-    if (! lg2_check_error(error, "writing git index"))
+    int rc = git_index_write(m_index);
+    if (! git_check_ok(rc, "writing git index"))
         return false;
     m_index_dirty = false;
 
     return true;
 }
 
-bool GitRepo::commit(const std::string& message) const
+bool GitRepo::commit_index(const std::string& message) const
 {
     git_signature *sig;
     git_oid tree_id, commit_id;
@@ -320,15 +416,15 @@ bool GitRepo::commit(const std::string& message) const
     git_oid head_oid;
     git_commit *head_commit = NULL;
 
-    int error;
+    int rc;
 
     ABCA_ASSERT( m_repo, "libgit2 repository must be open" );
     ABCA_ASSERT( m_index, "libgit2 index must be open" );
 
     /** First use the config to initialize a commit signature for the user. */
 
-    error = git_signature_default(&sig, m_repo);
-    if (! lg2_check_error(error, "obtaining commit signature. Perhaps 'user.name' and 'user.email' are not set."))
+    rc = git_signature_default(&sig, m_repo);
+    if (! git_check_ok(rc, "obtaining commit signature. Perhaps 'user.name' and 'user.email' are not set."))
         return false;
 
     /* Now let's create an empty tree for this commit */
@@ -339,12 +435,12 @@ bool GitRepo::commit(const std::string& message) const
      * leave it empty for now.
      */
 
-    error = git_index_write_tree(&tree_id, m_index);
-    if (! lg2_check_error(error, "writing initial tree from index"))
+    rc = git_index_write_tree(&tree_id, m_index);
+    if (! git_check_ok(rc, "writing initial tree from index"))
         return false;
 
-    error = git_tree_lookup(&tree, m_repo, &tree_id);
-    if (! lg2_check_error(error, "looking up initial tree"))
+    rc = git_tree_lookup(&tree, m_repo, &tree_id);
+    if (! git_check_ok(rc, "looking up initial tree"))
         return false;
 
     /**
@@ -361,25 +457,25 @@ bool GitRepo::commit(const std::string& message) const
         head_commit = NULL;
     } else
     {
-        error = git_commit_lookup(&head_commit, m_repo, &head_oid);
-        if (! lg2_check_error(error, "looking up HEAD commit"))
+        rc = git_commit_lookup(&head_commit, m_repo, &head_oid);
+        if (! git_check_ok(rc, "looking up HEAD commit"))
             return false;
     }
 
     if (! head_commit)
     {
         TRACE("Performing first commit.");
-        error = git_commit_create_v(
+        rc = git_commit_create_v(
                     &commit_id, m_repo, "HEAD", sig, sig,
                     NULL, message.c_str(), tree, 0);
-        if (! lg2_check_error(error, "creating the initial commit"))
+        if (! git_check_ok(rc, "creating the initial commit"))
             return false;
     } else
     {
-        error = git_commit_create_v(
+        rc = git_commit_create_v(
                     &commit_id, m_repo, "HEAD", sig, sig,
                     NULL, message.c_str(), tree, 1, head_commit);
-        if (! lg2_check_error(error, "creating the commit"))
+        if (! git_check_ok(rc, "creating the commit"))
             return false;
     }
 
@@ -391,30 +487,301 @@ bool GitRepo::commit(const std::string& message) const
     return true;
 }
 
+bool GitRepo::commit_treebuilder(const std::string& message)
+{
+    git_oid head_oid;
+    git_commit *head_commit = NULL;
+
+    git_oid oid_commit;
+
+    int rc;
+
+    ABCA_ASSERT( m_repo, "libgit2 repository must be open" );
+
+    /**
+     * Ready to create the initial commit.
+     *
+     * Normally creating a commit would involve looking up the current
+     * HEAD commit and making that be the parent of the initial commit,
+     * but here this is the first commit so there will be no parent.
+     */
+
+    if (git_reference_name_to_id(&head_oid, m_repo, "HEAD") < 0)
+    {
+        TRACE("HEAD not found (no previous commits)");
+        head_commit = NULL;
+    } else
+    {
+        rc = git_commit_lookup(&head_commit, m_repo, &head_oid);
+        if (! git_check_ok(rc, "looking up HEAD commit"))
+            return false;
+    }
+
+    if (! head_commit)
+    {
+        TRACE("Performing first commit.");
+        rc = git_commit_create_v(
+                    &oid_commit, g_ptr(), "HEAD", g_signature(), g_signature(),
+                    NULL, message.c_str(), root()->tree(), 0);
+        if (! git_check_ok(rc, "creating the initial commit"))
+            return false;
+    } else
+    {
+        rc = git_commit_create_v(
+                    &oid_commit, g_ptr(), "HEAD", g_signature(), g_signature(),
+                    NULL, message.c_str(), root()->tree(), 1, head_commit);
+        if (! git_check_ok(rc, "creating the commit"))
+            return false;
+    }
+
+    return true;
+}
+
+/* misc */
+
 std::string GitRepo::relpath(const std::string& pathname_) const
 {
     return relative_path(real_path(pathname_), real_path(pathname()));
 }
 
-bool GitRepo::lg2_check_error(int error_code, const std::string& action) const
+/* groups */
+
+// create a group and add it as a child to this group
+GitGroupPtr GitRepo::addGroup( const std::string& name )
 {
-    if (! error_code)
-       return true;
+    ABCA_ASSERT( (name != "/") || (! m_root_group_ptr.get()), "Root group '/' already exists" );
 
-    const git_error *error = giterr_last();
+    GitGroupPtr child(new GitGroup( shared_from_this(), name ));
+    if (name == "/")
+        child->_set_treebld(root());
 
-    std::cerr << "libgit2 error " << error_code << " " << action <<
-        " - " << ((error && error->message) ? error->message : "???") <<
-        std::endl;
-    std::cerr.flush();
+    return child;
+}
 
-    ABCA_THROW( "libgit2 error " << error_code << " " << action <<
-        " - " << ((error && error->message) ? error->message : "???") );
+GitGroupPtr GitRepo::rootGroup()
+{
+    if (! m_root_group_ptr.get())
+        m_root_group_ptr = addGroup("/");
+
+    return m_root_group_ptr;
+}
+
+std::ostream& operator<< (std::ostream& out, const GitRepo& repo)
+{
+    out << "<GitRepo path:'" << repo.pathname() << "' mode:" << repo.mode() << ">";
+    return out;
+}
+
+
+/* --- GitTreebuilder ------------------------------------------------- */
+
+/* --- GitTreebuilder ------------------------------------------------- */
+
+GitTreebuilder::GitTreebuilder(GitRepoPtr repo) :
+    m_repo(repo), m_tree_bld(NULL), m_tree(NULL), m_written(false), m_dirty(false), m_error(false)
+{
+    int rc = git_treebuilder_new(&m_tree_bld, m_repo->g_ptr(), /* source */ NULL);
+    m_error = m_error || git_check_error(rc, "creating treebuilder");
+    memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
+}
+
+GitTreebuilderPtr GitTreebuilder::Create(GitTreebuilderPtr parent, const std::string& filename)
+{
+    assert(parent.get());
+
+    GitTreebuilderPtr ptr = GitTreebuilder::Create(parent->repo());
+    ptr->_set_parent(parent);
+    ptr->_set_filename(filename);
+    return ptr;
+}
+
+void GitTreebuilder::_set_parent(GitTreebuilderPtr parent)
+{
+    m_parent = parent;
+}
+
+void GitTreebuilder::_set_filename(const std::string& filename)
+{
+    m_filename = filename;
+}
+
+GitTreebuilder::~GitTreebuilder()
+{
+    if (m_tree)
+        git_tree_free(m_tree);
+    m_tree = NULL;
+    if (m_tree_bld)
+        git_treebuilder_free(m_tree_bld);
+    m_tree_bld = NULL;
+}
+
+std::string GitTreebuilder::pathname() const
+{
+    if (isRoot())
+        return filename();
+
+    assert(m_parent && m_parent.get());
+
+    return v_pathjoin(m_parent->pathname(), filename(), '/');
+}
+
+std::string GitTreebuilder::relPathname() const
+{
+    if (isRoot())
+        return filename();
+
+    assert(m_parent && m_parent.get());
+
+    return pathjoin(m_parent->relPathname(), filename());
+}
+
+std::string GitTreebuilder::absPathname() const
+{
+    return pathjoin(m_repo->pathname(), pathname());
+}
+
+GitTreebuilderPtr GitTreebuilder::getChild(const std::string& filename)
+{
+    std::vector<GitTreebuilderPtr>::const_iterator it;
+    for (it = m_children.begin(); it != m_children.end(); ++it)
+    {
+        const GitTreebuilderPtr& child = *it;
+
+        if (child->filename() == filename)
+            return child;
+    }
+
+    return GitTreebuilderPtr();
+}
+
+bool GitTreebuilder::dirty() const
+{
+    if (m_dirty)
+        return true;
+
+    std::vector<GitTreebuilderPtr>::const_iterator it;
+    for (it = m_children.begin(); it != m_children.end(); ++it)
+    {
+        const GitTreebuilderPtr& child = *it;
+
+        if (child->dirty())
+            return true;
+    }
 
     return false;
 }
 
-//-*****************************************************************************
+bool GitTreebuilder::write()
+{
+    bool op_ok, ok = true;
+    int rc;
+
+    if (m_written && !dirty())
+        return true;
+
+    std::vector<GitTreebuilderPtr>::iterator it;
+    for (it = m_children.begin(); it != m_children.end(); ++it)
+    {
+        GitTreebuilderPtr& child = *it;
+
+        op_ok = _write_subtree_and_insert(child);
+        ok = ok && op_ok;
+    }
+    m_error = m_error || (!ok);
+    if (! ok)
+        return false;
+
+    rc = git_treebuilder_write(&m_tree_oid, m_tree_bld);
+    ok = ok && git_check_ok(rc, "writing treebuilder to the db");
+    if (! ok) goto ret;
+
+    rc = git_tree_lookup(&m_tree, m_repo->g_ptr(), &m_tree_oid);
+    ok = ok && git_check_ok(rc, "looking up tree from tree oid");
+    if (! ok) goto ret;
+
+ret:
+    m_error = m_error || (!ok);
+    m_written = ok;
+    m_dirty = m_dirty && !ok;
+    return m_written;
+}
+
+bool GitTreebuilder::add_file_from_memory(const std::string& filename, const std::string& contents)
+{
+    git_oid oid_blob;                       /* the SHA1 for our blob in the tree */
+    git_blob *blob = NULL;                  /* our blob in the tree */
+    int rc;
+
+    rc = git_blob_create_frombuffer(&oid_blob, m_repo->g_ptr(),
+        contents.c_str(), contents.length());
+    m_error = m_error || git_check_error(rc, "creating blob");
+    if (m_error) goto ret;
+
+    rc = git_blob_lookup(&blob, m_repo->g_ptr(), &oid_blob);
+    m_error = m_error || git_check_error(rc, "looking up blob oid");
+    if (m_error) goto ret;
+
+    rc = git_treebuilder_insert(NULL, m_tree_bld,
+        filename.c_str(), &oid_blob, GIT_FILEMODE_BLOB);
+    m_error = m_error || git_check_error(rc, "adding blob to treebuilder");
+    if (m_error) goto ret;
+
+    m_dirty = m_dirty || !m_error;
+
+ret:
+    if (blob)
+        git_blob_free(blob);
+    return !m_error;
+}
+
+GitTreebuilderPtr GitTreebuilder::add_tree(const std::string& filename)
+{
+    GitTreebuilderPtr childPtr = GitTreebuilder::Create(ptr(), filename);
+
+    bool ok = _add_subtree(childPtr);
+    if (ok)
+        return childPtr;
+    return GitTreebuilderPtr();
+}
+
+bool GitTreebuilder::_add_subtree(GitTreebuilderPtr subtreePtr)
+{
+    if (m_children_set.count(subtreePtr) != 0)
+        return true;
+
+    m_children_set.insert(subtreePtr);
+    m_children.push_back(subtreePtr);
+
+    return true;
+}
+
+bool GitTreebuilder::_write_subtree_and_insert(GitTreebuilderPtr child)
+{
+    assert(child && child.get());
+
+    if (! child->write())
+        return false;
+
+    git_oid subtree_oid = child->oid();
+
+    int rc = git_treebuilder_insert(NULL, m_tree_bld,
+        child->filename().c_str(), &subtree_oid, GIT_FILEMODE_TREE);
+    m_error = m_error || git_check_error(rc, "adding subdirectory tree to treebuilder");
+
+    m_dirty = m_dirty || !m_error;
+
+    return !m_error;
+}
+
+std::ostream& operator<< (std::ostream& out, const GitTreebuilder& treeBld)
+{
+    out << "<GitTreebuilder path:'" << treeBld.pathname() << "'>";
+    return out;
+}
+
+
+/* --- GitObject ------------------------------------------------------ */
+
 GitObject::GitObject( GitRepoPtr repo, git_oid oid ) :
     m_repo_ptr(repo), m_oid(oid), m_obj(NULL)
 {
@@ -452,7 +819,9 @@ GitObject::~GitObject()
     }
 }
 
-//-*****************************************************************************
+
+/* --- GitGroup ------------------------------------------------------- */
+
 GitGroup::GitGroup( GitRepoPtr repo, const std::string& name ) :
     m_repo_ptr(repo), m_name(name), m_written(false), m_read(false)
 {
@@ -495,7 +864,35 @@ GitGroup::~GitGroup()
 GitGroupPtr GitGroup::addGroup( const std::string& name )
 {
     GitGroupPtr child(new GitGroup( shared_from_this(), name ));
+
+    assert(! (child->m_treebld_ptr || child->m_treebld_ptr.get()));
+
+    GitTreebuilderPtr treebld_ptr = treebuilder();
+    if (treebld_ptr)
+    {
+        child->_set_treebld( treebld_ptr->add_tree(name) );
+    }
+
     return child;
+}
+
+GitTreebuilderPtr GitGroup::treebuilder()
+{
+    if (! m_treebld_ptr)
+    {
+        GitGroupPtr parent_ = parent();
+        if (parent_)
+        {
+            _set_treebld( parent_->treebuilder()->add_tree(name()) );
+        }
+    }
+
+    return m_treebld_ptr;
+};
+
+bool GitGroup::add_file_from_memory(const std::string& filename, const std::string& contents)
+{
+    return treebuilder()->add_file_from_memory(filename, contents);
 }
 
 GitDataPtr GitGroup::addData(Alembic::Util::uint64_t iSize, const void * iData)
@@ -559,6 +956,7 @@ std::string GitGroup::absPathname() const
 
 void GitGroup::writeToDisk()
 {
+#if JSON_TO_DISK
     const GitMode& mode_ = mode();
     if ((mode_ != GitMode::Write) && (mode_ != GitMode::ReadWrite))
         return;
@@ -574,6 +972,11 @@ void GitGroup::writeToDisk()
     {
         TRACE("GitGroup::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
     }
+#else
+
+    m_written = true;
+
+#endif
 
     ABCA_ASSERT( m_written, "data not written" );
 }
@@ -631,8 +1034,22 @@ std::string GitGroup::repr(bool extended) const
 
 bool GitGroup::finalize()
 {
+#if JSON_TO_DISK
     return mkpath( absPathname(), 0777 );
+#else
+    return true;
+#endif
 }
+
+void GitGroup::_set_treebld(GitTreebuilderPtr treebld_ptr)
+{
+    assert((! m_treebld_ptr) || (! m_treebld_ptr.get()));
+
+    m_treebld_ptr = treebld_ptr;
+}
+
+
+/* --- GitData -------------------------------------------------------- */
 
 GitData::GitData(GitGroupPtr iGroup, Alembic::Util::uint64_t iPos,
           Alembic::Util::uint64_t iSize) :

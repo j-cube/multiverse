@@ -11,24 +11,81 @@
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Utils.h>
-#include <git2.h>
 
 #include <iostream>
 #include <sstream>
+
+#include <set>
+#include <vector>
+
+#include <boost/operators.hpp>
+
+#include <git2.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
-void git_check_error(int error_code, const std::string& action);
+/* --------------------------------------------------------------------
+ *   MACROS
+ * -------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------
+ *   UTILITY FUNCTIONS
+ * -------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------
+ *   CLASSES
+ * -------------------------------------------------------------------- */
+
+/* --- forward declarations ------------------------------------------- */
+
+class LibGit;
+struct GitMode;
+class GitRepo;
+class GitTreebuilder;
 
 class GitGroup;
+class GitData;
+
+typedef Alembic::Util::shared_ptr<GitRepo> GitRepoPtr;
+typedef Alembic::Util::shared_ptr<const GitRepo> GitRepoConstPtr;
+typedef Alembic::Util::shared_ptr<GitTreebuilder> GitTreebuilderPtr;
+
 typedef Alembic::Util::shared_ptr<GitGroup> GitGroupPtr;
 typedef Alembic::Util::shared_ptr<const GitGroup> GitGroupConstPtr;
 
-class GitData;
 typedef Alembic::Util::shared_ptr<GitData> GitDataPtr;
 typedef Alembic::Util::shared_ptr<const GitData> GitDataConstPtr;
+
+
+/* --- LibGit --------------------------------------------------------- */
+
+// based on Monoid pattern of Alexandrescu's "Modern C++ Design"
+// see:
+//   http://stackoverflow.com/questions/2496918/singleton-pattern-in-c
+//   http://stackoverflow.com/a/2498423/1363486
+
+class LibGit
+{
+public:
+    ~LibGit();
+
+    static Alembic::Util::shared_ptr<LibGit> Instance();
+
+    static bool IsInitialized();
+    static bool Initialize();
+
+private:
+    static void CleanUp();
+
+    LibGit();
+
+    static Alembic::Util::shared_ptr<LibGit> m_instance;
+};
+
+
+/* --- GitMode -------------------------------------------------------- */
 
 // enum-like functionality in a struct (http://stackoverflow.com/a/2506286)
 struct GitMode
@@ -45,8 +102,6 @@ struct GitMode
     bool operator== (const Type &rhs) { return (m_t == rhs); }
     operator Type () const { return m_t; }
 
-    std::string repr(bool extended = false) const { std::ostringstream ss; ss << *this; return ss.str(); }
-
     //friend inline bool operator== (const GitMode &lhs, const GitMode &rhs) { return (lhs.m_t == rhs.m_t); }
     friend std::ostream& operator<< ( std::ostream& out, const GitMode& value );
 
@@ -59,73 +114,199 @@ private:
     bool operator== (int);
 };
 
-//-*****************************************************************************
+std::ostream& operator<< (std::ostream& out, const GitMode& value);
+
+
+/* --- GitRepo -------------------------------------------------------- */
+
 class GitRepo : public Alembic::Util::enable_shared_from_this<GitRepo>
 {
 public:
-    GitRepo( const std::string& pathname, GitMode mode );
-    GitRepo( const std::string& pathname, git_repository *repo, git_config *cfg );
+    GitRepo(const std::string& pathname, GitMode mode = GitMode::ReadWrite);
+    // GitRepo(const std::string& pathname);
     virtual ~GitRepo();
 
-    const GitMode& mode() const { return m_mode; }
+    static GitRepoPtr Create(const std::string& dotGitPathname) { return GitRepoPtr(new GitRepo(dotGitPathname)); }
+
+    GitRepoPtr ptr()                { return shared_from_this(); }
+
+    // WARNING: be sure to have an existing shared_ptr to the repo
+    // before calling the following method!
+    // (Because it uses shared_from_this()...)
+    GitTreebuilderPtr root();
+
+    std::string pathname() const    { return m_pathname; }
+    const GitMode& mode() const     { return m_mode; }
 
     int32_t formatVersion() const;
     int32_t libVersion() const;
 
-    bool isValid() const;
-
-    bool isClean() const;
-
-    bool isFrozen() const;      // frozen means not correctly and completely written
+    /* index based API */
 
     bool add(const std::string& path);
     bool write_index();
-    bool commit(const std::string& message) const;
+    bool commit_index(const std::string& message) const;
 
-    std::string relpath(const std::string& pathname) const;
+    /* treebuilder-based API */
+
+    bool commit_treebuilder(const std::string& message);
+
+    /* misc */
+    bool isValid() const            { return (m_repo && !error()); }
+    bool isClean() const            { return false; /* [TODO]: implement git clean check */ }
+    bool isFrozen() const           { return true; /* [TODO]: implement frozen check */ }
+
+    std::string relpath(const std::string& pathname_) const;
+
+    /* groups */
 
     // create a top-level group from this repo
     GitGroupPtr addGroup( const std::string& name );
 
     GitGroupPtr rootGroup();
 
-    const std::string& pathname() const           { return m_pathname; }
-    git_repository *g_repository() const          { return m_repo; }
-    git_index *g_index() const                    { return m_index; }
+    /* error handling */
 
-    git_config *g_config() const                  { return m_repo_cfg; }
+    bool error() const              { return m_error; }
 
-    git_odb *g_odb() const                        { return m_odb; }
+    /* libgit2-level stuff */
 
-    std::string repr(bool extended=false) const;
-
-    friend std::ostream& operator<< ( std::ostream& out, const GitRepo& value );
+    git_repository* g_ptr()             { return m_repo; }
+    git_repository* g_ptr() const       { return m_repo; }
+    git_config* g_config()              { return m_cfg; }
+    git_config* g_config() const        { return m_cfg; }
+    git_signature* g_signature()        { return m_sig; }
+    git_signature* g_signature() const  { return m_sig; }
+    git_index *g_index() const          { return m_index; }
+    git_odb *g_odb() const              { return m_odb; }
 
 private:
-    bool lg2_check_error(int error_code, const std::string& action) const;
+    GitRepo();                                  // disable default constructor
+    GitRepo(const GitRepo& other);              // disable copy constructor
+//    GitRepo(git_repository* repo, git_config* config, git_signature* signature);    // private constructor
 
-    GitMode         m_mode;
-    std::string     m_pathname;
-    git_repository  *m_repo;
-    git_config      *m_repo_cfg;
-    git_odb         *m_odb;
-    git_index       *m_index;
-    bool            m_index_dirty;
+    std::string m_pathname;
+    GitMode m_mode;
+    git_repository* m_repo;
+    git_config *m_cfg;
+    git_signature *m_sig;
+    git_odb *m_odb;
+    git_index *m_index;
+    bool m_error;
 
-    GitGroupPtr     m_root_group_ptr;
+    bool m_index_dirty;
+
+    GitTreebuilderPtr m_root;
+    GitGroupPtr m_root_group_ptr;
 };
 
-typedef Alembic::Util::shared_ptr<GitRepo> GitRepoPtr;
-typedef Alembic::Util::shared_ptr<const GitRepo> GitRepoConstPtr;
+std::ostream& operator<< (std::ostream& out, const GitRepo& repo);
+inline std::ostream& operator<< (std::ostream& out, const GitRepoPtr& repoPtr) { out << *repoPtr; return out; }
 
 
-inline std::ostream& operator<< ( std::ostream& out, const GitRepo& value )
+/* --- GitTreebuilder ------------------------------------------------- */
+  
+class GitTreebuilder : public Alembic::Util::enable_shared_from_this<GitTreebuilder>, private boost::totally_ordered<GitTreebuilder>
 {
-    out << value.repr();
-    return out;
+public:
+    virtual ~GitTreebuilder();
+
+    GitTreebuilderPtr ptr()                 { return shared_from_this(); }
+
+    bool error()                            { return m_error; }
+
+    GitRepoPtr repo()                       { return m_repo; }
+
+    bool isRoot() const                     { return !(m_parent && m_parent.get()); }
+    GitTreebuilderPtr root() const          { return m_repo->root(); }
+    GitTreebuilderPtr parent() const        { return m_parent; }
+    std::string filename() const            { return m_filename; }
+    std::string pathname() const;
+    std::string relPathname() const;
+    std::string absPathname() const;
+
+    GitTreebuilderPtr getChild(const std::string& filename);
+
+    git_treebuilder* g_ptr()                { return m_tree_bld; }
+    git_treebuilder* g_ptr() const          { return m_tree_bld; }
+    git_repository* g_repo_ptr()            { return m_repo->g_ptr(); }
+    git_repository* g_repo_ptr() const      { return m_repo->g_ptr(); }
+
+    const git_oid& oid() const              { return m_tree_oid; }
+    git_tree* tree()                        { return m_tree; }
+    git_tree* tree() const                  { return m_tree; }
+
+    virtual bool write();
+    virtual bool add_file_from_memory(const std::string& filename, const std::string& contents);
+
+    // WARNING: be sure to have an existing shared_ptr to this treebuilder
+    // before calling the following method!
+    // (Because it uses shared_from_this()...)
+    virtual GitTreebuilderPtr add_tree(const std::string& filename);
+
+    virtual bool dirty() const;
+
+    static bool cmp(const GitTreebuilder& a, const GitTreebuilder& b)
+    {
+        if ((a.pathname() == b.pathname()) && (a.g_ptr() == b.g_ptr()))
+            return 0;
+        return a.pathname() < b.pathname();
+    }
+    bool operator< (const GitTreebuilder& rhs) const 
+    {
+        return pathname() < rhs.pathname();
+    }
+    bool operator== (const GitTreebuilder& rhs) const 
+    {
+        return GitTreebuilder::cmp(*this, rhs);
+    }
+
+private:
+    GitTreebuilder();                                   // disable default constructor
+    GitTreebuilder(const GitTreebuilder& other);        // disable copy constructor
+    GitTreebuilder(GitRepoPtr repo_ptr);                // private constructor
+
+    static GitTreebuilderPtr Create(GitRepoPtr repo_ptr) { return GitTreebuilderPtr(new GitTreebuilder(repo_ptr)); }
+    static GitTreebuilderPtr Create(GitTreebuilderPtr parent, const std::string& filename);
+
+    bool _add_subtree(GitTreebuilderPtr subtreePtr);
+    bool _write_subtree_and_insert(GitTreebuilderPtr child);
+
+    void _set_parent(GitTreebuilderPtr parent);
+    void _set_filename(const std::string& filename);
+
+    GitRepoPtr m_repo;
+    GitTreebuilderPtr m_parent;
+    std::string m_filename;
+    git_treebuilder* m_tree_bld;
+    git_oid m_tree_oid;                     /* the SHA1 for our corresponding tree */
+    git_tree *m_tree;                       /* our tree */
+    bool m_written;
+    bool m_dirty;
+    bool m_error;
+
+    std::set<GitTreebuilderPtr> m_children_set;
+    std::vector<GitTreebuilderPtr> m_children;
+
+    friend GitTreebuilderPtr GitRepo::root();
+};
+
+inline bool cmp(const GitTreebuilder& a, const GitTreebuilder& b)
+{
+    return GitTreebuilder::cmp(a, b);
 }
 
-//-*****************************************************************************
+inline bool cmp(const GitTreebuilderPtr& a, const GitTreebuilderPtr& b)
+{
+    return GitTreebuilder::cmp(*a, *b);
+}
+
+std::ostream& operator<< (std::ostream& out, const GitTreebuilder& treeBld);
+inline std::ostream& operator<< (std::ostream& out, const GitTreebuilderPtr& treeBldPtr) { out << *treeBldPtr; return out; }
+
+
+/* --- GitObject ------------------------------------------------------ */
+
 class GitObject : public Alembic::Util::enable_shared_from_this<GitObject>
 {
 public:
@@ -137,7 +318,7 @@ public:
     GitRepoConstPtr repo() const                  { return m_repo_ptr; }
     const GitMode& mode() const                   { return repo()->mode(); }
 
-    git_repository *g_repository() const          { return repo()->g_repository(); }
+    git_repository *g_repository() const          { return repo()->g_ptr(); }
 
     git_config *g_config() const                  { return repo()->g_config(); }
 
@@ -158,6 +339,9 @@ private:
 
 typedef Alembic::Util::shared_ptr<GitObject> GitObjectPtr;
 
+
+/* --- GitGroup ------------------------------------------------------- */
+
 //-*****************************************************************************
 //! Represents a Group in the Git alembic backend and at the filesystem level
 //! corresponds to a directory in the working tree
@@ -170,6 +354,12 @@ public:
 
     // create a group and add it as a child to this group
     GitGroupPtr addGroup( const std::string& name );
+
+    /* treebuilder API */
+
+    GitTreebuilderPtr treebuilder();
+
+    bool add_file_from_memory(const std::string& filename, const std::string& contents);
 
     // write the data stream and add it as a child to this group
     GitDataPtr addData(Alembic::Util::uint64_t iSize, const void * iData);
@@ -210,13 +400,22 @@ public:
     bool finalize();
 
 private:
+    friend GitGroupPtr GitRepo::addGroup( const std::string& name );
+
+    void _set_treebld(GitTreebuilderPtr treebld_ptr);
+
     GitRepoPtr      m_repo_ptr;
     GitGroupPtr     m_parent_ptr;
     std::string     m_name;
 
+    GitTreebuilderPtr m_treebld_ptr;
+
     bool            m_written;
     bool            m_read;
 };
+
+
+/* --- GitData -------------------------------------------------------- */
 
 //-*****************************************************************************
 //! Represents a Data chunk (child) in a GitGroup

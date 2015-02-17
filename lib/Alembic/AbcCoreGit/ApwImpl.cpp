@@ -409,6 +409,7 @@ void ApwImpl::writeToDisk()
         t_end = time_us();
         Profile::add_json_output(t_end - t_start);
 
+#if JSON_TO_DISK
         t_start = time_us();
         std::string jsonPathname = absPathname() + ".json";
         std::ofstream jsonFile;
@@ -418,8 +419,6 @@ void ApwImpl::writeToDisk()
         t_end = time_us();
         Profile::add_disk_write(t_end - t_start);
 
-        m_written = true;
-
         GitRepoPtr repo_ptr = m_group->repo();
         ABCA_ASSERT( repo_ptr, "invalid git repository object");
 
@@ -428,6 +427,14 @@ void ApwImpl::writeToDisk()
         repo_ptr->add(jsonRelPathname);
         t_end = time_us();
         Profile::add_git(t_end - t_start);
+#else
+        t_start = time_us();
+        m_group->add_file_from_memory(name() + ".json", output);
+        t_end = time_us();
+        Profile::add_git(t_end - t_start);
+#endif
+
+        m_written = true;
     } else
     {
         TRACE("ApwImpl::writeToDisk() path:'" << absPathname() << "' (skipping, already written)");
