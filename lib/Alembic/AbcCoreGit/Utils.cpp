@@ -114,7 +114,11 @@ std::string pathjoin(const std::string& pathname1, const std::string& pathname2)
     boost::filesystem::path p1(pathname1);
     boost::filesystem::path p2(pathname2);
 
+#ifdef _MSC_VER
+    return (p1 / p2).generic_string();
+#else
     return (p1 / p2).native();
+#endif
 }
 
 // "virtual" pathnames
@@ -149,8 +153,13 @@ std::string v_pathjoin(const std::string& p1, const std::string& p2, char pathse
 std::string path_separator()
 {
     boost::filesystem::path p_slash("/");
+#ifdef _MSC_VER
+    boost::filesystem::path preferredSlash = p_slash.make_preferred();
+    return preferredSlash.generic_string();
+#else
     boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
     return preferredSlash;
+#endif
 }
 
 bool ends_with_separator(const std::string& pathname)
@@ -235,8 +244,14 @@ naive_uncomplete(boost::filesystem::path p, boost::filesystem::path base, bool c
     const std::string _dot  = ".";
     const std::string _dots = "..";
     boost::filesystem::path p_slash("/");
+
+#ifdef _MSC_VER
+    boost::filesystem::path preferredSlash = p_slash.make_preferred();
+    const std::string _sep = preferredSlash.generic_string();
+#else
     boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
     const std::string _sep = preferredSlash;
+#endif
 #endif
 
     // iterate over path and base
@@ -289,7 +304,11 @@ naive_uncomplete(boost::filesystem::path p, boost::filesystem::path base, bool c
 std::string relative_path(const std::string& abs_path, const std::string& base)
 {
     boost::filesystem::path rel_p = naive_uncomplete(abs_path, base);
+#ifdef _MSC_VER
+    return rel_p.generic_string();
+#else
     return rel_p.native();
+#endif
 }
 
 std::string real_path(const std::string& pathname)
@@ -298,7 +317,11 @@ std::string real_path(const std::string& pathname)
     boost::system::error_code ec;
 
     boost::filesystem::path c_p = boost::filesystem::canonical(p);
+#ifdef _MSC_VER
+    return c_p.generic_string();
+#else
     return c_p.native();
+#endif
 }
 
 double time_us()
