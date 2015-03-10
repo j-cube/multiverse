@@ -267,12 +267,26 @@ bool AprImpl::readFromDisk()
     Json::Reader reader;
 
     std::string jsonPathname = absPathname() + ".json";
+
+#if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
     std::stringstream jsonBuffer;
     jsonBuffer << jsonFile.rdbuf();
     jsonFile.close();
 
-    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    std::string jsonContents = jsonBuffer.str();
+#else
+    GitGroupPtr parentGroup = m_group;
+    boost::optional<std::string> optJsonContents = parentGroup->tree()->getChildFile(name() + ".json");
+    if (! optJsonContents)
+    {
+        ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
+        return false;
+    }
+    std::string jsonContents = *optJsonContents;
+#endif
+
+    bool parsingSuccessful = reader.parse(jsonContents, root);
     if (! parsingSuccessful)
     {
         ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );

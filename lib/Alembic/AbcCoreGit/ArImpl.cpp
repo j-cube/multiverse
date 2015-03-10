@@ -174,16 +174,32 @@ bool ArImpl::readFromDisk()
 
     TRACE("[ArImpl " << *this << "] ArImpl::readFromDisk() path:'" << absPathname() << "' (READING)");
 
+    GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
+    GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
+
     Json::Value root;
     Json::Reader reader;
 
     std::string jsonPathname = absPathname() + "/archive.json";
+
+#if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
     std::stringstream jsonBuffer;
     jsonBuffer << jsonFile.rdbuf();
     jsonFile.close();
 
-    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    std::string jsonContents = jsonBuffer.str();
+#else
+    boost::optional<std::string> optJsonContents = topGroupPtr->tree()->getChildFile("archive.json");
+    if (! optJsonContents)
+    {
+        ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
+        return false;
+    }
+    std::string jsonContents = *optJsonContents;
+#endif
+
+    bool parsingSuccessful = reader.parse(jsonContents, root);
     if (! parsingSuccessful)
     {
         ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
@@ -210,9 +226,6 @@ bool ArImpl::readFromDisk()
     m_read = true;
 
     // read top object ("/ABC")
-
-    GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
-    GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
     TODO( "read time samples and max");
 #if 0

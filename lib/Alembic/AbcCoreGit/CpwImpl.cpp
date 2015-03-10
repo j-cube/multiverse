@@ -311,7 +311,8 @@ void CpwImpl::writeToDisk()
         Profile::add_git(t_end - t_start);
 #else
         t_start = time_us();
-        m_data->getGroup()->add_file_from_memory(name() + ".json", output);
+        GitGroupPtr parentGroup = m_data->getGroup()->parent();
+        parentGroup->add_file_from_memory(name() + ".json", output);
         t_end = time_us();
         Profile::add_git(t_end - t_start);
 #endif

@@ -287,6 +287,8 @@ bool CprData::readFromDisk()
     Json::Reader reader;
 
     std::string jsonPathname = absPathname() + ".json";
+
+#if JSON_TO_DISK
     if (! file_exists(jsonPathname))
     {
         TRACE("[CprData " << *this << "]  no '" << jsonPathname << "' present, assuming no properties do exist...");
@@ -298,7 +300,19 @@ bool CprData::readFromDisk()
     jsonBuffer << jsonFile.rdbuf();
     jsonFile.close();
 
-    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    std::string jsonContents = jsonBuffer.str();
+#else
+    GitGroupPtr parentGroup = m_group->parent();
+    boost::optional<std::string> optJsonContents = parentGroup->tree()->getChildFile(name() + ".json");
+    if (! optJsonContents)
+    {
+        ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
+        return false;
+    }
+    std::string jsonContents = *optJsonContents;
+#endif
+
+    bool parsingSuccessful = reader.parse(jsonContents, root);
     if (! parsingSuccessful)
     {
         ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
@@ -365,6 +379,7 @@ bool CprData::readFromDiskSubHeader(size_t i)
 
     ABCA_ASSERT( m_group, "invalid group" );
 
+    std::string subName = m_subProperties[i].name;
     std::string subAbsPathname = pathjoin(absPathname(), m_subProperties[i].name);
 
     TRACE("[CprData " << *this << "] CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' path:'" << subAbsPathname << "' (READING)");
@@ -373,12 +388,26 @@ bool CprData::readFromDiskSubHeader(size_t i)
     Json::Reader reader;
 
     std::string jsonPathname = subAbsPathname + ".json";
+
+#if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
     std::stringstream jsonBuffer;
     jsonBuffer << jsonFile.rdbuf();
     jsonFile.close();
 
-    bool parsingSuccessful = reader.parse(jsonBuffer.str(), root);
+    std::string jsonContents = jsonBuffer.str();
+#else
+    GitGroupPtr parentGroup = m_group;
+    boost::optional<std::string> optJsonContents = parentGroup->tree()->getChildFile(subName + ".json");
+    if (! optJsonContents)
+    {
+        ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
+        return false;
+    }
+    std::string jsonContents = *optJsonContents;
+#endif
+
+    bool parsingSuccessful = reader.parse(jsonContents, root);
     if (! parsingSuccessful)
     {
         ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );

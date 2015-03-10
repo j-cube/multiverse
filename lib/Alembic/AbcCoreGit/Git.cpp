@@ -335,6 +335,9 @@ GitRepo::~GitRepo()
     m_repo = NULL;
 }
 
+// WARNING: be sure to have an existing shared_ptr to the repo
+// before calling the following method!
+// (Because it uses shared_from_this()...)
 GitTreebuilderPtr GitRepo::root()
 {
     if (m_root && m_root.get())
@@ -345,6 +348,18 @@ GitTreebuilderPtr GitRepo::root()
     m_root = GitTreebuilder::Create(ptr());
     m_root->_set_filename("/");
     return m_root;
+}
+
+// WARNING: be sure to have an existing shared_ptr to the repo
+// before calling the following method!
+// (Because it uses shared_from_this()...)
+GitTreePtr GitRepo::rootTree()
+{
+    if (m_root_tree && m_root_tree.get())
+        return m_root_tree;
+
+    m_root_tree = GitTree::Create(ptr());
+    return m_root_tree;
 }
 
 int32_t GitRepo::formatVersion() const
@@ -573,7 +588,200 @@ std::ostream& operator<< (std::ostream& out, const GitRepo& repo)
 }
 
 
-/* --- GitTreebuilder ------------------------------------------------- */
+/* --- GitTree -------------------------------------------------------- */
+
+GitTree::GitTree(GitRepoPtr repo) :
+    m_repo(repo), m_filename("/"), m_tree(NULL), m_error(false)
+{
+    git_reference* head = NULL;
+    git_commit* commit = NULL;
+
+    memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
+
+    int rc = git_repository_head(&head, m_repo->g_ptr());
+    m_error = m_error || git_check_error(rc, "determining HEAD");
+
+    rc = git_commit_lookup(&commit, repo->g_ptr(), git_reference_target(head));
+    m_error = m_error || git_check_error(rc, "getting HEAD commit");
+    git_reference_free(head);
+    head = NULL;
+
+    rc = git_commit_tree(&m_tree, commit);
+    m_error = m_error || git_check_error(rc, "getting commit tree");
+
+    if (m_tree)
+        git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+}
+
+GitTree::GitTree(GitRepoPtr repo, std::string rev_str) :
+    m_repo(repo), m_filename("/"), m_tree(NULL), m_error(false)
+{
+    git_object* obj = NULL;
+
+    memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
+
+    int rc = git_revparse_single(&obj, repo->g_ptr(), rev_str.c_str());
+    m_error = m_error || git_check_error(rc, "parsing revision string");
+
+    rc = git_tree_lookup(&m_tree, repo->g_ptr(), git_object_id(obj));
+    m_error = m_error || git_check_error(rc, "looking up tree");
+
+    git_object_free(obj);
+    obj = NULL;
+
+    if (m_tree)
+        git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+}
+
+GitTree::GitTree(GitRepoPtr repo, GitTreePtr parent_ptr, git_tree* lg_ptr) :
+    m_repo(repo), m_parent(parent_ptr), m_tree(NULL), m_error(false)
+{
+    memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
+
+    m_tree = lg_ptr;
+
+    if (m_tree)
+        git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+}
+
+GitTree::~GitTree()
+{
+    if (m_tree)
+        git_tree_free(m_tree);
+    m_tree = NULL;
+}
+
+boost::optional<GitTreePtr> GitTree::Create(GitTreePtr parent_ptr, const std::string& filename)
+{
+    assert(parent_ptr.get());
+
+    return parent_ptr->getChildTree(filename);
+}
+
+std::string GitTree::pathname() const
+{
+    if (isRoot())
+        return filename();
+
+    assert(m_parent && m_parent.get());
+
+    return v_pathjoin(m_parent->pathname(), filename(), '/');
+}
+
+std::string GitTree::relPathname() const
+{
+    if (isRoot())
+        return filename();
+
+    assert(m_parent && m_parent.get());
+
+    return pathjoin(m_parent->relPathname(), filename());
+}
+
+std::string GitTree::absPathname() const
+{
+    return pathjoin(m_repo->pathname(), pathname());
+}
+
+// WARNING: be sure to have an existing shared_ptr to this treebuilder
+// before calling the following method!
+// (Because it uses shared_from_this()...)
+boost::optional<GitTreePtr> GitTree::getChildTree(const std::string& filename)
+{
+    if (! m_tree)
+        return boost::none;
+
+    assert(m_tree);
+
+    const git_tree_entry *entry = git_tree_entry_byname(m_tree, filename.c_str());
+    if (! entry)
+        return boost::none;
+
+    assert(entry);
+    if (git_tree_entry_type(entry) == GIT_OBJ_TREE)
+    {
+        git_tree *subtree = NULL;
+        int rc = git_tree_lookup(&subtree, repo()->g_ptr(), git_tree_entry_id(entry));
+        m_error = m_error || git_check_error(rc, "getting child tree");
+        return GitTreePtr(new GitTree(repo(), shared_from_this(), subtree));
+    }
+
+    return boost::none;
+}
+
+boost::optional<std::string> GitTree::getChildFile(const std::string& filename)
+{
+    if (! m_tree)
+        return boost::none;
+
+    assert(m_tree);
+
+    const git_tree_entry *entry = git_tree_entry_byname(m_tree, filename.c_str());
+    if (! entry)
+        return boost::none;
+
+    assert(entry);
+    if (git_tree_entry_type(entry) == GIT_OBJ_BLOB)
+    {
+        git_blob *blob = NULL;
+        int rc = git_blob_lookup(&blob, repo()->g_ptr(), git_tree_entry_id(entry));
+        m_error = m_error || git_check_error(rc, "getting child blob");
+
+        std::string blob_str(static_cast<const char *>(git_blob_rawcontent(blob)), git_blob_rawsize(blob));
+
+        git_blob_free(blob);
+        blob = NULL;
+
+        return blob_str;
+    }
+
+    return boost::none;
+}
+
+bool GitTree::hasChild(const std::string& filename)
+{
+    if (! m_tree)
+        return false;
+
+    const git_tree_entry *entry = git_tree_entry_byname(m_tree, filename.c_str());
+    if (! entry)
+        return false;
+
+    assert(entry);
+    return true;
+}
+
+bool GitTree::hasFileChild(const std::string& filename)
+{
+    if (! m_tree)
+        return false;
+
+    const git_tree_entry *entry = git_tree_entry_byname(m_tree, filename.c_str());
+    if (! entry)
+        return false;
+
+    assert(entry);
+    return (git_tree_entry_type(entry) == GIT_OBJ_BLOB);
+}
+
+bool GitTree::hasTreeChild(const std::string& filename)
+{
+    if (! m_tree)
+        return false;
+
+    const git_tree_entry *entry = git_tree_entry_byname(m_tree, filename.c_str());
+    if (! entry)
+        return false;
+
+    assert(entry);
+    return (git_tree_entry_type(entry) == GIT_OBJ_TREE);
+}
+
+std::ostream& operator<< (std::ostream& out, const GitTree& tree)
+{
+    out << "<GitTree path:'" << tree.pathname() << "'>";
+    return out;
+}
 
 /* --- GitTreebuilder ------------------------------------------------- */
 
@@ -876,6 +1084,44 @@ GitGroupPtr GitGroup::addGroup( const std::string& name )
     return child;
 }
 
+/* tree API (R) */
+
+GitTreePtr GitGroup::tree()
+{
+    if (! m_tree_ptr)
+    {
+        if (isTopLevel())
+            m_tree_ptr = GitTree::Create(repo());
+        else
+        {
+            boost::optional<GitTreePtr> o_tree = GitTree::Create(parent()->tree(), filename());
+
+            if (o_tree)
+                m_tree_ptr = *o_tree;
+            else
+            {
+                ABCA_THROW( "can't obtain git tree for '" << pathname() << "'" );
+            }
+        }
+    }
+
+    return m_tree_ptr;
+}
+
+bool GitGroup::hasGitTree()
+{
+    if (m_tree_ptr)
+        return true;
+
+    if (isTopLevel())
+        return true;
+
+    if (! parent()->tree())
+        return false;
+
+    return parent()->tree()->hasTreeChild(filename());
+}
+
 GitTreebuilderPtr GitGroup::treebuilder()
 {
     if (! m_treebld_ptr)
@@ -989,10 +1235,17 @@ bool GitGroup::readFromDisk()
 
     if (! m_read)
     {
+#if JSON_TO_DISK
         TRACE("GitGroup::readFromDisk() path:'" << absPathname() << "' (READING)");
         ABCA_ASSERT(isdir(absPathname()), "directory '" << absPathname() << "' doesn't exist");
 
         m_read = true;
+#else /* ! JSON_TO_DISK */
+        TRACE("GitGroup::readFromDisk() path:'" << absPathname() << "' (READING)");
+        ABCA_ASSERT(hasGitTree(), "git tree for '" << absPathname() << "' doesn't exist");
+
+        m_read = true;
+#endif /* ! JSON_TO_DISK */
     } else
     {
         TRACE("GitGroup::readFromDisk() path:'" << absPathname() << "' (skipping, already read)");
@@ -1046,6 +1299,24 @@ void GitGroup::_set_treebld(GitTreebuilderPtr treebld_ptr)
     assert((! m_treebld_ptr) || (! m_treebld_ptr.get()));
 
     m_treebld_ptr = treebld_ptr;
+}
+
+std::ostream& operator<< (std::ostream& out, const GitGroup& group)
+{
+    if (group.isTopLevel())
+    {
+        ABCA_ASSERT( !group.parent(), "Invalid parent group (should be null)" );
+        out << "<GitGroup TOP repo:'" << group.repo()->pathname() <<
+            "' pathname:'" << group.pathname() <<
+            "'" << ">";
+    } else
+    {
+        ABCA_ASSERT( group.parent(), "Invalid parent group" );
+        out << "<GitGroup repo:'" << group.repo()->pathname() <<
+            "' pathname:'" << group.pathname() <<
+            "'" << ">";
+    }
+    return out;
 }
 
 

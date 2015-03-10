@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <boost/operators.hpp>
+#include <boost/optional.hpp>
 
 #include <git2.h>
 
@@ -44,6 +45,7 @@ class LibGit;
 struct GitMode;
 class GitRepo;
 class GitTreebuilder;
+class GitTree;
 
 class GitGroup;
 class GitData;
@@ -51,6 +53,7 @@ class GitData;
 typedef Alembic::Util::shared_ptr<GitRepo> GitRepoPtr;
 typedef Alembic::Util::shared_ptr<const GitRepo> GitRepoConstPtr;
 typedef Alembic::Util::shared_ptr<GitTreebuilder> GitTreebuilderPtr;
+typedef Alembic::Util::shared_ptr<GitTree> GitTreePtr;
 
 typedef Alembic::Util::shared_ptr<GitGroup> GitGroupPtr;
 typedef Alembic::Util::shared_ptr<const GitGroup> GitGroupConstPtr;
@@ -135,6 +138,11 @@ public:
     // (Because it uses shared_from_this()...)
     GitTreebuilderPtr root();
 
+    // WARNING: be sure to have an existing shared_ptr to the repo
+    // before calling the following method!
+    // (Because it uses shared_from_this()...)
+    GitTreePtr rootTree();
+
     std::string pathname() const    { return m_pathname; }
     const GitMode& mode() const     { return m_mode; }
 
@@ -197,11 +205,103 @@ private:
     bool m_index_dirty;
 
     GitTreebuilderPtr m_root;
+    GitTreePtr m_root_tree;
     GitGroupPtr m_root_group_ptr;
 };
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo);
 inline std::ostream& operator<< (std::ostream& out, const GitRepoPtr& repoPtr) { out << *repoPtr; return out; }
+
+
+/* --- GitTree -------------------------------------------------------- */
+
+class GitTree : public Alembic::Util::enable_shared_from_this<GitTree>, private boost::totally_ordered<GitTree>
+{
+public:
+    virtual ~GitTree();
+
+    GitTreePtr ptr()                        { return shared_from_this(); }
+
+    bool error()                            { return m_error; }
+
+    GitRepoPtr repo()                       { return m_repo; }
+
+    bool isRoot() const                     { return !(m_parent && m_parent.get()); }
+    GitTreePtr root() const                 { return m_repo->rootTree(); }
+    GitTreePtr parent() const               { return m_parent; }
+
+    std::string filename() const            { return m_filename; }
+    std::string pathname() const;
+    std::string relPathname() const;
+    std::string absPathname() const;
+
+    // WARNING: be sure to have an existing shared_ptr to this treebuilder
+    // before calling the following method!
+    // (Because it uses shared_from_this()...)
+    boost::optional<GitTreePtr> getChildTree(const std::string& filename);
+
+    boost::optional<std::string> getChildFile(const std::string& filename);
+
+    bool hasChild(const std::string& filename);
+    bool hasFileChild(const std::string& filename);
+    bool hasTreeChild(const std::string& filename);
+
+    git_tree* g_ptr()                       { return m_tree; }
+    git_tree* g_ptr() const                 { return m_tree; }
+    git_repository* g_repo_ptr()            { return m_repo->g_ptr(); }
+    git_repository* g_repo_ptr() const      { return m_repo->g_ptr(); }
+
+    const git_oid& oid() const              { return m_tree_oid; }
+
+    static bool cmp(const GitTree& a, const GitTree& b)
+    {
+        if (a.g_ptr() == b.g_ptr())
+            return 0;
+        if ((a.pathname() == b.pathname()) || (a.g_ptr() == b.g_ptr()))
+            return 0;
+        return a.pathname() < b.pathname();
+    }
+    bool operator< (const GitTree& rhs) const
+    {
+        return pathname() < rhs.pathname();
+    }
+    bool operator== (const GitTree& rhs) const
+    {
+        return GitTree::cmp(*this, rhs);
+    }
+
+    static GitTreePtr Create(GitRepoPtr repo_ptr) { return GitTreePtr(new GitTree(repo_ptr)); }
+    static boost::optional<GitTreePtr> Create(GitTreePtr parent_ptr, const std::string& filename);
+
+private:
+    GitTree();                                   // disable default constructor
+    GitTree(const GitTree& other);               // disable copy constructor
+    GitTree(GitRepoPtr repo_ptr);                // private constructor
+    GitTree(GitRepoPtr repo_ptr, std::string rev_str);  // private constructor
+    GitTree(GitRepoPtr repo_ptr, GitTreePtr parent_ptr, git_tree* lg_ptr);     // private constructor
+
+    GitRepoPtr m_repo;
+    GitTreePtr m_parent;
+    std::string m_filename;
+    git_tree* m_tree;
+    git_oid m_tree_oid;                     /* the SHA1 for our corresponding tree */
+    bool m_error;
+
+    friend GitTreePtr GitRepo::rootTree();
+};
+
+inline bool cmp(const GitTree& a, const GitTree& b)
+{
+    return GitTree::cmp(a, b);
+}
+
+inline bool cmp(const GitTreePtr& a, const GitTreePtr& b)
+{
+    return GitTree::cmp(*a, *b);
+}
+
+std::ostream& operator<< (std::ostream& out, const GitTree& tree);
+inline std::ostream& operator<< (std::ostream& out, const GitTreePtr& treePtr) { out << *treePtr; return out; }
 
 
 /* --- GitTreebuilder ------------------------------------------------- */
@@ -252,11 +352,11 @@ public:
             return 0;
         return a.pathname() < b.pathname();
     }
-    bool operator< (const GitTreebuilder& rhs) const 
+    bool operator< (const GitTreebuilder& rhs) const
     {
         return pathname() < rhs.pathname();
     }
-    bool operator== (const GitTreebuilder& rhs) const 
+    bool operator== (const GitTreebuilder& rhs) const
     {
         return GitTreebuilder::cmp(*this, rhs);
     }
@@ -355,7 +455,12 @@ public:
     // create a group and add it as a child to this group
     GitGroupPtr addGroup( const std::string& name );
 
-    /* treebuilder API */
+    /* tree API (R) */
+
+    GitTreePtr tree();
+    bool hasGitTree();
+
+    /* treebuilder API (W) */
 
     GitTreebuilderPtr treebuilder();
 
@@ -385,9 +490,10 @@ public:
     GitRepoPtr repo()                             { return m_repo_ptr; }
     GitRepoConstPtr repo() const                  { return m_repo_ptr; }
     const GitMode& mode() const                   { return repo()->mode(); }
-    GitGroupPtr parent()                          { return m_parent_ptr; }
+    GitGroupPtr parent() const                    { return m_parent_ptr; }
     const std::string& name() const               { return m_name; }
     std::string fullname() const;
+    std::string filename() const                  { return name(); }
     std::string relPathname() const;
     std::string absPathname() const;
     std::string pathname() const                  { return relPathname(); }
@@ -409,10 +515,14 @@ private:
     std::string     m_name;
 
     GitTreebuilderPtr m_treebld_ptr;
+    GitTreePtr        m_tree_ptr;
 
     bool            m_written;
     bool            m_read;
 };
+
+std::ostream& operator<< (std::ostream& out, const GitGroup& group);
+inline std::ostream& operator<< (std::ostream& out, const GitGroupPtr& groupPtr) { out << *groupPtr; return out; }
 
 
 /* --- GitData -------------------------------------------------------- */
