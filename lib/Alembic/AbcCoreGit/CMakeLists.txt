@@ -37,6 +37,8 @@ SET( CXX_FILES
   # StringWriteUtil.cpp
   Utils.cpp
   ReadWriteUtil.cpp
+  msgpack_support.cpp
+  JSON.cpp
 )
 
 SET( H_FILES
@@ -75,6 +77,8 @@ SET( H_FILES
   ReadWriteUtil.h
   WrittenSampleMap.h
   # WrittenArraySampleMap.h
+  msgpack_support.h
+  JSON.h
 )
 
 SET( SOURCE_FILES ${CXX_FILES} ${H_FILES} )

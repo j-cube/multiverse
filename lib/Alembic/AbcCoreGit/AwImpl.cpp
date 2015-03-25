@@ -14,7 +14,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -206,32 +207,42 @@ void AwImpl::writeToDisk()
         TRACE("AwImpl::writeToDisk() path:'" << absPathname() << "' (WRITING)");
 
         double t_end, t_start = time_us();
-        Json::Value root( Json::objectValue );
 
-        root["kind"] = "Archive";
+        rapidjson::Document document;
+        // define the document as an object rather than an array
+        document.SetObject();
+        // must pass an allocator when the object may need to allocate memory
+        rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
 
-        root["metadata"] = m_metaData.serialize();
+        JsonSet(document, "kind", "Archive");
 
-        Json::Value jsonTimeSamplings( Json::arrayValue );
+        JsonSet(document, "metadata", m_metaData.serialize());
+
+        rapidjson::Value jsonTimeSamplings(rapidjson::kArrayType);
 
         Util::uint32_t numSamplings = getNumTimeSamplings();
-        root["numTimeSamplings"] = numSamplings;
+        JsonSet(document, "numTimeSamplings", numSamplings);
         for ( Util::uint32_t i = 0; i < numSamplings; ++i )
         {
             Util::uint32_t maxSample = m_maxSamples[i];
             AbcA::TimeSamplingPtr timePtr = getTimeSampling( i );
-            jsonTimeSamplings.append( jsonWriteTimeSampling( maxSample, *timePtr ) );
-        }
-        root["timeSamplings"] = jsonTimeSamplings;
 
-        root["indexedMetaData"] = m_metaDataMap->toJSON();
+            rapidjson::Value object(rapidjson::kObjectType);
+            jsonWriteTimeSampling( document, object, maxSample, *timePtr );
+
+            jsonTimeSamplings.PushBack( object, allocator );
+        }
+        JsonSet(document, "timeSamplings", jsonTimeSamplings);
+
+        rapidjson::Value indexedMetaDataObject( rapidjson::kArrayType );
+        m_metaDataMap->toJSON(document, indexedMetaDataObject);
+        JsonSet(document, "indexedMetaData", indexedMetaDataObject);
 
         t_end = time_us();
         Profile::add_json_creation(t_end - t_start);
 
         t_start = time_us();
-        Json::StyledWriter writer;
-        std::string output = writer.write( root );
+        std::string output = JsonWrite(document);
         t_end = time_us();
         Profile::add_json_output(t_end - t_start);
 

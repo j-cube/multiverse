@@ -102,18 +102,21 @@ std::vector<std::string> MetaDataMap::toVector()
 }
 
 //-*****************************************************************************
-Json::Value MetaDataMap::toJSON()
+void MetaDataMap::toJSON(rapidjson::Document& document, rapidjson::Value& dst)
 {
-    Json::Value values( Json::arrayValue );
+    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+
+    dst.SetArray();
 
     std::vector<std::string> mdVec = toVector();
     std::vector<std::string>::const_iterator it;
     for ( it = mdVec.begin(); it != mdVec.end(); ++it )
     {
-        values.append( *it );
-    }
+        const std::string& el = *it;
 
-    return values;
+        rapidjson::Value v(el.c_str(), el.length(), allocator);
+        dst.PushBack( v, allocator );
+    }
 }
 
 } // End namespace ALEMBIC_VERSION_NS

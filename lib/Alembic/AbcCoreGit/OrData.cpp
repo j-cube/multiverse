@@ -15,7 +15,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -192,9 +193,6 @@ bool OrData::readFromDisk()
 
     m_group->readFromDisk();
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = absPathname() + ".json";
 
 #if JSON_TO_DISK
@@ -216,32 +214,28 @@ bool OrData::readFromDisk()
     std::string jsonContents = *optJsonContents;
 #endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
-    {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-        return false;
-    }
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
-    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_kind == "Object"), "invalid object kind" );
 
     // read number and names of properties
     //Util::uint32_t v_num_properties = root.get("num_properties", 0).asUInt();
-    Json::Value v_properties = root["properties"];
     std::vector<std::string> properties;
-    for (Json::Value::iterator it = v_properties.begin(); it != v_properties.end(); ++it)
+    const rapidjson::Value& v_properties = document["properties"];
+    for (rapidjson::Value::ConstValueIterator it = v_properties.Begin(); it != v_properties.End(); ++it)
     {
-        properties.push_back( (*it).asString() );
+        properties.push_back( *JsonGetString(*it) );
     }
 
     // read number and names of children
     //Util::uint32_t v_num_children = root.get("num_children", 0).asUInt();
-    Json::Value v_children = root["children"];
     std::vector<std::string> children;
-    for (Json::Value::iterator it = v_children.begin(); it != v_children.end(); ++it)
+    const rapidjson::Value& v_children = document["children"];
+    for (rapidjson::Value::ConstValueIterator it = v_children.Begin(); it != v_children.End(); ++it)
     {
-        children.push_back( (*it).asString() );
+        children.push_back( *JsonGetString(*it) );
     }
 
     TODO("read properties");
@@ -302,9 +296,6 @@ bool OrData::readFromDiskChildHeader(size_t i)
 
     childGroup->readFromDisk();
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = childGroup->absPathname() + ".json";
 
 #if JSON_TO_DISK
@@ -325,19 +316,15 @@ bool OrData::readFromDiskChildHeader(size_t i)
     std::string jsonContents = *optJsonContents;
 #endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
-    {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-        return false;
-    }
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
-    std::string v_name = root.get("name", "UNKNOWN").asString();
+    std::string v_name = JsonGetString(document, "name").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_name == m_children[i].name), "actual child name differs from value stored in parent" );
 
-    std::string v_fullName = root.get("fullName", "UNKNOWN").asString();
+    std::string v_fullName = JsonGetString(document, "fullName").get_value_or("UNKNOWN");
 
-    std::string v_metadata = root.get("metadata", "").asString();
+    std::string v_metadata = JsonGetString(document, "metadata").get_value_or("");
     AbcA::MetaData metadata;
     metadata.deserialize( v_metadata );
 

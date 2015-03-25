@@ -12,8 +12,8 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Utils.h>
 
-#include <json/json.h>
-
+// Use msgpack to store samples
+#define MSGPACK_SAMPLES 1
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -51,8 +51,9 @@ public:
 
     virtual std::string repr(bool extended = false) const = 0;
 
-    virtual Json::Value json() const = 0;
-    virtual void fromJson(const Json::Value& root) = 0;
+    // binary serialization
+    virtual std::string pack() const = 0;
+    virtual void unpack(const std::string& packed) = 0;
 
     friend std::ostream& operator<< ( std::ostream& out, const AbstractTypedSampleStore& value );
 };
@@ -118,11 +119,9 @@ public:
 
     virtual std::string repr(bool extended = false) const;
 
-    virtual Json::Value json() const;
-    static Json::Value JsonFromValue( const T& iValue );
-    static T ValueFromJson( const Json::Value& jsonValue );
-
-    virtual void fromJson(const Json::Value& root);
+    // binary serialization
+    virtual std::string pack() const;
+    virtual void unpack(const std::string& packed);
 
 private:
     TypedSampleStore();

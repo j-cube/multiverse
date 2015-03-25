@@ -14,7 +14,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -146,16 +147,19 @@ std::string ArImpl::absPathname() const
     return m_repo_ptr->rootGroup()->absPathname();
 }
 
-static void ReadIndexedMetaData( Json::Value json,
+static void ReadIndexedMetaData( const rapidjson::Value& json,
                      std::vector< AbcA::MetaData > & oMetaDataVec )
 {
     // add the default empty meta data
     oMetaDataVec.push_back( AbcA::MetaData() );
 
     std::vector<std::string> children;
-    for (Json::Value::iterator it = json.begin(); it != json.end(); ++it)
+
+    for (rapidjson::Value::ConstValueIterator it = json.Begin(); it != json.End(); ++it)
     {
-        std::string metaData = (*it).asString();
+        const rapidjson::Value& el = (*it);
+
+        std::string metaData(el.GetString(), el.GetStringLength());
         AbcA::MetaData md;
         md.deserialize( metaData );
         oMetaDataVec.push_back( md );
@@ -177,9 +181,6 @@ bool ArImpl::readFromDisk()
     GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
     GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = absPathname() + "/archive.json";
 
 #if JSON_TO_DISK
@@ -199,25 +200,21 @@ bool ArImpl::readFromDisk()
     std::string jsonContents = *optJsonContents;
 #endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
-    {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-        return false;
-    }
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
-    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_kind == "Archive"), "invalid archive kind" );
 
     // read archive metadata
-    std::string v_metadata = root.get("metadata", "").asString();
+    std::string v_metadata = JsonGetString(document, "metadata").get_value_or("");
     m_header->getMetaData().deserialize( v_metadata );
 
     TRACE("[ArImpl " << *this << "] kind:" << v_kind);
     TRACE("[ArImpl " << *this << "] metadata:" << v_metadata);
 
     //Util::uint32_t v_numTimeSamplings = root.get("numTimeSamplings", 0).asUInt();
-    Json::Value v_timeSamplings = root["timeSamplings"];
+    const rapidjson::Value& v_timeSamplings = document["timeSamplings"];
     jsonReadTimeSamples( v_timeSamplings, m_timeSamples, m_maxSamples );
 
     // TODO: read other json fields from archive
@@ -233,7 +230,7 @@ bool ArImpl::readFromDisk()
                            m_timeSamples, m_maxSamples );
 #endif /* 0 */
 
-    ReadIndexedMetaData( root["indexedMetaData"], m_indexMetaData );
+    ReadIndexedMetaData( document["indexedMetaData"], m_indexMetaData );
 
     ABCA_ASSERT( !m_data.get(), "OrData exists already" );
     assert( !m_data.get() );

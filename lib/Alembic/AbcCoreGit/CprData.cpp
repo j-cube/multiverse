@@ -19,7 +19,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -283,9 +284,6 @@ bool CprData::readFromDisk()
 
     m_group->readFromDisk();
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = absPathname() + ".json";
 
 #if JSON_TO_DISK
@@ -312,23 +310,19 @@ bool CprData::readFromDisk()
     std::string jsonContents = *optJsonContents;
 #endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
-    {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-        return false;
-    }
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
-    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_kind == "CompoundProperty"), "invalid object kind" );
 
     // read number and names of (sub) properties
     //Util::uint32_t v_num_properties = root.get("num_properties", 0).asUInt();
-    Json::Value v_properties = root["properties"];
     std::vector<std::string> properties;
-    for (Json::Value::iterator it = v_properties.begin(); it != v_properties.end(); ++it)
+    const rapidjson::Value& v_properties = document["properties"];
+    for (rapidjson::Value::ConstValueIterator it = v_properties.Begin(); it != v_properties.End(); ++it)
     {
-        properties.push_back( (*it).asString() );
+        properties.push_back( *JsonGetString(*it) );
     }
 
     TODO("read properties");
@@ -374,20 +368,21 @@ bool CprData::readFromDiskSubHeader(size_t i)
         TRACE("CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' (skipping, already read)");
         return true;
     }
+    TRACE("{1}");
 
     ABCA_ASSERT( !m_subProperties[i].read, "sub-property data already read" );
 
     ABCA_ASSERT( m_group, "invalid group" );
+    TRACE("{2}");
 
     std::string subName = m_subProperties[i].name;
     std::string subAbsPathname = pathjoin(absPathname(), m_subProperties[i].name);
+    TRACE("{3}");
 
     TRACE("[CprData " << *this << "] CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' path:'" << subAbsPathname << "' (READING)");
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = subAbsPathname + ".json";
+    TRACE("{4}");
 
 #if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
@@ -406,46 +401,50 @@ bool CprData::readFromDiskSubHeader(size_t i)
     }
     std::string jsonContents = *optJsonContents;
 #endif
+    TRACE("{5}");
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
-    {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
-        return false;
-    }
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
-    std::string v_name = root.get("name", "UNKNOWN").asString();
+    TRACE("{6}");
+    std::string v_name = JsonGetString(document, "name").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_name == m_subProperties[i].name), "actual sub-property name differs from value stored in parent" );
 
     //Util::uint32_t v_index = root.get("index", 0).asUInt();
 
     //std::string v_fullName = root.get("fullName", "UNKNOWN").asString();
 
-    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    TRACE("{7}");
+    std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
 
-    std::string v_type = root.get("type", "").asString();
-    std::string v_typename = root.get("typename", "").asString();
-    int v_extent = root.get("extent", 0).asInt();
+    std::string v_type     = JsonGetString(document, "type").get_value_or("");
+    std::string v_typename = JsonGetString(document, "typename").get_value_or("");
+    int v_extent = JsonGetUint(document, "extent").get_value_or(0);
+    TRACE("{8}");
 
-    Json::Value v_propInfo = root["info"];
+    const rapidjson::Value& v_propInfo = document["info"];
+    TRACE("{9}");
 
-    bool v_isScalarLike = v_propInfo.get("isScalarLike", false).asBool();
-    bool v_isHomogenous = v_propInfo.get("isHomogenous", false).asBool();
-    Util::uint32_t v_timeSamplingIndex = v_propInfo.get("timeSamplingIndex", 0).asUInt();
-    Util::uint32_t v_numSamples = v_propInfo.get("numSamples", 0).asUInt();
-    Util::uint32_t v_firstChangedIndex = v_propInfo.get("firstChangedIndex", 0).asUInt();
-    Util::uint32_t v_lastChangedIndex = v_propInfo.get("lastChangedIndex", 0).asUInt();
-    std::string v_metadata = v_propInfo.get("metadata", "").asString();
+    bool v_isScalarLike = JsonGetBool(v_propInfo, "isScalarLike").get_value_or(false);
+    bool v_isHomogenous = JsonGetBool(v_propInfo, "isHomogenous").get_value_or(false);
+    Util::uint32_t v_timeSamplingIndex = JsonGetUint(v_propInfo, "timeSamplingIndex").get_value_or(0);
+    Util::uint32_t v_numSamples = JsonGetUint(v_propInfo, "numSamples").get_value_or(0);
+    Util::uint32_t v_firstChangedIndex = JsonGetUint(v_propInfo, "firstChangedIndex").get_value_or(0);
+    Util::uint32_t v_lastChangedIndex = JsonGetUint(v_propInfo, "lastChangedIndex").get_value_or(0);
+    std::string v_metadata = JsonGetString(v_propInfo, "metadata").get_value_or("");
+    TRACE("{10}");
 
     AbcA::MetaData metadata;
     metadata.deserialize( v_metadata );
 
     assert( !m_subProperties[i].header );
+    TRACE("{11}");
 
     PropertyHeaderPtr header( new PropertyHeaderAndFriends() );
     header->header.setName( v_name );
 
     header->isScalarLike = v_isScalarLike;
+    TRACE("{12}");
 
     if (v_kind == "CompoundProperty")
     {
@@ -474,6 +473,7 @@ bool CprData::readFromDiskSubHeader(size_t i)
         TRACE("[CprData " << *this << "]  timeSamplingIndex:" << v_timeSamplingIndex);
         header->header.setTimeSampling( m_archive.getTimeSampling( header->timeSamplingIndex ) );
     }
+    TRACE("{13}");
 
     header->header.setMetaData( metadata );
 

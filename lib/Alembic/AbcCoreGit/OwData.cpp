@@ -17,7 +17,7 @@
 #include <fstream>
 #include <string>
 
-#include <json/json.h>
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -257,51 +257,62 @@ void OwData::writeToDisk()
         TRACE("create '" << absPathname() << ".json'");
 
         double t_end, t_start = time_us();
-        Json::Value root( Json::objectValue );
 
-        root["name"] = name();
-        root["kind"] = "Object";
+         rapidjson::Document document;
+        // define the document as an object rather than an array
+        document.SetObject();
+        // must pass an allocator when the object may need to allocate memory
+        rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+
+        JsonSet(document, "name", name());
+        JsonSet(document, "kind", "Object");
 
         assert(name() == m_header->getName());
         ABCA_ASSERT(name() == m_header->getName(), "group name differs from header name!");
 
-        //root["hName"] = m_header->getName();
-        root["fullName"] = m_header->getFullName();
-        root["metadata"] = m_header->getMetaData().serialize();
+        //JsonSet(document, "hName", m_header->getName());
+        JsonSet(document, "fullName", m_header->getFullName());
+        JsonSet(document, "metadata", m_header->getMetaData().serialize());
 
-        Json::Value jsonChildrenNames( Json::arrayValue );
+        rapidjson::Value jsonChildrenNames( rapidjson::kArrayType );
 
         Util::uint32_t numChildren = getNumChildren();
-        root["num_children"] = numChildren;
+        JsonSet(document, "num_children", numChildren);
         for ( Util::uint32_t i = 0; i < numChildren; ++i )
         {
             const AbcA::ObjectHeader& childHeader = getChildHeader( i );
-            jsonChildrenNames.append( childHeader.getName() );
+
+            std::string n = childHeader.getName();
+            rapidjson::Value v(n.c_str(), n.length(), allocator);
+            jsonChildrenNames.PushBack( v, allocator );
         }
-        root["children"] = jsonChildrenNames;
+        JsonSet(document, "children", jsonChildrenNames);
 
         if ( ! m_data )
         {
             TRACE("OwData::writeToDisk() top compound pointer not available!");
 
-            root["num_properties"] = 0;
+            JsonSet(document, "num_properties", 0);
 
-            Json::Value jsonPropertiesNames( Json::arrayValue );
-            root["properties"] = jsonPropertiesNames;
+            rapidjson::Value jsonPropertiesNames( rapidjson::kArrayType );
+            JsonSet(document, "properties", jsonPropertiesNames);
         } else
         {
-            root["num_properties"] = 1;
+            JsonSet(document, "num_properties", 1);
 
-            Json::Value jsonPropertiesNames( Json::arrayValue );
-            jsonPropertiesNames.append( m_data->name() );
-            root["properties"] = jsonPropertiesNames;
+            rapidjson::Value jsonPropertiesNames( rapidjson::kArrayType );
+
+            std::string n = m_data->name();
+            rapidjson::Value v(n.c_str(), n.length(), allocator);
+            jsonPropertiesNames.PushBack( v, allocator );
+
+            JsonSet(document, "properties", jsonPropertiesNames);
         }
         t_end = time_us();
         Profile::add_json_creation(t_end - t_start);
 
         t_start = time_us();
-        Json::StyledWriter writer;
-        std::string output = writer.write( root );
+        std::string output = JsonWrite(document);
         t_end = time_us();
         Profile::add_json_output(t_end - t_start);
 

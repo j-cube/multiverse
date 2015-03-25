@@ -14,7 +14,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -236,58 +237,65 @@ void CpwImpl::writeToDisk()
         TRACE("create '" << absPathname() << ".json'");
 
         double t_end, t_start = time_us();
-        Json::Value root( Json::objectValue );
+
+        rapidjson::Document document;
+        // define the document as an object rather than an array
+        document.SetObject();
+        // must pass an allocator when the object may need to allocate memory
+        rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
 
 //        const AbcA::MetaData& metaData = m_header->metadata();
 
-        root["name"] = m_header->name();
-        root["kind"] = "CompoundProperty";
+        JsonSet(document, "name", m_header->name());
+        JsonSet(document, "kind", "CompoundProperty");
 
-        root["index"] = TypedSampleStore<size_t>::JsonFromValue( m_index );
+        JsonSet(document, "index", m_index);
 
         const AbcA::DataType& dataType = m_header->datatype();
         {
             std::ostringstream ss;
             ss << PODName( dataType.getPod() );
-            root["typename"] = ss.str();
+            JsonSet(document, "typename", ss.str());
         }
 
-        root["extent"] = dataType.getExtent();
+        JsonSet(document, "extent", dataType.getExtent());
 
         {
             std::ostringstream ss;
             ss << dataType;
-            root["type"] = ss.str();
+            JsonSet(document, "type", ss.str());
         }
 
         size_t numProperties = getNumProperties();
-        root["num_properties"] = TypedSampleStore<size_t>::JsonFromValue( numProperties );
+        JsonSet(document, "num_properties", numProperties);
 
-        Json::Value jsonPropertiesNames( Json::arrayValue );
+        rapidjson::Value jsonPropertiesNames( rapidjson::kArrayType );
         for ( size_t i = 0; i < numProperties; ++i )
         {
             const AbcA::PropertyHeader& propHeader = getPropertyHeader( i );
-            jsonPropertiesNames.append( propHeader.getName() );
+
+            std::string n = propHeader.getName();
+            rapidjson::Value v(n.c_str(), n.length(), allocator);
+            jsonPropertiesNames.PushBack( v, allocator );
         }
-        root["properties"] = jsonPropertiesNames;
+        JsonSet(document, "properties", jsonPropertiesNames);
 
-        Json::Value propInfo( Json::objectValue );
-        propInfo["isScalarLike"] = m_header->isScalarLike;
-        propInfo["isHomogenous"] = m_header->isHomogenous;
-        propInfo["timeSamplingIndex"] = m_header->timeSamplingIndex;
-        propInfo["numSamples"] = m_header->nextSampleIndex;
-        propInfo["firstChangedIndex"] = m_header->firstChangedIndex;
-        propInfo["lastChangedIndex"] = m_header->lastChangedIndex;
-        propInfo["metadata"] = m_header->header.getMetaData().serialize();
+        rapidjson::Value propInfo( rapidjson::kObjectType );
+        JsonSet(document, propInfo, "isScalarLike", m_header->isScalarLike);
+        JsonSet(document, propInfo, "isHomogenous", m_header->isHomogenous);
+        JsonSet(document, propInfo, "timeSamplingIndex", m_header->timeSamplingIndex);
+        JsonSet(document, propInfo, "numSamples", m_header->nextSampleIndex);
+        JsonSet(document, propInfo, "firstChangedIndex", m_header->firstChangedIndex);
+        JsonSet(document, propInfo, "lastChangedIndex", m_header->lastChangedIndex);
+        JsonSet(document, propInfo, "metadata", m_header->header.getMetaData().serialize());
 
-        root["info"] = propInfo;
+        JsonSet(document, "info", propInfo);
 
         t_end = time_us();
         Profile::add_json_creation(t_end - t_start);
 
         t_start = time_us();
-        Json::StyledWriter writer;
-        std::string output = writer.write( root );
+        std::string output = JsonWrite(document);
         t_end = time_us();
         Profile::add_json_output(t_end - t_start);
 

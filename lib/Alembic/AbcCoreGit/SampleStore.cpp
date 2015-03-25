@@ -6,8 +6,19 @@
 //
 //-*****************************************************************************
 
+#include <string>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <cassert>
+
 #include <Alembic/AbcCoreGit/SampleStore.h>
 #include <Alembic/AbcCoreGit/Utils.h>
+
+#include <Alembic/AbcCoreGit/msgpack_support.h>
+
+#include <msgpack.hpp>
+
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -528,314 +539,11 @@ std::string TypedSampleStore<T>::repr(bool extended) const
  *
  */
 
-class JsonArrayBuffer
-{
-public:
-    JsonArrayBuffer(size_t dim) :
-        m_arr(Json::arrayValue), m_el(Json::arrayValue), m_dim(dim), m_cnt(0) {}
-    virtual ~JsonArrayBuffer() {}
-
-    operator Json::Value() { return json(); }
-
-    Json::Value json()
-    {
-        _flush();
-        Json::Value r = m_arr;
-        clear();
-        return r;
-    }
-
-    JsonArrayBuffer& clear()
-    {
-        m_arr = Json::Value( Json::arrayValue );
-        m_el = Json::Value( Json::arrayValue );
-        m_cnt = 0;
-        return *this;
-    }
-
-    template <typename V>
-    JsonArrayBuffer& push( const V& value )
-    {
-        if (m_dim <= 0)
-        {
-            m_arr.append( TypedSampleStore<V>::JsonFromValue(value) );
-            return *this;
-        }
-
-        m_el.append( TypedSampleStore<V>::JsonFromValue(value) );
-        m_cnt++;
-        if (m_cnt >= m_dim)
-        {
-            m_arr.append( m_el );
-            m_el = Json::Value( Json::arrayValue );
-            m_cnt = 0;
-        }
-
-        return *this;
-    }
-
-private:
-    JsonArrayBuffer& _flush()
-    {
-        if (m_cnt >= 1)
-        {
-            m_arr.append( m_el );
-            m_el = Json::Value( Json::arrayValue );
-            m_cnt = 0;
-        }
-        return *this;
-    }
-
-    Json::Value m_arr;
-    Json::Value m_el;
-    size_t      m_dim;
-    size_t      m_cnt;
-};
-
 std::string pod2str(const Alembic::Util::PlainOldDataType& pod)
 {
     std::ostringstream ss;
     ss << PODName( pod );
     return ss.str();
-}
-
-template <typename T>
-Json::Value TypedSampleStore<T>::json() const
-{
-    Json::Value root( Json::objectValue );
-
-    {
-        std::ostringstream ss;
-        ss << PODName( m_dataType.getPod() );
-        root["typename"] = ss.str();
-    }
-
-    {
-        std::ostringstream ss;
-        ss << m_dataType;
-        root["type"] = ss.str();
-    }
-
-    assert( m_dataType.getExtent() == extent() );
-
-    root["extent"] = extent();
-    root["rank"] = TypedSampleStore<size_t>::JsonFromValue( rank() );
-
-    root["num_samples"] = TypedSampleStore<size_t>::JsonFromValue( getNumSamples() );
-
-    root["dimensions"] = TypedSampleStore<AbcA::Dimensions>::JsonFromValue( getDimensions() );
-
-    {
-        Json::Value pos_k( Json::arrayValue );
-
-        std::map<size_t, AbcA::ArraySample::Key>::const_iterator p_it;
-        for (p_it = m_pos_key.begin(); p_it != m_pos_key.end(); ++p_it)
-        {
-            size_t at = (*p_it).first;
-            const AbcA::ArraySample::Key& key = (*p_it).second;
-
-            Json::Value el( Json::arrayValue );
-            el.append( TypedSampleStore<size_t>::JsonFromValue( at ) );
-
-            Json::Value j_key( Json::objectValue );
-            j_key["numBytes"] = TypedSampleStore<size_t>::JsonFromValue( key.numBytes );
-            j_key["origPOD"] = pod2str(key.origPOD);
-            j_key["readPOD"] = pod2str(key.readPOD);
-            j_key["digest"] = key.digest.str();
-
-            el.append( j_key );
-            pos_k.append( el );
-        }
-
-        root["keys"] = pos_k;
-    }
-
-    Json::Value data( Json::arrayValue );
-
-    size_t extent = m_dataType.getExtent();
-
-    if (extent == 1)
-    {
-        typename std::vector<T>::const_iterator it;
-        for (it = m_data.begin(); it != m_data.end(); ++it)
-        {
-            data.append( JsonFromValue(*it) );
-        }
-    } else
-    {
-        ABCA_ASSERT( extent > 1, "wrong extent" );
-
-        JsonArrayBuffer e_ab( extent );
-
-        typename std::vector<T>::const_iterator it;
-        for (it = m_data.begin(); it != m_data.end(); ++it)
-        {
-            e_ab.push( (*it) );
-        }
-        data = e_ab;
-    }
-
-    root["data"] = data;
-
-    return root;
-}
-
-template <typename T>
-Json::Value TypedSampleStore<T>::JsonFromValue( const T& iValue )
-{
-    Json::Value data = iValue;
-    return data;
-}
-
-template <typename T>
-T TypedSampleStore<T>::ValueFromJson( const Json::Value& jsonValue )
-{
-    T value = jsonValue;
-    return value;
-}
-
-template <>
-Json::Value TypedSampleStore<AbcA::Dimensions>::JsonFromValue( const AbcA::Dimensions& iDims )
-{
-    Json::Value data( Json::arrayValue );
-    for ( size_t i = 0; i < iDims.rank(); ++i )
-        data.append( static_cast<Json::Value::UInt64>( iDims[i] ) );
-    return data;
-}
-
-template <>
-Json::Value TypedSampleStore<Util::bool_t>::JsonFromValue( const Util::bool_t& iValue )
-{
-    Json::Value data = iValue.asBool();
-    return data;
-}
-
-template <>
-Util::bool_t TypedSampleStore<Util::bool_t>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<Util::bool_t>(jsonValue.asBool());
-}
-
-template <>
-Json::Value TypedSampleStore<half>::JsonFromValue( const half& iValue )
-{
-    Json::Value data = static_cast<double>(iValue);
-    return data;
-}
-
-template <>
-half TypedSampleStore<half>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<half>(jsonValue.asDouble());
-}
-
-template <>
-float TypedSampleStore<float>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<float>(jsonValue.asFloat());
-}
-
-template <>
-double TypedSampleStore<double>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<double>(jsonValue.asDouble());
-}
-
-template <>
-Json::Value TypedSampleStore<long>::JsonFromValue( const long& iValue )
-{
-    Json::Value data = static_cast<Json::Int64>(iValue);
-    return data;
-}
-
-template <>
-long TypedSampleStore<long>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<long>(jsonValue.asInt64());
-}
-
-template <>
-int TypedSampleStore<int>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<int>(jsonValue.asInt());
-}
-
-template <>
-Json::Value TypedSampleStore<long unsigned>::JsonFromValue( const long unsigned& iValue )
-{
-    Json::Value data = static_cast<Json::UInt64>(iValue);
-    return data;
-}
-
-template <>
-long unsigned TypedSampleStore<long unsigned>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<long unsigned>(jsonValue.asUInt64());
-}
-
-template <>
-unsigned int TypedSampleStore<unsigned int>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<unsigned int>(jsonValue.asUInt());
-}
-
-template <>
-short TypedSampleStore<short>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<short>(jsonValue.asInt());
-}
-
-template <>
-unsigned short TypedSampleStore<unsigned short>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<unsigned short>(jsonValue.asUInt());
-}
-
-template <>
-Json::Value TypedSampleStore<Util::wstring>::JsonFromValue( const Util::wstring& iValue )
-{
-    std::string s((const char*)&iValue[0], sizeof(wchar_t)/sizeof(char)*iValue.size());
-    Json::Value data = s;
-    return data;
-}
-
-template <>
-Util::wstring TypedSampleStore<Util::wstring>::ValueFromJson( const Json::Value& jsonValue )
-{
-    std::wstringstream wss;
-    wss << jsonValue.asString().c_str();
-    return wss.str();
-}
-
-template <>
-Util::string TypedSampleStore<Util::string>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return jsonValue.asString();
-}
-
-template <>
-Json::Value TypedSampleStore< wchar_t >::JsonFromValue( const wchar_t& iValue )
-{
-    Json::Value data = static_cast<int>(iValue);
-    return data;
-}
-
-template <>
-wchar_t TypedSampleStore<wchar_t>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<wchar_t>(jsonValue.asInt());
-}
-
-template <>
-signed char TypedSampleStore<signed char>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<signed char>(jsonValue.asInt());
-}
-
-template <>
-unsigned char TypedSampleStore<unsigned char>::ValueFromJson( const Json::Value& jsonValue )
-{
-    return static_cast<unsigned char>(jsonValue.asUInt());
 }
 
 uint8_t hexchar2int(char input)
@@ -864,28 +572,128 @@ size_t hex2bin(uint8_t *dst, const char* src)
     return (dst - dst_orig);
 }
 
+// binary serialization
 template <typename T>
-void TypedSampleStore<T>::fromJson(const Json::Value& root)
+std::string TypedSampleStore<T>::pack() const
 {
-    TRACE("TypedSampleStore<T>::fromJson()");
+    TRACE("TypedSampleStore<T>::pack()");
 
-    std::string v_typename = root.get("typename", "UNKNOWN").asString();
-    std::string v_type = root.get("type", "UNKNOWN").asString();
+    std::string v_typename;
+    {
+        std::ostringstream ss;
+        ss << PODName( m_dataType.getPod() );
+        v_typename = ss.str();
+    }
 
-    uint8_t v_extent = root.get("extent", 0).asUInt();
-    size_t v_rank = root.get("rank", 0).asUInt();
-    size_t v_num_samples = root.get("num_samples", 0).asUInt();
+    std::string v_type;
+    {
+        std::ostringstream ss;
+        ss << m_dataType;
+        v_type = ss.str();
+    }
 
-    Json::Value v_dimensions = root["dimensions"];
-    Json::Value v_data = root["data"];
+    std::vector<uint64_t> v_dimensions;
+    for (size_t i = 0; i < m_dimensions.rank(); ++i )
+        v_dimensions.push_back( static_cast<uint64_t>( m_dimensions[i] ) );
+
+    // msgpack::type::tuple< std::string, std::string, int, size_t, size_t, std::vector<uint64_t>, std::vector<T> >
+    //     src(s_typename, s_type, extent(), rank(), getNumSamples(), dimensions, m_data);
+    // // serialize the object into the buffer.
+    // // any classes that implements write(const char*,size_t) can be a buffer.
+    // std::stringstream buffer;
+    // msgpack::pack(buffer, src);
+
+    std::stringstream buffer;
+    msgpack::packer<std::stringstream> pk(&buffer);
+
+    mp_pack(pk, v_typename);
+    mp_pack(pk, v_type);
+    mp_pack(pk, extent());
+    mp_pack(pk, rank());
+    mp_pack(pk, getNumSamples());
+    mp_pack(pk, v_dimensions);
+    mp_pack(pk, m_data);
+
+    // save keys
+    mp_pack(pk, m_pos_key.size());
+    std::map<size_t, AbcA::ArraySample::Key>::const_iterator p_it;
+    for (p_it = m_pos_key.begin(); p_it != m_pos_key.end(); ++p_it)
+    {
+        size_t at = (*p_it).first;
+        const AbcA::ArraySample::Key& key = (*p_it).second;
+
+        msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string >
+            tuple(at, key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
+
+        mp_pack(pk, tuple);
+    }
+
+    return buffer.str();
+}
+
+template <typename T>
+void TypedSampleStore<T>::unpack(const std::string& packed)
+{
+    TRACE("TypedSampleStore<T>::unpack()");
+
+    msgpack::unpacker pac;
+
+    // copy the buffer data to the unpacker object
+    pac.reserve_buffer(packed.size());
+    memcpy(pac.buffer(), packed.data(), packed.size());
+    pac.buffer_consumed(packed.size());
+
+    // deserialize it.
+    msgpack::unpacked msg;
+
+    std::string v_typename;
+    std::string v_type;
+    int v_extent;
+    size_t v_rank;
+    size_t v_num_samples;
+    std::vector<uint64_t> v_dimensions;
+    std::vector<T> v_data;
+    size_t v_n_keys;
+
+    // unpack objects in the order in which they were packed
+
+    pac.next(&msg);
+    msgpack::object pko = msg.get();
+    mp_unpack(pko, v_typename);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_type);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_extent);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_rank);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_num_samples);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_dimensions);
+
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_data);
+
+    // re-initialize using deserialized data (keys done later)
 
     AbcA::Dimensions dimensions;
     dimensions.setRank( v_dimensions.size() );
     {
         int idx = 0;
-        for (Json::Value::iterator it = v_dimensions.begin(); it != v_dimensions.end(); ++it)
+        for (std::vector<uint64_t>::const_iterator it = v_dimensions.begin(); it != v_dimensions.end(); ++it)
         {
-            dimensions[idx] = (*it).asUInt64();
+            dimensions[idx] = (*it);
             idx++;
         }
     }
@@ -904,56 +712,42 @@ void TypedSampleStore<T>::fromJson(const Json::Value& root)
     ABCA_ASSERT( extent() == v_extent, "wrong extent" );
 
     m_data.clear();
+    m_data = v_data;
 
-    for (Json::Value::iterator it = v_data.begin(); it != v_data.end(); ++it)
+    // deserialize keys
+    pac.next(&msg);
+    pko = msg.get();
+    mp_unpack(pko, v_n_keys);
+
+    m_key_pos.clear();
+    m_pos_key.clear();
+    for (size_t i = 0; i < v_n_keys; ++i)
     {
-        if ((*it).isArray())
-        {
-            Json::Value& sub = *it;
-            for (Json::Value::iterator sub_it = sub.begin(); sub_it != sub.end(); ++sub_it)
-            {
-                m_data.push_back( ValueFromJson(*sub_it) );
-            }
-        } else
-        {
-            m_data.push_back( ValueFromJson(*it) );
-        }
-    }
+        msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
 
-    ABCA_ASSERT( getNumSamples() == v_num_samples, "wrong number of samples" );
+        pac.next(&msg);
+        pko = msg.get();
+        mp_unpack(pko, tuple);
 
-    // read back keys
+        size_t      k_at        = tuple.get<0>();
+        size_t      k_num_bytes = tuple.get<1>();
+        std::string k_orig_pod  = tuple.get<2>();
+        std::string k_read_pod  = tuple.get<3>();
+        std::string k_digest    = tuple.get<4>();
 
-    Json::Value v_keys = root["keys"];
+        AbcA::ArraySample::Key key;
 
-    for (Json::Value::iterator it = v_keys.begin(); it != v_keys.end(); ++it)
-    {
-        ABCA_ASSERT( (*it).isArray(), "wrong kind of 'keys' element" );
+        key.numBytes = k_num_bytes;
+        key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
+        key.readPOD = Alembic::Util::PODFromName( k_read_pod );
+        hex2bin(key.digest.d, k_digest.c_str());
 
-        if ((*it).isArray())
-        {
-            Json::Value& sub = *it;
-            Json::Value j_pos = sub[0];
-            Json::Value j_key = sub[1];
+        //std::string key_str = j_key.asString();
 
-            AbcA::ArraySample::Key key;
-
-            size_t at = static_cast<size_t>(j_pos.asUInt64());
-
-            std::string key_str = j_key["digest"].asString();
-
-            key.numBytes = static_cast<size_t>(j_key["numBytes"].asUInt64());
-            key.origPOD = Alembic::Util::PODFromName( j_key["origPOD"].asString() );
-            key.readPOD = Alembic::Util::PODFromName( j_key["readPOD"].asString() );
-            hex2bin(key.digest.d, key_str.c_str());
-
-            //std::string key_str = j_key.asString();
-
-            if (! m_key_pos.count(key_str))
-                m_key_pos[key_str] = std::vector<size_t>();
-            m_key_pos[key_str].push_back( at );
-            m_pos_key[at] = key;
-        }
+        if (! m_key_pos.count(k_digest))
+            m_key_pos[k_digest] = std::vector<size_t>();
+        m_key_pos[k_digest].push_back( k_at );
+        m_pos_key[k_at] = key;
     }
 }
 

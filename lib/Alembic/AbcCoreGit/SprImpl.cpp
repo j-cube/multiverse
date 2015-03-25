@@ -17,7 +17,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -181,9 +180,6 @@ bool SprImpl::readFromDisk()
 
     m_group->readFromDisk();
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = absPathname() + ".json";
 
 #if JSON_TO_DISK
@@ -202,19 +198,30 @@ bool SprImpl::readFromDisk()
         return false;
     }
     std::string jsonContents = *optJsonContents;
-#endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
+#if MSGPACK_SAMPLES
+    boost::optional<std::string> optBinContents = parentGroup->tree()->getChildFile(name() + ".bin");
+    if (! optJsonContents)
     {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+        ABCA_THROW( "can't read git blob '" << absPathname() + ".bin" << "'" );
         return false;
     }
+#endif /* MSGPACK_SAMPLES */
+#endif
+
+    JSONParser json(jsonPathname, jsonContents);
+#if !MSGPACK_SAMPLES
+    rapidjson::Document& document = json.document;
+#endif
 
     // TRACE( "SprImpl::readFromDisk - read JSON:" << jsonBuffer.str() );
     TODO("add SprImpl core read functionality");
 
-    m_store->fromJson( root["data"] );
+#if MSGPACK_SAMPLES
+    m_store->unpack( *optBinContents );
+#else
+    m_store->fromJson( document["data"] );
+#endif
 
     m_read = true;
 

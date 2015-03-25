@@ -12,7 +12,7 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
-#include <json/json.h>
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -33,7 +33,7 @@ public:
     void write( GitGroupPtr iParent );
 
     std::vector<std::string> toVector();
-    Json::Value toJSON();
+    void toJSON(rapidjson::Document& document, rapidjson::Value& dst);
 
 private:
     std::map< std::string, Util::uint32_t > m_map;

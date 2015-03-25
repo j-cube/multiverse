@@ -13,7 +13,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -358,54 +359,59 @@ void ApwImpl::writeToDisk()
                      "invalid number of samples in SampleStore!" );
 
         double t_end, t_start = time_us();
-        Json::Value root( Json::objectValue );
+
+        rapidjson::Document document;
+        // define the document as an object rather than an array
+        document.SetObject();
+
 
 //        const AbcA::MetaData& metaData = m_header->metadata();
         const AbcA::DataType& dataType = m_header->datatype();
 
-        root["name"] = m_header->name();
-        root["kind"] = "ArrayProperty";
+        JsonSet(document, "name", m_header->name());
+        JsonSet(document, "kind", "ArrayProperty");
 
         {
             std::ostringstream ss;
             ss << PODName( dataType.getPod() );
-            root["typename"] = ss.str();
+            JsonSet(document, "typename", ss.str());
         }
 
         assert( dataType.getExtent() == m_store->extent() );
 
-        root["extent"] = dataType.getExtent();
-        root["rank"] = TypedSampleStore<size_t>::JsonFromValue( m_store->rank() );
+        JsonSet(document, "extent", dataType.getExtent());
+        JsonSet(document, "rank", m_store->rank());
 
         {
             std::ostringstream ss;
             ss << dataType;
-            root["type"] = ss.str();
+            JsonSet(document, "type", ss.str());
         }
 
-        root["num_samples"] = TypedSampleStore<size_t>::JsonFromValue( m_store->getNumSamples() );
+        JsonSet(document, "num_samples", m_store->getNumSamples());
 
-        root["dimensions"] = TypedSampleStore<AbcA::Dimensions>::JsonFromValue( m_store->getDimensions() );
+        // JsonSet(document, "dimensions", m_store->getDimensions());
 
+#if !(MSGPACK_SAMPLES)
         root["data"] = m_store->json();
+#endif
 
-        Json::Value propInfo( Json::objectValue );
-        propInfo["isScalarLike"] = m_header->isScalarLike;
-        propInfo["isHomogenous"] = m_header->isHomogenous;
-        propInfo["timeSamplingIndex"] = m_header->timeSamplingIndex;
-        propInfo["numSamples"] = m_header->nextSampleIndex;
-        propInfo["firstChangedIndex"] = m_header->firstChangedIndex;
-        propInfo["lastChangedIndex"] = m_header->lastChangedIndex;
-        propInfo["metadata"] = m_header->header.getMetaData().serialize();
+        rapidjson::Value propInfo( rapidjson::kObjectType );
+        JsonSet(document, propInfo, "isScalarLike", m_header->isScalarLike);
+        JsonSet(document, propInfo, "isHomogenous", m_header->isHomogenous);
+        JsonSet(document, propInfo, "timeSamplingIndex", m_header->timeSamplingIndex);
+        JsonSet(document, propInfo, "numSamples", m_header->nextSampleIndex);
+        JsonSet(document, propInfo, "firstChangedIndex", m_header->firstChangedIndex);
+        JsonSet(document, propInfo, "lastChangedIndex", m_header->lastChangedIndex);
+        JsonSet(document, propInfo, "metadata", m_header->header.getMetaData().serialize());
 
-        root["info"] = propInfo;
+        JsonSet(document, "info", propInfo);
 
         t_end = time_us();
         Profile::add_json_creation(t_end - t_start);
 
         t_start = time_us();
-        Json::StyledWriter writer;
-        std::string output = writer.write( root );
+        std::string output = JsonWrite(document);
         t_end = time_us();
         Profile::add_json_output(t_end - t_start);
 
@@ -432,6 +438,17 @@ void ApwImpl::writeToDisk()
         m_group->add_file_from_memory(name() + ".json", output);
         t_end = time_us();
         Profile::add_git(t_end - t_start);
+
+#if MSGPACK_SAMPLES
+        t_start = time_us();
+        std::string packedSamples = m_store->pack();
+        t_end = time_us();
+        TRACE("ApwImpl::writeToDisk() samples-to-msgpack: " << (t_end - t_start) << "us");
+        t_start = time_us();
+        m_group->add_file_from_memory(name() + ".bin", packedSamples);
+        t_end = time_us();
+        Profile::add_git(t_end - t_start);
+#endif /* MSGPACK_SAMPLES */
 #endif
 
         m_written = true;

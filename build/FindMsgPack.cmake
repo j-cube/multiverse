@@ -19,21 +19,34 @@ IF (MSGPACK_LIBRARIES AND MSGPACK_INCLUDE_DIR)
     SET(MSGPACK_FIND_QUIETLY TRUE) # Already in cache, be silent
 ENDIF (MSGPACK_LIBRARIES AND MSGPACK_INCLUDE_DIR)
 
+find_package(PkgConfig)
+pkg_check_modules(PC_MSGPACK QUIET msgpack)
+set(MSGPACK_DEFINITIONS ${PC_MSGPACK_CFLAGS_OTHER})
+set(MSGPACK_LINK ${PC_MSGPACK_LIBS})
 
-FIND_PATH(MSGPACK_INCLUDE_DIR msgpack.hpp
-    /opt/jcube/include
-    /usr/include
-    /usr/include/msgpack
-    /usr/local/include
-    /usr/local/include/msgpack
-)
+find_path(MSGPACK_INCLUDE_DIR msgpack.hpp
+          HINTS ${PC_MSGPACK_INCLUDEDIR} ${PC_MSGPACK_INCLUDE_DIRS}
+          #PATH_SUFFIXES libgit2
+          DOC "The directory where msgpack.hpp resides" )
 
-FIND_LIBRARY(MSGPACK_LIBRARY NAMES msgpack PATHS
-	/opt/jcube/lib
-    /usr/lib
-    /usr/local/lib
-    /usr/local/lib/msgpack
-)
+find_library(MSGPACK_LIBRARY NAMES msgpack
+             HINTS ${PC_MSGPACK_LIBDIR} ${PC_MSGPACK_LIBRARY_DIRS}
+             DOC "The msgpack library" )
+
+# FIND_PATH(MSGPACK_INCLUDE_DIR msgpack.hpp
+#     /opt/jcube/include
+#     /usr/include
+#     /usr/include/msgpack
+#     /usr/local/include
+#     /usr/local/include/msgpack
+# )
+
+# FIND_LIBRARY(MSGPACK_LIBRARY NAMES msgpack PATHS
+#     /opt/jcube/lib
+#     /usr/lib
+#     /usr/local/lib
+#     /usr/local/lib/msgpack
+# )
 
 # Copy the results to the output variables.
 IF (MSGPACK_INCLUDE_DIR AND MSGPACK_LIBRARY)

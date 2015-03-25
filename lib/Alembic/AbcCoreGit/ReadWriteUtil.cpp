@@ -10,6 +10,8 @@
 #include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
+#include <Alembic/AbcCoreGit/JSON.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -492,26 +494,25 @@ void WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
 }
 #endif /* OBSOLETE */
 
-Json::Value toJson( const AbcA::TimeSamplingType& value )
+void toJson( rapidjson::Document& document, rapidjson::Value& dst,
+             const AbcA::TimeSamplingType& value )
 {
-    Json::Value root( Json::objectValue );
+    dst.SetObject();
 
-    root["uniform"] = value.isUniform();
-    root["cyclic"]  = value.isCyclic();
-    root["acyclic"] = value.isAcyclic();
-    root["samplesPerCycle"] = value.getNumSamplesPerCycle();
-    root["timePerCycle"] = value.getTimePerCycle();
-
-    return root;
+    JsonSet(document, dst, "uniform", value.isUniform());
+    JsonSet(document, dst, "cyclic", value.isCyclic());
+    JsonSet(document, dst, "acyclic", value.isAcyclic());
+    JsonSet(document, dst, "samplesPerCycle", value.getNumSamplesPerCycle());
+    JsonSet(document, dst, "timePerCycle", value.getTimePerCycle());
 }
 
-bool fromJson( AbcA::TimeSamplingType& result, Json::Value jsonValue )
+static bool fromJson( AbcA::TimeSamplingType& result, const rapidjson::Value& jsonValue )
 {
-    bool isUniform = jsonValue.get("uniform", false).asBool();
-    bool isCyclic  = jsonValue.get("cyclic", false).asBool();
-    bool isAcyclic = jsonValue.get("acyclic", false).asBool();
-    uint32_t spc = jsonValue.get("samplesPerCycle", 0).asUInt();
-    chrono_t tpc = jsonValue.get("timePerCycle", 0.0).asDouble();
+    bool isUniform = JsonGetBool(jsonValue, "uniform").get_value_or(false);
+    bool isCyclic  = JsonGetBool(jsonValue, "cyclic").get_value_or(false);
+    bool isAcyclic = JsonGetBool(jsonValue, "acyclic").get_value_or(false);
+    uint32_t spc = JsonGetUint(jsonValue, "samplesPerCycle").get_value_or(0);
+    chrono_t tpc = JsonGetDouble(jsonValue, "timePerCycle").get_value_or(0.0);
 
     TRACE("isUniform:" << (isUniform ? "T" : "F") << " isCyclic:" << (isCyclic ? "T" : "F") << " isAcyclic:" << (isAcyclic ? "T" : "F") << " spc:" << spc << " tpc:" << tpc);
     if (isAcyclic)
@@ -535,44 +536,48 @@ bool fromJson( AbcA::TimeSamplingType& result, Json::Value jsonValue )
     return false;
 }
 
-Json::Value toJson( const AbcA::TimeSampling& value )
-{
-    Json::Value root( Json::objectValue );
 
-    root["tst"] = toJson( value.getTimeSamplingType() );
+void toJson( rapidjson::Document& document, rapidjson::Value& dst,
+             const AbcA::TimeSampling& value )
+{
+    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+
+    dst.SetObject();
+
+    rapidjson::Value tstObject( rapidjson::kObjectType );
+    toJson(document, tstObject, value.getTimeSamplingType());
+    JsonSet(document, dst, "tst", tstObject);
 
     const std::vector < chrono_t > & samps = value.getStoredTimes();
     ABCA_ASSERT( samps.size() > 0, "No TimeSamples to convert!");
 
     Util::uint32_t spc = ( Util::uint32_t ) samps.size();
 
-    root["n_times"] = spc;
+    JsonSet(document, dst, "n_times", spc);
 
-    Json::Value values( Json::arrayValue );
+    rapidjson::Value values( rapidjson::kArrayType );
 
     for ( std::size_t i = 0; i < samps.size(); ++i )
     {
-        values.append( samps[i] );
+        values.PushBack( samps[i], allocator );
     }
 
-    root["times"] = values;
-
-    return root;
+    JsonSet(document, dst, "times", values);
 }
 
-bool fromJson( AbcA::TimeSampling& result, Json::Value jsonValue )
+static bool fromJson( AbcA::TimeSampling& result, const rapidjson::Value& jsonValue )
 {
     AbcA::TimeSamplingType tst;
     fromJson( tst, jsonValue["tst"] );
 
-    uint32_t n_times = jsonValue.get("n_times", 0).asUInt();
+    uint32_t n_times = JsonGetUint(jsonValue, "n_times").get_value_or(0);
 
-    Json::Value v_times = jsonValue["times"];
     std::vector<chrono_t> sampleTimes;
-    for (Json::Value::iterator v_it = v_times.begin(); v_it != v_times.end(); ++v_it)
+    const rapidjson::Value& v_times = jsonValue["times"];
+    for (rapidjson::Value::ConstValueIterator v_it = v_times.Begin(); v_it != v_times.End(); ++v_it)
     {
-        Json::Value v_time = *v_it;
-        sampleTimes.push_back( v_time.asDouble() );
+        const rapidjson::Value& v_time = *v_it;
+        sampleTimes.push_back( *JsonGetDouble(v_time) );
     }
 
     Util::uint32_t spc = sampleTimes.size();
@@ -583,26 +588,30 @@ bool fromJson( AbcA::TimeSampling& result, Json::Value jsonValue )
     return true;
 }
 
-Json::Value jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
-                                   const AbcA::TimeSampling &iTsmp )
+void jsonWriteTimeSampling( rapidjson::Document& document, rapidjson::Value& dst,
+                            Util::uint32_t iMaxSample,
+                            const AbcA::TimeSampling &iTsmp )
 {
     TRACE("jsonWriteTimeSampling(iMaxSample:" << iMaxSample << ")");
-    Json::Value root( Json::objectValue );
 
-    root["maxSample"] = iMaxSample;
-    root["timeSampling"] = toJson( iTsmp );
+    dst.SetObject();
 
-    return root;
+    JsonSet(document, dst, "maxSample", iMaxSample);
+
+    rapidjson::Value timeSamplingObject( rapidjson::kObjectType );
+    toJson( document, timeSamplingObject, iTsmp );
+
+    JsonSet(document, dst, "timeSampling", timeSamplingObject);
 }
 
-void jsonReadTimeSampling( Json::Value jsonValue,
+static void jsonReadTimeSampling( const rapidjson::Value& jsonValue,
     Util::uint32_t& oMaxSample, AbcA::TimeSampling& oTsmp )
 {
-    oMaxSample = jsonValue.get("maxSample", 0).asUInt();
+    oMaxSample = JsonGetUint64(jsonValue, "maxSample").get_value_or(0);
     fromJson( oTsmp, jsonValue["timeSampling"] );
 }
 
-void jsonReadTimeSamples( Json::Value jsonTimeSamples,
+void jsonReadTimeSamples( const rapidjson::Value& jsonTimeSamples,
                        std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
                        std::vector < AbcA::index_t > & oMaxSamples )
 {
@@ -611,9 +620,9 @@ void jsonReadTimeSamples( Json::Value jsonTimeSamples,
     // AbcA::TimeSamplingPtr ts( new AbcA::TimeSampling() );
     // oTimeSamples.push_back( ts );
 
-    for (Json::Value::iterator it = jsonTimeSamples.begin(); it != jsonTimeSamples.end(); ++it)
+    for (rapidjson::Value::ConstValueIterator it = jsonTimeSamples.Begin(); it != jsonTimeSamples.End(); ++it)
     {
-        Json::Value element = *it;
+        const rapidjson::Value& element = *it;
 
         Util::uint32_t maxSample;
         AbcA::TimeSampling* tsmp_ptr = new AbcA::TimeSampling();

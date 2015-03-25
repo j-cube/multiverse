@@ -14,7 +14,7 @@
 #include <Alembic/AbcCoreGit/MetaDataMap.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
-#include <json/json.h>
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -78,11 +78,11 @@ WriteTimeSampling( std::vector< Util::uint8_t > & ioData,
                    const AbcA::TimeSampling &iTsmp );
 #endif /* OBSOLETE */
 
-Json::Value
-jsonWriteTimeSampling( Util::uint32_t  iMaxSample,
-                       const AbcA::TimeSampling &iTsmp );
+void jsonWriteTimeSampling( rapidjson::Document& document, rapidjson::Value& dst,
+                            Util::uint32_t iMaxSample,
+                            const AbcA::TimeSampling &iTsmp );
 
-void jsonReadTimeSamples( Json::Value jsonTimeSamples,
+void jsonReadTimeSamples( const rapidjson::Value& jsonTimeSamples,
                        std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
                        std::vector < AbcA::index_t > & oMaxSamples );
 

@@ -16,7 +16,8 @@
 
 #include <iostream>
 #include <fstream>
-#include <json/json.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -263,9 +264,6 @@ bool AprImpl::readFromDisk()
 
     m_group->readFromDisk();
 
-    Json::Value root;
-    Json::Reader reader;
-
     std::string jsonPathname = absPathname() + ".json";
 
 #if JSON_TO_DISK
@@ -284,20 +282,25 @@ bool AprImpl::readFromDisk()
         return false;
     }
     std::string jsonContents = *optJsonContents;
-#endif
 
-    bool parsingSuccessful = reader.parse(jsonContents, root);
-    if (! parsingSuccessful)
+#if MSGPACK_SAMPLES
+    boost::optional<std::string> optBinContents = parentGroup->tree()->getChildFile(name() + ".bin");
+    if (! optJsonContents)
     {
-        ABCA_THROW( "format error while parsing '" << jsonPathname << "': " << reader.getFormatedErrorMessages() );
+        ABCA_THROW( "can't read git blob '" << absPathname() + ".bin" << "'" );
         return false;
     }
+#endif /* MSGPACK_SAMPLES */
+#endif
+
+    JSONParser json(jsonPathname, jsonContents);
+    rapidjson::Document& document = json.document;
 
     // TRACE( "AprImpl::readFromDisk - read JSON:" << jsonBuffer.str() );
     TODO("add AprImpl core read functionality");
 
-    std::string v_name = root.get("name", "UNKNOWN").asString();
-    std::string v_kind = root.get("kind", "UNKNOWN").asString();
+    std::string v_name = JsonGetString(document, "name").get_value_or("UNKNOWN");
+    std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
 
     if (v_kind != "ArrayProperty")
     {
@@ -307,13 +310,17 @@ bool AprImpl::readFromDisk()
 
     ABCA_ASSERT( v_kind == "ArrayProperty", "invalid kind" );
 
-    std::string v_typename = root.get("typename", "UNKNOWN").asString();
+    std::string v_typename = JsonGetString(document, "typename").get_value_or("UNKNOWN");
 
-    // uint8_t v_extent = root.get("extent", 0).asUInt();
-    // size_t v_rank = root.get("rank", 0).asUInt();
-    // size_t v_num_samples = root.get("num_samples", 0).asUInt();
+    // uint8_t v_extent = JsonGetUInt(document, "extent").get_value_or(0);
+    // size_t v_rank = JsonGetSizeT(document, "rank").get_value_or(0);
+    // size_t v_num_samples = JsonGetSizeT(document, "num_samples").get_value_or(0);
 
+#if MSGPACK_SAMPLES
+    m_store->unpack( *optBinContents );
+#else
     m_store->fromJson( root["data"] );
+#endif
 
     m_read = true;
 
