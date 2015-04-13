@@ -107,10 +107,10 @@ void ApwImpl::setFromPreviousSample()
 
     m_store->setFromPreviousSample();
 
-    Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
-    HashDimensions( m_dims, digest );
-    Util::SpookyHash::ShortEnd(m_hash.words[0], m_hash.words[1],
-                              digest.words[0], digest.words[1]);
+    // Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
+    // HashDimensions( m_dims, digest );
+    // Util::SpookyHash::ShortEnd(m_hash.words[0], m_hash.words[1],
+    //                           digest.words[0], digest.words[1]);
     m_header->nextSampleIndex ++;
 }
 
