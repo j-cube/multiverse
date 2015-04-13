@@ -35,6 +35,10 @@ CpwImpl::CpwImpl( AbcA::ObjectWriterPtr iParent,
 {
     TRACE("CpwImpl::CpwImpl(ObjectWriterPtr) TOP");
 
+    // always set isScalarLike to false for compound objects
+    ABCA_ASSERT( m_header, "Header not allocated" );
+    m_header->isScalarLike = false;
+
     // we don't need to write the property info, the object has done it already
 
     ABCA_ASSERT( m_object, "Invalid object" );
@@ -70,6 +74,9 @@ CpwImpl::CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
     GitGroupPtr iGroup = iParentGroup->addGroup( m_header->name() );
 
     m_data.reset( new CpwData( m_header->name(), iGroup ) );
+
+    // always set isScalarLike to false for compound objects
+    m_header->isScalarLike = false;
 
     // Write the property header.
     UNIMPLEMENTED("WritePropertyInfo()");

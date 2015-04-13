@@ -158,6 +158,25 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
             key == m_previousWrittenSampleID->getKey() ) )
     {
         m_dims = iSamp.getDimensions();
+
+        // if we haven't written this already, isScalarLike will be true
+        if ( m_header->isScalarLike && m_dims.numPoints() != 1 )
+        {
+            m_header->isScalarLike = false;
+        }
+
+#if 0
+        // if ( m_header->isHomogenous && m_previousWrittenSampleID &&
+        //      (m_dims.numPoints() != m_previousWrittenSampleID->getNumPoints()) )
+        // {
+        //     m_header->isHomogenous = false;
+        // }
+
+        // if (m_header->firstChangedIndex == 0)
+        // {
+        //     m_header->firstChangedIndex = m_header->nextSampleIndex;
+        // }
+#endif /* 0 */
     }
 
     if (! m_store.get())
