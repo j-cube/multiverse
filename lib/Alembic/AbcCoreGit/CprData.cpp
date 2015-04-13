@@ -400,6 +400,7 @@ bool CprData::readFromDiskSubHeader(size_t i)
     boost::optional<std::string> optJsonContents = parentGroup->tree()->getChildFile(subName + ".json");
     if (! optJsonContents)
     {
+        TRACE("[CprData " << *this << "] readFromDiskSubHeader(" << i << ") can't read git blob '" << jsonPathname << "'");
         ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
         return false;
     }

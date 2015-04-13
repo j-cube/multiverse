@@ -33,7 +33,22 @@ CpwImpl::CpwImpl( AbcA::ObjectWriterPtr iParent,
     , m_index( 0 )
     , m_written( false )
 {
-    TRACE("CpwImpl::CpwImpl(ObjectWriterPtr) TOP");
+    // TRACE("CpwImpl::CpwImpl(ObjectWriterPtr) TOP");
+
+    {
+        GitGroupPtr ourGroupPtr;
+        if (m_data)
+            ourGroupPtr = m_data->getGroup();
+
+        if (iParent && ourGroupPtr)
+            TRACE("CpwImpl::CpwImpl(ObjectWriterPtr - parent:" << CONCRETE_OWPTR(iParent)->repr(true) << ", ourGroup:" << ourGroupPtr->repr() << ", header:'" << m_header->name() << "', index:" << m_index << ")");
+        else if (iParent)
+            TRACE("CpwImpl::CpwImpl(ObjectWriterPtr - parent:" << CONCRETE_OWPTR(iParent)->repr(true) << ", ourGroup:--, header:'" << m_header->name() << "', index:" << m_index << ")");
+        else if (ourGroupPtr)
+            TRACE("CpwImpl::CpwImpl(ObjectWriterPtr - parent:--, ourGroup:" << ourGroupPtr->repr() << ", header:'" << m_header->name() << "', index:" << m_index << ")");
+        else
+            TRACE("CpwImpl::CpwImpl(ObjectWriterPtr - parent:--, ourGroup:--, header:'" << m_header->name() << "', index:" << m_index << ")");
+    }
 
     // always set isScalarLike to false for compound objects
     ABCA_ASSERT( m_header, "Header not allocated" );

@@ -190,8 +190,8 @@ CpwData::createCompoundProperty( AbcA::CompoundPropertyWriterPtr iParent,
 
     GitGroupPtr myGroup = getGroup();
 
-   PropertyHeaderPtr headerPtr( new PropertyHeaderAndFriends( iName,
-                                iMetaData ) );
+    PropertyHeaderPtr headerPtr( new PropertyHeaderAndFriends( iName,
+                                 iMetaData ) );
 
     Alembic::Util::shared_ptr<CpwImpl>
         ret( new CpwImpl( iParent, myGroup, headerPtr,

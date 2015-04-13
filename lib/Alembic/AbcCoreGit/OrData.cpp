@@ -310,6 +310,7 @@ bool OrData::readFromDiskChildHeader(size_t i)
     boost::optional<std::string> optJsonContents = parentGroup->tree()->getChildFile(childName + ".json");
     if (! optJsonContents)
     {
+        TRACE("[OrData " << *this << "] readFromDiskChildHeader(" << i << ") can't read git blob '" << jsonPathname << "'");
         ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
         return false;
     }

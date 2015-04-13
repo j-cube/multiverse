@@ -99,6 +99,18 @@ private:
     size_t m_index;
 };
 
+inline std::ostream& operator<< ( std::ostream& out, const OwImpl& value )
+{
+    out << value.repr();
+    return out;
+}
+
+inline std::ostream& operator<< ( std::ostream& out, OwImplPtr value )
+{
+    out << value->repr();
+    return out;
+}
+
 inline OwImplPtr getOwImplPtr(AbcA::ObjectWriterPtr aOwPtr)
 {
     ABCA_ASSERT( aOwPtr, "Invalid pointer to AbcA::ObjectWriter" );

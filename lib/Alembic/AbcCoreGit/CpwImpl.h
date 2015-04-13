@@ -123,6 +123,18 @@ private:
     bool m_written;
 };
 
+inline std::ostream& operator<< ( std::ostream& out, const CpwImpl& value )
+{
+    out << value.repr();
+    return out;
+}
+
+inline std::ostream& operator<< ( std::ostream& out, CpwImplPtr value )
+{
+    out << value->repr();
+    return out;
+}
+
 inline CpwImplPtr getCpwImplPtr(AbcA::CompoundPropertyWriterPtr aCpwPtr)
 {
     ABCA_ASSERT( aCpwPtr, "Invalid pointer to AbcA::CompoundPropertyWriter" );
