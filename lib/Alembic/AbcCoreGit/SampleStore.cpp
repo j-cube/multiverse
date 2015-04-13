@@ -423,7 +423,7 @@ void TypedSampleStore<T>::setFromPreviousSample()                           // d
     {
         size_t extent = m_dataType.getExtent();
 
-        ABCA_ASSERT( m_data.size() > extent,
+        ABCA_ASSERT( m_data.size() >= extent,
                       "wrong number of PODs in SampleStore" );
 
         std::vector<T> last_sample(m_data.end() - extent, m_data.end());
@@ -441,7 +441,7 @@ void TypedSampleStore<T>::setFromPreviousSample()                           // d
         size_t points_per_sample = m_dimensions.numPoints();
         size_t pods_per_sample = points_per_sample * extent;
 
-        ABCA_ASSERT( m_data.size() > pods_per_sample,
+        ABCA_ASSERT( m_data.size() >= pods_per_sample,
                       "wrong number of PODs in SampleStore" );
 
         std::vector<T> last_sample(m_data.end() - pods_per_sample, m_data.end());
