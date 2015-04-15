@@ -68,6 +68,7 @@ CpwImpl::CpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
   : m_parent( iParent )
   , m_header( iHeader )
   , m_index( iIndex )
+  , m_written( false )
 {
     // Check the validity of all inputs.
     ABCA_ASSERT( m_parent, "Invalid parent" );
