@@ -21,6 +21,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/locale.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -115,7 +116,9 @@ std::string pathjoin(const std::string& pathname1, const std::string& pathname2)
     boost::filesystem::path p2(pathname2);
 
 #ifdef _MSC_VER
-    return (p1 / p2).generic_string();
+    std::string joined_path = boost::locale::conv::utf_to_utf<char>((p1 / p2).native());
+    std::replace(joined_path.begin(), joined_path.end(), '\\' , '/');
+    return joined_path;
 #else
     return (p1 / p2).native();
 #endif
@@ -152,14 +155,7 @@ std::string v_pathjoin(const std::string& p1, const std::string& p2, char pathse
 
 std::string path_separator()
 {
-    boost::filesystem::path p_slash("/");
-#ifdef _MSC_VER
-    boost::filesystem::path preferredSlash = p_slash.make_preferred();
-    return preferredSlash.generic_string();
-#else
-    boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
-    return preferredSlash;
-#endif
+    return "/";
 }
 
 bool ends_with_separator(const std::string& pathname)
@@ -244,12 +240,10 @@ naive_uncomplete(boost::filesystem::path p, boost::filesystem::path base, bool c
     const std::string _dot  = ".";
     const std::string _dots = "..";
     boost::filesystem::path p_slash("/");
-
-#ifdef _MSC_VER
-    boost::filesystem::path preferredSlash = p_slash.make_preferred();
-    const std::string _sep = preferredSlash.generic_string();
-#else
     boost::filesystem::path::string_type preferredSlash = p_slash.make_preferred().native();
+#ifdef _MSC_VER
+    const std::string _sep = boost::locale::conv::utf_to_utf<char>(preferredSlash);
+#else
     const std::string _sep = preferredSlash;
 #endif
 #endif
@@ -305,7 +299,7 @@ std::string relative_path(const std::string& abs_path, const std::string& base)
 {
     boost::filesystem::path rel_p = naive_uncomplete(abs_path, base);
 #ifdef _MSC_VER
-    return rel_p.generic_string();
+    return boost::locale::conv::utf_to_utf<char>(rel_p.native());
 #else
     return rel_p.native();
 #endif
@@ -318,7 +312,7 @@ std::string real_path(const std::string& pathname)
 
     boost::filesystem::path c_p = boost::filesystem::canonical(p);
 #ifdef _MSC_VER
-    return c_p.generic_string();
+    return boost::locale::conv::utf_to_utf<char>(c_p.native());
 #else
     return c_p.native();
 #endif
@@ -330,7 +324,7 @@ double time_us()
     boost::posix_time::ptime ms_t_now = boost::posix_time::microsec_clock::local_time();
     boost::posix_time::time_duration ms_t_diff = ms_t_now - ms_t_start;
 
-    return ms_t_diff.total_microseconds();
+    return static_cast<double>(ms_t_diff.total_microseconds());
 }
 
 double time_ms()
@@ -339,7 +333,7 @@ double time_ms()
     boost::posix_time::ptime ms_t_now = boost::posix_time::microsec_clock::local_time();
     boost::posix_time::time_duration ms_t_diff = ms_t_now - ms_t_start;
 
-    return ms_t_diff.total_milliseconds();
+    return static_cast<double>(ms_t_diff.total_milliseconds());
 }
 
 double Profile::s_json_creation = 0.0;

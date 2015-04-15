@@ -274,28 +274,34 @@ std::string SpwImpl::relPathname() const
 {
     ABCA_ASSERT(m_group, "invalid group");
 
+    std::string rel_path_name;
     std::string parent_path = m_group->relPathname();
     if (parent_path == "/")
     {
-        return parent_path + name();
+        rel_path_name = parent_path + name();
     } else
     {
-        return parent_path + "/" + name();
+        rel_path_name = parent_path + "/" + name();
     }
+    std::replace(rel_path_name.begin() , rel_path_name.end() , '\\' , '/');
+    return rel_path_name;
 }
 
 std::string SpwImpl::absPathname() const
 {
     ABCA_ASSERT(m_group, "invalid group");
 
+    std::string abs_path_name;
     std::string parent_path = m_group->absPathname();
     if (parent_path == "/")
     {
-        return parent_path + name();
+        abs_path_name = parent_path + name();
     } else
     {
-        return parent_path + "/" + name();
+        abs_path_name = parent_path + "/" + name();
     }
+    std::replace(abs_path_name.begin() , abs_path_name.end() , '\\' , '/');
+    return abs_path_name;
 }
 
 void SpwImpl::writeToDisk()
