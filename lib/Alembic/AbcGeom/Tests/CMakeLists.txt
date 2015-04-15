@@ -38,6 +38,7 @@ SET( TEST_LIBS
      AlembicAbcGeom
      AlembicAbc
      AlembicAbcCoreHDF5
+     AlembicAbcCoreGit
      AlembicAbcCoreAbstract
      AlembicUtil
      ${ALEMBIC_HDF5_LIBS}
