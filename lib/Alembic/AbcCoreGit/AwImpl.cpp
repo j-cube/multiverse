@@ -23,10 +23,12 @@ namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
 AwImpl::AwImpl( const std::string &iFileName,
-                const AbcA::MetaData &iMetaData )
+                const AbcA::MetaData &iMetaData,
+                const WriteOptions &options )
   : m_fileName( iFileName )
   , m_metaData( iMetaData )
   , m_metaDataMap( new MetaDataMap() )
+  , m_options( options )
   , m_written( false )
 {
     TRACE("AwImpl::AwImpl('" << iFileName << "')");
@@ -264,7 +266,12 @@ void AwImpl::writeToDisk()
 
         m_repo_ptr->add(jsonRelPathname);
         m_repo_ptr->write_index();
-        m_repo_ptr->commit_index("commit new version to alembic file");
+
+        boost::optional<std::string> commitMessageOpt = m_options.getCommitMessage();
+        if (commitMessageOpt)
+            m_repo_ptr->commit_index(*commitMessageOpt);
+        else
+            m_repo_ptr->commit_index("commit new version to alembic file");
 
         t_end = time_us();
         Profile::add_git(t_end - t_start);
@@ -273,7 +280,12 @@ void AwImpl::writeToDisk()
 
         m_repo_ptr->rootGroup()->add_file_from_memory("archive.json", output);
         m_repo_ptr->rootGroup()->treebuilder()->write();
-        m_repo_ptr->commit_treebuilder("commit new version to alembic file");
+
+        boost::optional<std::string> commitMessageOpt = m_options.getCommitMessage();
+        if (commitMessageOpt)
+            m_repo_ptr->commit_treebuilder(*commitMessageOpt);
+        else
+            m_repo_ptr->commit_treebuilder("commit new version to alembic file");
 
         t_end = time_us();
         Profile::add_git(t_end - t_start);

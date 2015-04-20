@@ -40,6 +40,8 @@
 #include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcCoreGit/All.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 void copyProps(Alembic::Abc::ICompoundProperty & iRead,
     Alembic::Abc::OCompoundProperty & iWrite)
 {
@@ -141,105 +143,9 @@ void copyObject(Alembic::Abc::IObject & iIn,
     }
 }
 
-int main(int argc, char *argv[])
+static void usage()
 {
-
-    std::string toType;
-    std::string inFile;
-    std::string outFile;
-    std::string forceStr;
-
-    if (argc == 4)
-    {
-        toType = argv[1];
-        inFile = argv[2];
-        outFile = argv[3];
-    }
-    else if (argc == 5)
-    {
-        forceStr = argv[1];
-        toType = argv[2];
-        inFile = argv[3];
-        outFile = argv[4];
-    }
-
-    if ((argc == 4 || argc == 5) && (forceStr.empty() || forceStr == "-force"))
-    {
-        if (inFile == outFile)
-        {
-            printf("Error: inFile and outFile must not be the same!\n");
-            return 1;
-        }
-
-        if (toType != "-toHDF" && toType != "-toOgawa" && toType != "-toGit")
-        {
-            printf("Error: Unknown conversion type specified %s\n",
-                   toType.c_str());
-            printf("Currently only -toHDF, -toOgawa and -toGit are supported.\n");
-            return 1;
-        }
-
-        Alembic::AbcCoreFactory::IFactory factory;
-        Alembic::AbcCoreFactory::IFactory::CoreType coreType;
-        Alembic::Abc::IArchive archive = factory.getArchive(inFile, coreType);
-        if (!archive.valid())
-        {
-            printf("Error: Invalid Alembic file specified: %s\n",
-                   inFile.c_str());
-            return 1;
-        }
-        else if ( forceStr != "-force" && (
-            (coreType == Alembic::AbcCoreFactory::IFactory::kHDF5 &&
-             toType == "-toHDF") ||
-            (coreType == Alembic::AbcCoreFactory::IFactory::kOgawa &&
-             toType == "-toOgawa") ||
-            (coreType == Alembic::AbcCoreFactory::IFactory::kGit &&
-             toType == "-toGit")
-            ) )
-        {
-            printf("Warning: Alembic file specified: %s\n",inFile.c_str());
-            printf("is already of the type you want to convert to.\n");
-            printf("Please specify -force if you want to do this anyway.\n");
-            return 1;
-        }
-
-        Alembic::Abc::IObject inTop = archive.getTop();
-        Alembic::Abc::OArchive outArchive;
-        if (toType == "-toHDF")
-        {
-            outArchive = Alembic::Abc::OArchive(
-                Alembic::AbcCoreHDF5::WriteArchive(),
-                outFile, inTop.getMetaData(),
-                Alembic::Abc::ErrorHandler::kThrowPolicy);
-        }
-        else if (toType == "-toOgawa")
-        {
-            outArchive = Alembic::Abc::OArchive(
-                Alembic::AbcCoreOgawa::WriteArchive(),
-                outFile, inTop.getMetaData(),
-                Alembic::Abc::ErrorHandler::kThrowPolicy);
-        }
-        else if (toType == "-toGit")
-        {
-            outArchive = Alembic::Abc::OArchive(
-                Alembic::AbcCoreGit::WriteArchive(),
-                outFile, inTop.getMetaData(),
-                Alembic::Abc::ErrorHandler::kThrowPolicy);
-        }
-
-        // start at 1, we don't need to worry about intrinsic default case
-        for (Alembic::Util::uint32_t i = 1; i < archive.getNumTimeSamplings();
-             ++i)
-        {
-            outArchive.addTimeSampling(*archive.getTimeSampling(i));
-        }
-
-        Alembic::Abc::OObject outTop = outArchive.getTop();
-        copyObject(inTop, outTop);
-        return 0;
-    }
-
-    printf ("Usage: abcconvert [-force] OPTION inFile outFile\n");
+    printf ("Usage: abcconvert [-force] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
     printf ("Used to convert an Alembic file from one type to another.\n\n");
     printf ("If -force is not provided and inFile happens to be the same\n");
     printf ("type as OPTION no conversion will be done and a message will\n");
@@ -249,5 +155,128 @@ int main(int argc, char *argv[])
     printf ("  -toOgawa Convert to Ogawa.\n");
     printf ("  -toGit   Convert to Git.\n");
 
-    return 1;
+    exit(EXIT_FAILURE);
+}
+
+int main(int argc, char *argv[])
+{
+    std::string toType;
+    std::string inFile;
+    std::string outFile;
+    bool forceOpt = false;
+
+    std::string commitMessage;
+
+    int arg_i = 1;
+    while (arg_i < argc)
+    {
+        std::string arg = argv[arg_i];
+        if (! boost::starts_with(arg, "-"))
+            break;
+
+        if ((arg == "-force") || (arg == "--force"))
+        {
+            forceOpt = true;
+        } else if ((arg == "-toHDF") || (arg == "-toOgawa") || (arg == "-toGit"))
+        {
+            toType = arg;
+        } else if ((arg == "-m") || (arg == "--message") || boost::starts_with(arg, "--message="))
+        {
+            if (boost::starts_with(arg, "--message="))
+            {
+                commitMessage = arg.substr(10, std::string::npos);
+            } else
+            {
+                commitMessage = argv[++arg_i];
+            }
+        }
+
+        ++arg_i;
+    }
+
+    if ((arg_i + 1) >= argc)
+        usage();
+
+    inFile = argv[arg_i++];
+    outFile = argv[arg_i++];
+
+    // std::cout << "to:" << toType << " force:" << forceOpt << " message:'" << commitMessage << "' inFile:'" << inFile << "' outFile:'" << outFile << "'" << std::endl;
+
+    if (inFile == outFile)
+    {
+        printf("Error: inFile and outFile must not be the same!\n");
+        return 1;
+    }
+
+    if (toType != "-toHDF" && toType != "-toOgawa" && toType != "-toGit")
+    {
+        printf("Error: Unknown conversion type specified %s\n",
+               toType.c_str());
+        printf("Currently only -toHDF, -toOgawa and -toGit are supported.\n");
+        return 1;
+    }
+
+    Alembic::AbcCoreFactory::IFactory factory;
+    Alembic::AbcCoreFactory::IFactory::CoreType coreType;
+    Alembic::Abc::IArchive archive = factory.getArchive(inFile, coreType);
+    if (!archive.valid())
+    {
+        printf("Error: Invalid Alembic file specified: %s\n",
+               inFile.c_str());
+        return 1;
+    }
+    else if ( (!forceOpt) && (
+        (coreType == Alembic::AbcCoreFactory::IFactory::kHDF5 &&
+         toType == "-toHDF") ||
+        (coreType == Alembic::AbcCoreFactory::IFactory::kOgawa &&
+         toType == "-toOgawa") ||
+        (coreType == Alembic::AbcCoreFactory::IFactory::kGit &&
+         toType == "-toGit")
+        ) )
+    {
+        printf("Warning: Alembic file specified: %s\n",inFile.c_str());
+        printf("is already of the type you want to convert to.\n");
+        printf("Please specify -force if you want to do this anyway.\n");
+        return 1;
+    }
+
+    Alembic::Abc::IObject inTop = archive.getTop();
+    Alembic::Abc::OArchive outArchive;
+    if (toType == "-toHDF")
+    {
+        outArchive = Alembic::Abc::OArchive(
+            Alembic::AbcCoreHDF5::WriteArchive(),
+            outFile, inTop.getMetaData(),
+            Alembic::Abc::ErrorHandler::kThrowPolicy);
+    }
+    else if (toType == "-toOgawa")
+    {
+        outArchive = Alembic::Abc::OArchive(
+            Alembic::AbcCoreOgawa::WriteArchive(),
+            outFile, inTop.getMetaData(),
+            Alembic::Abc::ErrorHandler::kThrowPolicy);
+    }
+    else if (toType == "-toGit")
+    {
+        Alembic::AbcCoreGit::WriteOptions options;
+
+        if (! commitMessage.empty())
+            options.setCommitMessage(commitMessage);
+
+        outArchive = Alembic::Abc::OArchive(
+            Alembic::AbcCoreGit::WriteArchive(options),
+            outFile, inTop.getMetaData(),
+            Alembic::Abc::ErrorHandler::kThrowPolicy);
+    }
+
+    // start at 1, we don't need to worry about intrinsic default case
+    for (Alembic::Util::uint32_t i = 1; i < archive.getNumTimeSamplings();
+         ++i)
+    {
+        outArchive.addTimeSampling(*archive.getTimeSampling(i));
+    }
+
+    Alembic::Abc::OObject outTop = outArchive.getTop();
+    copyObject(inTop, outTop);
+    return 0;
 }

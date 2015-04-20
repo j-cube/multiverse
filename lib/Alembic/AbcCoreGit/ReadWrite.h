@@ -11,9 +11,32 @@
 
 #include <Alembic/AbcCoreAbstract/All.h>
 
+#include <map>
+#include <boost/any.hpp>
+#include <boost/optional.hpp>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
+
+class WriteOptions
+{
+public:
+    WriteOptions();
+    WriteOptions(const std::string& commit_message);
+    WriteOptions(const WriteOptions& other);
+    ~WriteOptions();
+
+    WriteOptions& operator= (const WriteOptions& rhs);
+
+    void setCommitMessage(const std::string& message) { m_commit_message = message; }
+    boost::optional<std::string> getCommitMessage() const { return m_commit_message; }
+
+    std::map< std::string, boost::any > generic;
+
+private:
+    boost::optional<std::string> m_commit_message;
+};
 
 //-*****************************************************************************
 //! Will return a shared pointer to the archive writer
@@ -22,10 +45,17 @@ class WriteArchive
 {
 public:
     WriteArchive();
+    WriteArchive(const WriteOptions& options);
 
     ::Alembic::AbcCoreAbstract::ArchiveWriterPtr
     operator()( const std::string &iFileName,
                 const ::Alembic::AbcCoreAbstract::MetaData &iMetaData ) const;
+
+    const WriteOptions& getOptions() const { return m_options; }
+    WriteOptions& getOptions() { return m_options; }
+
+private:
+    WriteOptions m_options;
 };
 
 //-*****************************************************************************

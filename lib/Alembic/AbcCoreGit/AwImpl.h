@@ -12,6 +12,7 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/WrittenSampleMap.h>
 #include <Alembic/AbcCoreGit/ReadWriteUtil.h>
+#include <Alembic/AbcCoreGit/ReadWrite.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
 namespace Alembic {
@@ -32,7 +33,8 @@ private:
     friend class WriteArchive;
 
     AwImpl( const std::string &iFileName,
-            const AbcA::MetaData &iMetaData );
+            const AbcA::MetaData &iMetaData,
+            const WriteOptions &options );
 
 public:
     virtual ~AwImpl();
@@ -95,6 +97,7 @@ private:
     WrittenSampleMap m_writtenSampleMap;
     MetaDataMapPtr m_metaDataMap;
 
+    WriteOptions m_options;
     bool m_written;
 };
 
