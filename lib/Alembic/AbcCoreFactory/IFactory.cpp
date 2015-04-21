@@ -95,6 +95,48 @@ Alembic::Abc::IArchive IFactory::getArchive( const std::string & iFileName,
     return Alembic::Abc::IArchive();
 }
 
+Alembic::Abc::IArchive IFactory::getArchive( const std::string & iFileName,
+                                             CoreType & oType,
+                                             const IOptions& iOptions )
+{
+
+    // try Ogawa first, use kQuietNoop at first in case we fail
+    Alembic::AbcCoreOgawa::ReadArchive ogawa( m_numStreams );
+    Alembic::Abc::IArchive archive( ogawa, iFileName,
+        Alembic::Abc::ErrorHandler::kQuietNoopPolicy, m_cachePtr );
+
+    if ( archive.valid() )
+    {
+        oType = kOgawa;
+        archive.getErrorHandler().setPolicy( m_policy );
+        return archive;
+    }
+
+    Alembic::AbcCoreHDF5::ReadArchive hdf( m_cacheHierarchy );
+    archive = Alembic::Abc::IArchive( hdf, iFileName,
+        Alembic::Abc::ErrorHandler::kQuietNoopPolicy, m_cachePtr );
+    if ( archive.valid() )
+    {
+        oType = kHDF5;
+        archive.getErrorHandler().setPolicy( m_policy );
+        return archive;
+    }
+
+    // try Git at last, use kQuietNoop in case we fail
+    Alembic::AbcCoreGit::ReadArchive git( iOptions );
+    archive = Alembic::Abc::IArchive( git, iFileName,
+        Alembic::Abc::ErrorHandler::kQuietNoopPolicy, m_cachePtr );
+    if ( archive.valid() )
+    {
+        oType = kGit;
+        archive.getErrorHandler().setPolicy( m_policy );
+        return archive;
+    }
+
+    oType = kUnknown;
+    return Alembic::Abc::IArchive();
+}
+
 Alembic::Abc::IArchive IFactory::getArchive( const std::string & iFileName )
 {
     CoreType coreType;

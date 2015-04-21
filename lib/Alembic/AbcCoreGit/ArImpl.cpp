@@ -22,14 +22,15 @@ namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
-ArImpl::ArImpl( const std::string &iFileName )
+ArImpl::ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOptions& iOptions )
   : m_fileName( iFileName )
   , m_header( new AbcA::ObjectHeader() )
+  , m_options( iOptions )
   , m_read( false )
 {
     TRACE("ArImpl::ArImpl('" << iFileName << "')");
 
-    m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Read) );
+    m_repo_ptr.reset( new GitRepo(m_fileName, m_options, GitMode::Read) );
 
     TRACE("repo valid:" << (m_repo_ptr->isValid() ? "TRUE" : "FALSE"));
 
@@ -164,6 +165,18 @@ static void ReadIndexedMetaData( const rapidjson::Value& json,
         md.deserialize( metaData );
         oMetaDataVec.push_back( md );
     }
+}
+
+bool ArImpl::hasRevisionSpec() const
+{
+    return m_options.has("revision");
+}
+
+std::string ArImpl::revisionString()
+{
+    if (m_options.has("revision"))
+        return boost::any_cast<std::string>(m_options["revision"]);
+    return std::string();
 }
 
 bool ArImpl::readFromDisk()

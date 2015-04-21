@@ -11,6 +11,8 @@
 
 #include <Alembic/AbcCoreAbstract/All.h>
 
+#include <Alembic/AbcCoreFactory/IFactory.h>
+
 #include <map>
 #include <boost/any.hpp>
 #include <boost/optional.hpp>
@@ -22,6 +24,21 @@ namespace ALEMBIC_VERSION_NS {
 class WriteOptions
 {
 public:
+    class OptProxy
+    {
+    public:
+        OptProxy(const std::string& key, std::map< std::string, boost::any >& opts) :
+            m_opts(opts), m_key(key) {}
+
+        const boost::any& operator= (const boost::any& value) { m_opts[m_key] = value; return value; }
+
+        operator boost::any() { return m_opts[m_key]; }
+
+    private:
+        std::map< std::string, boost::any >& m_opts;
+        std::string m_key;
+    };
+
     WriteOptions();
     WriteOptions(const std::string& commit_message);
     WriteOptions(const WriteOptions& other);
@@ -32,10 +49,15 @@ public:
     void setCommitMessage(const std::string& message) { m_commit_message = message; }
     boost::optional<std::string> getCommitMessage() const { return m_commit_message; }
 
-    std::map< std::string, boost::any > generic;
+    void set(const std::string& key, const boost::any& value);
+    bool has(const std::string& key) const;
+    boost::any get(const std::string& key);
+
+    OptProxy operator[] (const std::string& key) { return OptProxy(key, m_generic); }
 
 private:
     boost::optional<std::string> m_commit_message;
+    std::map< std::string, boost::any > m_generic;
 };
 
 //-*****************************************************************************
@@ -65,16 +87,30 @@ class ReadArchive
 {
 public:
     ReadArchive();
+    ReadArchive(const Alembic::AbcCoreFactory::IOptions& iOptions);
 
     // open the file
     ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
     operator()( const std::string &iFileName ) const;
+
+    ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
+    operator()( const std::string &iFileName,
+                const Alembic::AbcCoreFactory::IOptions& iOptions ) const;
 
     // The given cache is ignored.
     ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
     operator()( const std::string &iFileName,
                 ::Alembic::AbcCoreAbstract::ReadArraySampleCachePtr iCache
               ) const;
+
+    ::Alembic::AbcCoreAbstract::ArchiveReaderPtr
+    operator()( const std::string &iFileName,
+                ::Alembic::AbcCoreAbstract::ReadArraySampleCachePtr iCache,
+                const Alembic::AbcCoreFactory::IOptions& iOptions
+              ) const;
+
+private:
+    Alembic::AbcCoreFactory::IOptions m_options;
 };
 
 } // End namespace ALEMBIC_VERSION_NS

@@ -76,6 +76,10 @@ static bool git_check_error(int error_code, const std::string& action)
 
     const git_error *error = giterr_last();
 
+    std::cerr << "ERROR: libgit2 error " << error_code << " - "
+        << action << " - "
+        << ((error && error->message) ? error->message : "???")
+        << std::endl;
     ABCA_THROW( "libgit2 error " << error_code << " " << action <<
         " - " << ((error && error->message) ? error->message : "???") );
     // std::cerr << "ERROR: libgit2 error " << error_code << " - "
@@ -197,9 +201,137 @@ GitRepo::GitRepo(git_repository* repo, git_config* config, git_signature* signat
 }
 #endif
 
+GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode_) :
+    m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
+    m_odb(NULL), m_index(NULL), m_error(false),
+    m_index_dirty(false),
+    m_options(options)
+{
+    TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
+
+    LibGit::Initialize();
+
+    bool ok = true;
+    int rc;
+
+    if (m_options.has("revision"))
+    {
+        m_revision = boost::any_cast<std::string>(m_options["revision"]);
+        TRACE("GitRepo has revision '" << m_revision << "' specified.");
+    }
+
+    std::string dotGitPathname = pathjoin(pathname(), ".git");
+
+    if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
+    {
+        if (! isdir(m_pathname))
+        {
+            TRACE("initializing Git repository '" << m_pathname << "'");
+            rc = git_repository_init(&m_repo, m_pathname.c_str(), /* is_bare */ 0);
+            ok = ok && git_check_ok(rc, "initializing git repository");
+            if (! ok)
+            {
+                // ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+                goto ret;
+            }
+
+            assert(m_repo);
+
+            git_repository_config(&m_cfg, m_repo /* , NULL, NULL */);
+
+            git_config_set_int32(m_cfg, "core.repositoryformatversion", 0);
+            git_config_set_bool(m_cfg, "core.filemode", 1);
+            git_config_set_bool(m_cfg, "core.bare", 0);
+            git_config_set_bool(m_cfg, "core.logallrefupdates", 1);
+            git_config_set_bool(m_cfg, "core.ignorecase", 1);
+
+            // set the version of the Alembic git backend
+            // This expresses the AbcCoreGit version - how properties, are stored within Git, etc.
+            git_config_set_int32(m_cfg, "alembic.formatversion", ALEMBIC_GIT_FILE_VERSION);
+            // This is the Alembic library version XXYYZZ
+            // Where XX is the major version, YY is the minor version
+            // and ZZ is the patch version
+            git_config_set_int32(m_cfg, "alembic.libversion", ALEMBIC_LIBRARY_VERSION);
+
+            //git_repository_set_workdir(repo, m_fileName);
+
+            git_repository_free(m_repo);
+            m_repo = NULL;
+        } else
+        {
+            TRACE("Git repository '" << m_pathname << "' exists, opening (for writing)");
+        }
+    }
+
+    assert(! m_repo);
+
+    rc = git_repository_open(&m_repo, dotGitPathname.c_str());
+    ok = ok && git_check_ok(rc, "opening git repository");
+    if (!ok)
+    {
+        TRACE("error opening repository from '" << dotGitPathname << "'");
+        //ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
+        goto ret;
+    }
+
+    assert(m_repo);
+
+    rc = git_repository_config(&m_cfg, m_repo /* , NULL, NULL */);
+    ok = ok && git_check_ok(rc, "opening git config");
+    if (!ok)
+    {
+        TRACE("error fetching config for repository '" << dotGitPathname << "'");
+        //ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
+        goto ret;
+    }
+    assert(m_cfg);
+
+    rc = git_signature_default(&m_sig, m_repo);
+    ok = ok && git_check_ok(rc, "getting default signature");
+    if (! ok) goto ret;
+
+    assert(m_sig);
+
+    rc = git_repository_odb(&m_odb, m_repo);
+    ok = ok && git_check_ok(rc, "accessing git repository database");
+    if (!ok)
+    {
+        goto ret;
+    }
+
+    rc = git_repository_index(&m_index, m_repo);
+    ok = ok && git_check_ok(rc, "opening repository index");
+    if (!ok)
+    {
+        goto ret;
+    }
+
+ret:
+    m_error = m_error || (!ok);
+    if (m_error)
+    {
+        if (m_sig)
+            git_signature_free(m_sig);
+        m_sig = NULL;
+        if (m_index)
+            git_index_free(m_index);
+        m_index = NULL;
+        if (m_odb)
+            git_odb_free(m_odb);
+        m_odb = NULL;
+        if (m_cfg)
+            git_config_free(m_cfg);
+        m_cfg = NULL;
+        if (m_repo)
+            git_repository_free(m_repo);
+        m_repo = NULL;
+    }
+}
+
 GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
-    m_odb(NULL), m_index(NULL), m_error(false)
+    m_odb(NULL), m_index(NULL), m_error(false),
+    m_index_dirty(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
@@ -606,31 +738,50 @@ GitTree::GitTree(GitRepoPtr repo) :
     git_reference_free(head);
     head = NULL;
 
-    rc = git_commit_tree(&m_tree, commit);
-    m_error = m_error || git_check_error(rc, "getting commit tree");
+    if (commit)
+    {
+        rc = git_commit_tree(&m_tree, commit);
+        m_error = m_error || git_check_error(rc, "getting commit tree");
 
-    if (m_tree)
-        git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+        if (m_tree)
+            git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+    }
+
+    git_commit_free(commit);
+    commit = NULL;
 }
 
-GitTree::GitTree(GitRepoPtr repo, std::string rev_str) :
-    m_repo(repo), m_filename("/"), m_tree(NULL), m_error(false)
+GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str) :
+    m_repo(repo), m_filename("/"), m_tree(NULL), m_revision(rev_str), m_error(false)
 {
     git_object* obj = NULL;
+    git_commit* commit = NULL;
 
     memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
 
-    int rc = git_revparse_single(&obj, repo->g_ptr(), rev_str.c_str());
+    int rc = git_revparse_single(&obj, repo->g_ptr(), m_revision.c_str());
     m_error = m_error || git_check_error(rc, "parsing revision string");
 
-    rc = git_tree_lookup(&m_tree, repo->g_ptr(), git_object_id(obj));
-    m_error = m_error || git_check_error(rc, "looking up tree");
+    rc = git_commit_lookup(&commit, repo->g_ptr(), git_object_id(obj));
+    m_error = m_error || git_check_error(rc, "getting commit for revision string");
+
+    // rc = git_tree_lookup(&m_tree, repo->g_ptr(), git_object_id(obj));
+    // m_error = m_error || git_check_error(rc, "looking up tree");
+
+    if (commit)
+    {
+        rc = git_commit_tree(&m_tree, commit);
+        m_error = m_error || git_check_error(rc, "getting commit tree");
+
+        if (m_tree)
+            git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
+
+        git_commit_free(commit);
+        commit = NULL;
+    }
 
     git_object_free(obj);
     obj = NULL;
-
-    if (m_tree)
-        git_oid_cpy(&m_tree_oid, git_tree_id(m_tree));
 }
 
 GitTree::GitTree(GitRepoPtr repo, GitTreePtr parent_ptr, git_tree* lg_ptr) :
@@ -1091,7 +1242,20 @@ GitTreePtr GitGroup::tree()
     if (! m_tree_ptr)
     {
         if (isTopLevel())
-            m_tree_ptr = GitTree::Create(repo());
+        {
+            if (hasRevisionSpec())
+            {
+                assert(isTopLevel());
+                assert(! m_tree_ptr);
+
+                ABCA_ASSERT( isTopLevel(), "Specifying a revision is only possible for toplevel groups" );
+                ABCA_ASSERT( (!m_tree_ptr), "Tree already determined" );
+
+                TRACE("fetching top-level tree for revision '" << revisionString() << "'");
+                m_tree_ptr = GitTree::Create(repo(), revisionString());
+            } else
+                m_tree_ptr = GitTree::Create(repo());
+        }
         else
         {
             boost::optional<GitTreePtr> o_tree = GitTree::Create(parent()->tree(), filename());

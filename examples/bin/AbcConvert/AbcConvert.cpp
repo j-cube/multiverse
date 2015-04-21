@@ -145,7 +145,7 @@ void copyObject(Alembic::Abc::IObject & iIn,
 
 static void usage()
 {
-    printf ("Usage: abcconvert [-force] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
+    printf ("Usage: abcconvert [-force] [-r | --revision REVISION] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
     printf ("Used to convert an Alembic file from one type to another.\n\n");
     printf ("If -force is not provided and inFile happens to be the same\n");
     printf ("type as OPTION no conversion will be done and a message will\n");
@@ -163,6 +163,7 @@ int main(int argc, char *argv[])
     std::string toType;
     std::string inFile;
     std::string outFile;
+    std::string revision;
     bool forceOpt = false;
 
     std::string commitMessage;
@@ -189,6 +190,15 @@ int main(int argc, char *argv[])
             {
                 commitMessage = argv[++arg_i];
             }
+        } else if ((arg == "-r") || (arg == "--revision") || boost::starts_with(arg, "--revision="))
+        {
+            if (boost::starts_with(arg, "--revision="))
+            {
+                revision = arg.substr(11, std::string::npos);
+            } else
+            {
+                revision = argv[++arg_i];
+            }
         }
 
         ++arg_i;
@@ -200,9 +210,9 @@ int main(int argc, char *argv[])
     inFile = argv[arg_i++];
     outFile = argv[arg_i++];
 
-    // std::cout << "to:" << toType << " force:" << forceOpt << " message:'" << commitMessage << "' inFile:'" << inFile << "' outFile:'" << outFile << "'" << std::endl;
+    // std::cout << "to:" << toType << " force:" << forceOpt << " revision:" << revision << " message:'" << commitMessage << "' inFile:'" << inFile << "' outFile:'" << outFile << "'" << std::endl;
 
-    if (inFile == outFile)
+    if ((inFile == outFile) && (toType != "-toGit"))
     {
         printf("Error: inFile and outFile must not be the same!\n");
         return 1;
@@ -216,9 +226,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    if (! revision.empty())
+        rOptions["revision"] = revision;
+
     Alembic::AbcCoreFactory::IFactory factory;
     Alembic::AbcCoreFactory::IFactory::CoreType coreType;
-    Alembic::Abc::IArchive archive = factory.getArchive(inFile, coreType);
+    Alembic::Abc::IArchive archive = factory.getArchive(inFile, coreType, rOptions);
     if (!archive.valid())
     {
         printf("Error: Invalid Alembic file specified: %s\n",
@@ -258,13 +273,13 @@ int main(int argc, char *argv[])
     }
     else if (toType == "-toGit")
     {
-        Alembic::AbcCoreGit::WriteOptions options;
+        Alembic::AbcCoreGit::WriteOptions wOptions;
 
         if (! commitMessage.empty())
-            options.setCommitMessage(commitMessage);
+            wOptions.setCommitMessage(commitMessage);
 
         outArchive = Alembic::Abc::OArchive(
-            Alembic::AbcCoreGit::WriteArchive(options),
+            Alembic::AbcCoreGit::WriteArchive(wOptions),
             outFile, inTop.getMetaData(),
             Alembic::Abc::ErrorHandler::kThrowPolicy);
     }

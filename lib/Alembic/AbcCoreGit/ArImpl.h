@@ -12,6 +12,8 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Git.h>
 
+#include <Alembic/AbcCoreFactory/IFactory.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -30,7 +32,7 @@ class ArImpl
 private:
     friend class ReadArchive;
 
-    ArImpl( const std::string &iFileName );
+    ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOptions& iOptions );
 
 public:
 
@@ -77,6 +79,10 @@ public:
     std::string relPathname() const;
     std::string absPathname() const;
 
+    Alembic::AbcCoreFactory::IOptions options() const { return m_options; }
+    bool hasRevisionSpec() const;
+    std::string revisionString();
+
     bool readFromDisk();
 
     std::string repr(bool extended=false) const;
@@ -103,6 +109,8 @@ private:
     ObjectHeaderPtr m_header;
 
     std::vector< AbcA::MetaData > m_indexMetaData;
+
+    Alembic::AbcCoreFactory::IOptions m_options;
 
     bool m_read;
 };
