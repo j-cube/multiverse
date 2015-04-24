@@ -254,6 +254,7 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
     }
 #endif /* 0 */
 
+    m_header->lastChangedIndex = m_header->nextSampleIndex;
     m_header->nextSampleIndex ++;
 }
 

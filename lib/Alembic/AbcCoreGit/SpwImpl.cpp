@@ -194,6 +194,7 @@ void SpwImpl::setSample( const void *iSamp )
     }
 #endif /* 0 */
 
+    m_header->lastChangedIndex = m_header->nextSampleIndex;
     m_header->nextSampleIndex ++;
 }
 
