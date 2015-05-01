@@ -126,13 +126,13 @@ struct MsgPackTraits<Stream, Util::bool_t>
         return static_cast<OwnType>(native);
     }
 
-    inline static bool Pack(msgpack::packer<Stream>& pk, const wchar_t& value)
+    inline static bool Pack(msgpack::packer<Stream>& pk, const Util::bool_t& value)
     {
-        pk.pack(ToNative(value));
+        pk.pack(ToNative(value.asBool()));
         return true;
     }
 
-    inline static bool Unpack(const msgpack::object& pko, wchar_t& value)
+    inline static bool Unpack(const msgpack::object& pko, Util::bool_t& value)
     {
         NativeType nv;
         pko.convert(&nv);
