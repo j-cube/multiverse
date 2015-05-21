@@ -121,6 +121,27 @@ inline std::ostream& operator<< ( std::ostream& out, const ArImpl& value )
     return out;
 }
 
+inline ArImplPtr getArImplPtr(AbcA::ArchiveReaderPtr aArPtr)
+{
+    ABCA_ASSERT( aArPtr, "Invalid pointer to AbcA::ArchiveReader" );
+    Util::shared_ptr< ArImpl > concretePtr =
+       Alembic::Util::dynamic_pointer_cast< ArImpl,
+         AbcA::ArchiveReader > ( aArPtr );
+    return concretePtr;
+}
+
+inline ArImplPtr getArImplPtr(Alembic::Abc::IArchive& archive)
+{
+    Util::shared_ptr< ArImpl > concretePtr =
+        Alembic::Util::dynamic_pointer_cast< ArImpl,
+          AbcA::ArchiveReader > ( archive.getPtr() );
+    return concretePtr;
+}
+
+#define CONCRETE_ARPTR(abstract)   getArImplPtr(abstract)
+
+bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName = "master");
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;

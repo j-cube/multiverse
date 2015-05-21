@@ -184,6 +184,10 @@ public:
 
     bool error() const              { return m_error; }
 
+    /* trash history */
+
+    bool trashHistory(std::string& errorMessage, const std::string& branchName = "master");
+
     /* libgit2-level stuff */
 
     git_repository* g_ptr()             { return m_repo; }

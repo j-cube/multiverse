@@ -44,6 +44,7 @@ namespace ALEMBIC_VERSION_NS {
 
 static bool git_check_error(int error_code, const std::string& action);
 static bool git_check_ok(int error_code, const std::string& action);
+static bool git_check_rc(int rc, const std::string& action, std::string& errorMessage);
 
 #if 0
 static std::string slurp(const std::string& pathname);
@@ -102,6 +103,24 @@ static bool git_check_ok(int error_code, const std::string& action)
     //     << action << " - "
     //     << ((error && error->message) ? error->message : "???")
     //     << std::endl;
+    return false;
+}
+
+static bool git_check_rc(int rc, const std::string& action, std::string& errorMessage)
+{
+    if (rc == GIT_SUCCESS)
+       return true;
+
+    const git_error *error = giterr_last();
+
+    std::ostringstream ss;
+    ss << "ERROR: libgit2 error code:" << rc << " " <<
+        action << " - " <<
+        ((error && error->message) ? error->message : "(UNKNOWN)");
+    errorMessage = ss.str();
+
+    std::cerr << errorMessage << std::endl;
+
     return false;
 }
 
@@ -711,6 +730,179 @@ GitGroupPtr GitRepo::rootGroup()
         m_root_group_ptr = addGroup("/");
 
     return m_root_group_ptr;
+}
+
+/* trash history */
+
+#define LOGMESSAGE( TEXT )                                       \
+do {                                                             \
+    std::ostringstream ss;                                       \
+    ss << TEXT;                                                  \
+    log_message = ss.str();                                      \
+} while( 0 )
+
+bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchName)
+{
+    git_repository* repo = g_ptr();
+    git_reference*  head = NULL;
+    git_tree* tree = NULL;
+    git_commit* commit = NULL;
+    int rc;
+    bool ok = true;
+
+    errorMessage = "";
+
+    /* get head commit and its tree */
+
+    git_repository_head(&head, repo);
+    assert(head);
+    git_commit_lookup(&commit, repo, git_reference_target(head));
+    assert(commit);
+    git_reference_free(head);
+    head = NULL;
+
+    const git_oid* oid = git_commit_id(commit);
+    char oid_str[40];
+    git_oid_tostr(oid_str, 40, oid);
+    TRACE("[TRASH HISTORY] commit " << oid_str);
+
+    rc = git_commit_tree(&tree, commit);
+    ok = ok && git_check_rc(rc, "creating new root commit", errorMessage);
+    if (! ok)
+    {
+        if (tree) git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    assert(tree);
+
+    /* create a new commit re-using the tree from the current head commit */
+    const git_signature *sig_author = git_commit_author(commit);
+    const git_signature *sig_committer = git_commit_committer(commit);
+    assert(sig_author);
+    assert(sig_committer);
+
+    git_oid oid_fresh_commit;
+    rc = git_commit_create(
+        &oid_fresh_commit, repo, /* update_ref */ NULL,
+        /* author */ sig_author, /* committer */ sig_committer,
+        /* encoding */ NULL, git_commit_message(commit),
+        tree,
+        /* parent_count */ 0, /* parents */ NULL);
+    ok = ok && git_check_rc(rc, "creating new root commit", errorMessage);
+    if (! ok)
+    {
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+
+    git_commit* fresh_commit = NULL;
+    git_commit_lookup(&fresh_commit, repo, &oid_fresh_commit);
+    assert(fresh_commit);
+
+    git_oid_tostr(oid_str, 40, &oid_fresh_commit);
+    TRACE("[TRASH HISTORY] fresh commit " << oid_str);
+
+    std::string oldBranchName = "old_" + branchName;
+    std::string freshBranchName = "fresh";
+    std::string log_message;
+
+    /* create a new branch, using the newly created commit */
+    git_reference *fresh_branch = NULL;
+    LOGMESSAGE("creating new trashed history branch '" << freshBranchName << "'");
+    rc = git_branch_create(&fresh_branch, repo,
+        /* branch name */ freshBranchName.c_str() /* "fresh" */, /* target */ fresh_commit, /* force */ 0,
+        /* signature */ sig_author, /* log_message */ log_message.c_str());
+    ok = ok && git_check_rc(rc, log_message, errorMessage);
+    if (! ok)
+    {
+        if (fresh_branch) git_reference_free(fresh_branch);
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    assert(fresh_branch);
+
+    /* Make HEAD point to this branch */
+    assert(! head);
+    rc = git_reference_symbolic_create(&head, repo,
+        /* name */ "HEAD", /* target */ git_reference_name(fresh_branch),
+        /* force */ 1,
+        /* signature */ sig_author, /* log_message */ "change HEAD when trashing history");
+    ok = ok && git_check_rc(rc, "setting HEAD", errorMessage);
+    if (! ok)
+    {
+        if (head) git_reference_free(head);
+        git_reference_free(fresh_branch);
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    assert(head);
+    git_reference_free(head);
+    head = NULL;
+
+    /* rename master -> old_master */
+    git_reference *master_branch = NULL;
+    git_branch_lookup(&master_branch, repo, branchName.c_str() /* "master" */, GIT_BRANCH_LOCAL);
+    assert(master_branch);
+    git_reference *old_master_branch = NULL;
+    LOGMESSAGE("renaming original '" << branchName << "' to '" << oldBranchName << "'");
+    rc = git_branch_move(&old_master_branch,
+        /* branch */ master_branch, /* new name */ oldBranchName.c_str() /* "old_master" */, /* force */ 0,
+        /* signature */ sig_author, /* log_message */ log_message.c_str());
+    ok = ok && git_check_rc(rc, log_message, errorMessage);
+    if (! ok)
+    {
+        if (old_master_branch) git_reference_free(old_master_branch);
+        git_reference_free(master_branch);
+        git_reference_free(fresh_branch);
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    assert(old_master_branch);
+    git_reference_free(master_branch); master_branch = NULL;
+
+    /* rename fresh -> master */
+    git_reference *new_master_branch = NULL;
+    assert(fresh_branch);
+    LOGMESSAGE("renaming new '" << freshBranchName << "' to '" << branchName << "'");
+    rc = git_branch_move(&new_master_branch,
+        /* branch */ fresh_branch, /* new name */ branchName.c_str() /* "master" */, /* force */ 0,
+        /* signature */ sig_author, /* log_message */ log_message.c_str());
+    ok = ok && git_check_rc(rc, log_message, errorMessage);
+    if (! ok)
+    {
+        if (new_master_branch) git_reference_free(new_master_branch);
+        git_reference_free(old_master_branch);
+        git_reference_free(fresh_branch);
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    assert(new_master_branch);
+    git_reference_free(new_master_branch); new_master_branch = NULL;
+    git_reference_free(fresh_branch); fresh_branch = NULL;
+
+    /* delete old_master */
+    assert(old_master_branch);
+    LOGMESSAGE("deleting original branch (now '" << oldBranchName << "')");
+    rc = git_branch_delete(old_master_branch);
+    ok = ok && git_check_rc(rc, log_message, errorMessage);
+    if (! ok)
+    {
+        git_reference_free(old_master_branch);
+        git_tree_free(tree);
+        git_commit_free(commit);
+        return false;
+    }
+    git_reference_free(old_master_branch); old_master_branch = NULL;
+
+    git_tree_free(tree);
+    git_commit_free(commit);
+    return true;
 }
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo)

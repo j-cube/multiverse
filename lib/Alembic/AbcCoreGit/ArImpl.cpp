@@ -271,6 +271,15 @@ std::string ArImpl::repr(bool extended) const
     return ss.str();
 }
 
+bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName)
+{
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
+    return repo_ptr->trashHistory(errorMessage, branchName);
+}
+
+
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
 } // End namespace Alembic
