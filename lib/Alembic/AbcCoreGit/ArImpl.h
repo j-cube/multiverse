@@ -150,6 +150,9 @@ inline std::string getHistoryJSON(Alembic::Abc::IArchive& archive, bool& error)
     return arImplPtr->getHistoryJSON(error);
 }
 
+std::vector<GitCommitInfo> getHistory(const std::string& archivePathname, bool& error);
+std::string getHistoryJSON(const std::string& archivePathname, bool& error);
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;

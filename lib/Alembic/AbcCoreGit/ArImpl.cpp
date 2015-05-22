@@ -279,6 +279,22 @@ bool trashHistory(const std::string& archivePathname, std::string& errorMessage,
     return repo_ptr->trashHistory(errorMessage, branchName);
 }
 
+std::vector<GitCommitInfo> getHistory(const std::string& archivePathname, bool& error)
+{
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
+    return repo_ptr->getHistory(error);
+}
+
+std::string getHistoryJSON(const std::string& archivePathname, bool& error)
+{
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
+    return repo_ptr->getHistoryJSON(error);
+}
+
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
