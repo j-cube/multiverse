@@ -20,6 +20,9 @@
 #include <sys/types.h>
 #include <errno.h>
 
+#include <time.h>
+
+#include <Alembic/AbcCoreGit/JSON.h>
 #include "Utils.h"
 
 namespace Alembic {
@@ -124,6 +127,36 @@ static bool git_check_rc(int rc, const std::string& action, std::string& errorMe
     return false;
 }
 
+std::string git_time_str(const git_time& intime)
+{
+    char sign, out[32];
+    struct tm *intm;
+    int offset, hours, minutes;
+    time_t t;
+
+    offset = intime.offset;
+    if (offset < 0) {
+        sign = '-';
+        offset = -offset;
+    } else {
+        sign = '+';
+    }
+
+    hours   = offset / 60;
+    minutes = offset % 60;
+
+    t = (time_t)intime.time + (intime.offset * 60);
+
+    intm = gmtime(&t);
+    strftime(out, sizeof(out), "%a %b %e %T %Y", intm);
+
+    std::ostringstream ss;
+    ss << out << " " << sign <<
+        std::setfill('0') << std::setw(2) << hours <<
+                             std::setw(2) << minutes;
+    return ss.str();
+}
+
 
 /* --------------------------------------------------------------------
  *   CLASSES
@@ -205,6 +238,35 @@ std::ostream& operator<< (std::ostream& out, const GitMode& value)
         out << "UNKNOWN";
         break;
     }
+    return out;
+}
+
+
+/* --- GitCommitInfo -------------------------------------------------- */
+
+GitCommitInfo::GitCommitInfo(const git_oid& oid, const git_commit* commit)
+{
+    assert(commit);
+
+    char oidstr[GIT_OID_HEXSZ + 1];
+
+    // git_oid_tostr(oidstr, sizeof(oidstr), git_commit_id(commit));
+    git_oid_tostr(oidstr, sizeof(oidstr), &oid);
+
+    const git_signature *sig = git_commit_author(commit);
+    assert(sig);
+
+    id           = oidstr;
+    author       = sig->name;
+    author_email = sig->email;
+    when_time    = sig->when;
+    when         = git_time_str(sig->when);
+    message      = git_commit_message(commit);
+}
+
+std::ostream& operator<< (std::ostream& out, const GitCommitInfo& cinfo)
+{
+    out << "<Commit " << cinfo.id << " author:'" << cinfo.author << "' date:" << cinfo.when << " message:'" << cinfo.message << "'>";
     return out;
 }
 
@@ -903,6 +965,102 @@ bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchN
     git_tree_free(tree);
     git_commit_free(commit);
     return true;
+}
+
+/* fetch history */
+
+std::vector<GitCommitInfo> GitRepo::getHistory(bool& error)
+{
+    std::vector<GitCommitInfo> results;
+    int g_error = 0;
+
+    git_revwalk *walker = NULL;
+
+    error = false;
+
+    if (git_revwalk_new(&walker, g_ptr()) < 0)
+        goto fail;
+    assert(walker);
+
+    // set the sort order to topological + time: parents after children, sorted by commit time
+    git_revwalk_sorting(walker,
+        GIT_SORT_TOPOLOGICAL |
+        GIT_SORT_TIME);
+
+    /* Pushing marks starting points */
+    g_error = git_revwalk_push_head(walker);
+    if (g_error) goto fail;
+    g_error = git_revwalk_push_ref(walker, "HEAD");
+    if (g_error) goto fail;
+    g_error = git_revwalk_push_glob(walker, "tags/*");
+    if (g_error) goto fail;
+
+    /* Hiding marks stopping points not set/needed */
+
+    /* Walk the walk */
+    git_oid oid;
+    while (! git_revwalk_next(&oid, walker))
+    {
+        git_commit *commit = NULL;
+
+        g_error = git_commit_lookup(&commit, g_ptr(), &oid);
+        if (g_error)
+        {
+            if (commit)
+                git_commit_free(commit);
+            goto fail;
+        }
+        assert(commit);
+
+        GitCommitInfo cinfo(oid, commit);
+        results.push_back(cinfo);
+
+        git_commit_free(commit);
+    }
+
+    git_revwalk_free(walker);
+    walker = NULL;
+
+    error = false;
+    return results;
+
+fail:
+    if (walker)
+        git_revwalk_free(walker);
+    walker = NULL;
+
+    error = true;
+    return results;
+}
+
+std::string GitRepo::getHistoryJSON(bool& error)
+{
+    error = false;
+
+    rapidjson::Document document;
+    document.SetArray();            // set the document as an array
+    // must pass an allocator when the object may need to allocate memory
+    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+
+    std::vector<GitCommitInfo> commits = getHistory(error);
+    if (error)
+        return "";
+    std::vector<GitCommitInfo>::const_iterator it;
+    for (it = commits.begin(); it != commits.end(); ++it)
+    {
+        const GitCommitInfo& cinfo = *it;
+
+        rapidjson::Value commitInfoJson( rapidjson::kObjectType );
+        JsonSet(document, commitInfoJson, "id", cinfo.id);
+        JsonSet(document, commitInfoJson, "author", cinfo.author);
+        JsonSet(document, commitInfoJson, "email", cinfo.author_email);
+        JsonSet(document, commitInfoJson, "when", cinfo.when);
+        JsonSet(document, commitInfoJson, "message", cinfo.message);
+
+        document.PushBack(commitInfoJson, allocator);
+    }
+
+    return JsonWrite(document);
 }
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo)

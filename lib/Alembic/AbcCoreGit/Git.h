@@ -64,6 +64,10 @@ typedef Alembic::Util::shared_ptr<GitData> GitDataPtr;
 typedef Alembic::Util::shared_ptr<const GitData> GitDataConstPtr;
 
 
+/* --- utils ---------------------------------------------------------- */
+
+std::string git_time_str(const git_time& intime);
+
 /* --- LibGit --------------------------------------------------------- */
 
 // based on Monoid pattern of Alexandrescu's "Modern C++ Design"
@@ -120,6 +124,23 @@ private:
 };
 
 std::ostream& operator<< (std::ostream& out, const GitMode& value);
+
+
+/* --- GitCommitInfo -------------------------------------------------- */
+
+struct GitCommitInfo
+{
+    GitCommitInfo(const git_oid& oid, const git_commit* commit);
+
+    std::string id;
+    std::string author;
+    std::string author_email;
+    git_time when_time;
+    std::string when;
+    std::string message;
+};
+
+std::ostream& operator<< (std::ostream& out, const GitCommitInfo& value);
 
 
 /* --- GitRepo -------------------------------------------------------- */
@@ -187,6 +208,11 @@ public:
     /* trash history */
 
     bool trashHistory(std::string& errorMessage, const std::string& branchName = "master");
+
+    /* fetch history */
+
+    std::vector<GitCommitInfo> getHistory(bool& error);
+    std::string getHistoryJSON(bool& error);
 
     /* libgit2-level stuff */
 

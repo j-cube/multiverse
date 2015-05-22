@@ -87,6 +87,8 @@ public:
 
     std::string repr(bool extended=false) const;
 
+    std::string getHistoryJSON(bool& error) { return m_repo_ptr->getHistoryJSON(error); }
+
     friend std::ostream& operator<< ( std::ostream& out, const ArImpl& value );
 
 private:
@@ -141,6 +143,12 @@ inline ArImplPtr getArImplPtr(Alembic::Abc::IArchive& archive)
 #define CONCRETE_ARPTR(abstract)   getArImplPtr(abstract)
 
 bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName = "master");
+
+inline std::string getHistoryJSON(Alembic::Abc::IArchive& archive, bool& error)
+{
+    ArImplPtr arImplPtr = getArImplPtr(archive);
+    return arImplPtr->getHistoryJSON(error);
+}
 
 } // End namespace ALEMBIC_VERSION_NS
 
