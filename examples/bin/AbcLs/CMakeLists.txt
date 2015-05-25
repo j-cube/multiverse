@@ -40,6 +40,7 @@ SET( FULL_ABC_LIBS
      AlembicAbc
      AlembicAbcCoreOgawa
      AlembicAbcCoreHDF5
+     AlembicAbcCoreGit
      AlembicAbcCoreAbstract
      AlembicOgawa
      AlembicUtil
@@ -47,7 +48,7 @@ SET( FULL_ABC_LIBS
      ${ALEMBIC_LIBGIT2_LIBS}
      ${ALEMBIC_MSGPACK_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
-     ${CMAKE_THREAD_LIBS_INIT}
+     ${CMAKE_THREAD_LIBS_INIT} ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY}
      ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )
 
 #-******************************************************************************

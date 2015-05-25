@@ -37,6 +37,7 @@
 #include <Alembic/AbcGeom/All.h>
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
 
 #include "util.h"
@@ -1066,6 +1067,12 @@ int main( int argc, char *argv[] )
         {
             oArchive = CreateArchiveWithInfo(
                 Alembic::AbcCoreOgawa::WriteArchive(),
+                fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
+        }
+        else if (coreType == Alembic::AbcCoreFactory::IFactory::kGit)
+        {
+            oArchive = CreateArchiveWithInfo(
+                Alembic::AbcCoreGit::WriteArchive(),
                 fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
         }
 
