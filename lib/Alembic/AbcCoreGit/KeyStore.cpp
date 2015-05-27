@@ -265,7 +265,7 @@ template <typename T>
 KeyStore<T>::KeyStore(GitGroupPtr groupPtr, RWMode rwmode) :
     m_group(groupPtr), m_rwmode(rwmode), m_next_kid(0), m_saved(false), m_loaded(false)
 {
-    TRACE("KeyStore<T>::KeyStore() type" << GetTypeStr<T>());
+    TRACE("KeyStore<T>::KeyStore() type: " << GetTypeStr<T>());
     if (mode() == READ)
     {
         if (! loaded())
