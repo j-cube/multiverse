@@ -121,41 +121,6 @@ void TRACE_VALUE(std::string msg, char v)
     TRACE(msg << " (char) " << v);
 }
 
-#if 0
-static std::string pod2str(const Alembic::Util::PlainOldDataType& pod)
-{
-    std::ostringstream ss;
-    ss << PODName( pod );
-    return ss.str();
-}
-
-static uint8_t hexchar2int(char input)
-{
-    if ((input >= '0') && (input <= '9'))
-        return (input - '0');
-    if ((input >= 'A') && (input <= 'F'))
-        return (input - 'A') + 10;
-    if ((input >= 'a') && (input <= 'f'))
-        return (input - 'a') + 10;
-    ABCA_THROW( "invalid input char" );
-}
-
-// This function assumes src to be a zero terminated sanitized string with
-// an even number of [0-9a-f] characters, and target to be sufficiently large
-static size_t hex2bin(uint8_t *dst, const char* src)
-{
-    uint8_t *dst_orig = dst;
-
-    while (*src && src[1])
-    {
-        *dst      = hexchar2int(*(src++)) << 4;
-        *(dst++) |= hexchar2int(*(src++));
-    }
-
-    return (dst - dst_orig);
-}
-#endif
-
 /* --------------------------------------------------------------------
  *
  *   TypedSampleStore<T>
@@ -549,12 +514,12 @@ std::string TypedSampleStore<T>::pack()
 {
     TRACE("TypedSampleStore<T>::pack() T:" << GetTypeStr<T>());
 
-    std::string v_typename;
-    {
-        std::ostringstream ss;
-        ss << PODName( m_dataType.getPod() );
-        v_typename = ss.str();
-    }
+    // std::string v_typename;
+    // {
+    //     std::ostringstream ss;
+    //     ss << PODName( m_dataType.getPod() );
+    //     v_typename = ss.str();
+    // }
 
     std::string v_type;
     {
@@ -562,17 +527,6 @@ std::string TypedSampleStore<T>::pack()
         ss << m_dataType;
         v_type = ss.str();
     }
-
-    // std::vector<uint64_t> v_dimensions;
-    // for (size_t i = 0; i < m_dimensions.rank(); ++i )
-    //     v_dimensions.push_back( static_cast<uint64_t>( m_dimensions[i] ) );
-
-    // msgpack::type::tuple< std::string, std::string, int, size_t, size_t, std::vector<uint64_t>, std::vector<T> >
-    //     src(s_typename, s_type, extent(), rank(), getNumSamples(), dimensions, m_data);
-    // // serialize the object into the buffer.
-    // // any classes that implements write(const char*,size_t) can be a buffer.
-    // std::stringstream buffer;
-    // msgpack::pack(buffer, src);
 
     std::stringstream buffer;
     msgpack::packer<std::stringstream> pk(&buffer);
@@ -583,34 +537,12 @@ std::string TypedSampleStore<T>::pack()
     mp_pack(pk, m_dataType);
     mp_pack(pk, rank());
     mp_pack(pk, getNumSamples());
-    // mp_pack(pk, v_dimensions);
-    // TRACE("[JKLT] type:" << v_type << " pod:" << PODName( m_dataType.getPod() ) << " rank:" << rank() << " numSamples:" << getNumSamples());
     mp_pack(pk, m_dimensions);
-    // mp_pack(pk, m_data);
     // TRACE("saved dimensions of rank " << m_dimensions.rank());
     // for (size_t i = 0; i < m_dimensions.rank(); ++i )
     //     TRACE("dim[" << i << "] = " << m_dimensions[i]);
 
-#if 0
-    // save key store
-    if (! ks()->saved())
-    {
-        TRACE("saving key store");
-        ks()->saved(true);
-
-        mp_pack(pk, /* contains key store */ true);
-        std::string ks_packed = ks()->pack();
-        TRACE("key store size: " << ks_packed.length() << " bytes");
-        mp_pack(pk, ks_packed);
-    } else
-    {
-        TRACE("skipping save of key store");
-        mp_pack(pk, /* contains key store */ false);
-    }
-    assert(ks()->saved());
-#endif
-
-    // save index->kid map (and data)
+    // save index->kid map
     {
         mp_pack(pk, static_cast<size_t>(m_index_to_kid.size()));
         std::map< size_t, size_t >::const_iterator p_it;
@@ -624,34 +556,9 @@ std::string TypedSampleStore<T>::pack()
 
             mp_pack(pk, tuple);
             // TRACE("serialized index_to_kid[" << index << "] == " << kid);
-
-            // std::vector<T>& data = m_kid_to_data[kid];
-            // mp_pack(pk, data);
-            // TRACE("written sample data (size:" << data.size() << ")");
         }
         mp_pack(pk, m_next_index);
     }
-
-    // mp_pack(pk, m_index_to_kid);
-    // mp_pack(pk, m_kid_indexes);
-    // mp_pack(pk, m_kid_to_data);
-    // mp_pack(pk, m_next_index);
-
-#if 0
-    // save keys
-    mp_pack(pk, m_pos_key.size());
-    std::map<size_t, AbcA::ArraySample::Key>::const_iterator p_it;
-    for (p_it = m_pos_key.begin(); p_it != m_pos_key.end(); ++p_it)
-    {
-        size_t at = (*p_it).first;
-        const AbcA::ArraySample::Key& key = (*p_it).second;
-
-        msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string >
-            tuple(at, key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
-
-        mp_pack(pk, tuple);
-    }
-#endif /* 0 */
 
     return buffer.str();
 }
@@ -678,9 +585,6 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     size_t v_rank;
     size_t v_num_samples;
     AbcA::Dimensions dimensions;
-    // std::vector<uint64_t> v_dimensions;
-    // std::vector<T> v_data;
-    // size_t v_n_keys;
 
     // unpack objects in the order in which they were packed
 
@@ -708,11 +612,6 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     pko = msg.get();
     mp_unpack(pko, v_num_samples);
 
-    // pac.next(&msg);
-    // pko = msg.get();
-    // mp_unpack(pko, v_dimensions);
-
-    // TRACE("[JKLT] type:" << v_type << " pod:" << PODName( dataType.getPod() ) << " rank:" << v_rank << " numSamples:" << v_num_samples);
     pac.next(&msg);
     pko = msg.get();
     mp_unpack(pko, dimensions);
@@ -720,27 +619,9 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     // for (size_t i = 0; i < dimensions.rank(); ++i )
     //     TRACE("dim[" << i << "] = " << dimensions[i]);
 
-    // pac.next(&msg);
-    // pko = msg.get();
-    // mp_unpack(pko, v_data);
-
-    // re-initialize using deserialized data (keys done later)
-
-    // AbcA::Dimensions dimensions;
-    // dimensions.setRank( v_dimensions.size() );
-    // {
-    //     int idx = 0;
-    //     for (std::vector<uint64_t>::const_iterator it = v_dimensions.begin(); it != v_dimensions.end(); ++it)
-    //     {
-    //         dimensions[idx] = (*it);
-    //         idx++;
-    //     }
-    // }
+    // re-initialize using deserialized data
 
     ABCA_ASSERT( dimensions.rank() == v_rank, "wrong dimensions rank" );
-
-    // Alembic::Util::PlainOldDataType pod = Alembic::Util::PODFromName( v_typename );
-    // AbcA::DataType dataType(pod, v_extent);
 
     // ABCA_ASSERT( dataType.getExtent() == v_extent, "wrong datatype extent" );
 
@@ -750,33 +631,6 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     ABCA_ASSERT( rank() == v_rank, "wrong rank" );
     // ABCA_ASSERT( extent() == v_extent, "wrong extent" );
 
-    // m_data.clear();
-    // m_data = v_data;
-
-#if 0
-    // deserialize key store
-    {
-        bool contains_key_store = false;
-
-        pac.next(&msg);
-        pko = msg.get();
-        mp_unpack(pko, contains_key_store);
-
-        TRACE("contains_key_store:" << (contains_key_store ? "TRUE" : "FALSE"));
-        if (contains_key_store)
-        {
-            std::string ks_packed;
-
-            pac.next(&msg);
-            pko = msg.get();
-            mp_unpack(pko, ks_packed);
-            TRACE("key store size: " << ks_packed.length() << " bytes");
-
-            ks()->unpack(ks_packed);
-            ks()->loaded(true);
-        }
-    }
-#endif
     assert(ks()->loaded());
 
     // deserialize index->kid map
@@ -803,55 +657,10 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
             m_kid_indexes[k_kid] = std::vector<size_t>();
         m_kid_indexes[k_kid].push_back( k_index );
         // TRACE("deserialized index_to_kid[" << k_index << "] := " << k_kid);
-
-        // std::vector<T> data;
-        // pac.next(&msg);
-        // pko = msg.get();
-        // mp_unpack(pko, data);
-        // m_kid_to_data[k_kid] = data;
-        // TRACE("got sample data (size:" << data.size() << ")");
     }
     pac.next(&msg);
     pko = msg.get();
     mp_unpack(pko, m_next_index);
-
-#if 0
-    // deserialize keys
-    pac.next(&msg);
-    pko = msg.get();
-    mp_unpack(pko, v_n_keys);
-
-    m_key_pos.clear();
-    m_pos_key.clear();
-    for (size_t i = 0; i < v_n_keys; ++i)
-    {
-        msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
-
-        pac.next(&msg);
-        pko = msg.get();
-        mp_unpack(pko, tuple);
-
-        size_t      k_at        = tuple.get<0>();
-        size_t      k_num_bytes = tuple.get<1>();
-        std::string k_orig_pod  = tuple.get<2>();
-        std::string k_read_pod  = tuple.get<3>();
-        std::string k_digest    = tuple.get<4>();
-
-        AbcA::ArraySample::Key key;
-
-        key.numBytes = k_num_bytes;
-        key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
-        key.readPOD = Alembic::Util::PODFromName( k_read_pod );
-        hex2bin(key.digest.d, k_digest.c_str());
-
-        //std::string key_str = j_key.asString();
-
-        if (! m_key_pos.count(k_digest))
-            m_key_pos[k_digest] = std::vector<size_t>();
-        m_key_pos[k_digest].push_back( k_at );
-        m_pos_key[k_at] = key;
-    }
-#endif /* 0 */
 }
 
 template <typename T>
