@@ -285,7 +285,7 @@ bool AprImpl::readFromDisk()
 
 #if MSGPACK_SAMPLES
     boost::optional<std::string> optBinContents = parentGroup->tree()->getChildFile(name() + ".bin");
-    if (! optJsonContents)
+    if (! optBinContents)
     {
         ABCA_THROW( "can't read git blob '" << absPathname() + ".bin" << "'" );
         return false;
