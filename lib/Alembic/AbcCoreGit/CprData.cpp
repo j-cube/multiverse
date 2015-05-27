@@ -372,21 +372,17 @@ bool CprData::readFromDiskSubHeader(size_t i)
         TRACE("CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' (skipping, already read)");
         return true;
     }
-    TRACE("{1}");
 
     ABCA_ASSERT( !m_subProperties[i].read, "sub-property data already read" );
 
     ABCA_ASSERT( m_group, "invalid group" );
-    TRACE("{2}");
 
     std::string subName = m_subProperties[i].name;
     std::string subAbsPathname = pathjoin(absPathname(), m_subProperties[i].name);
-    TRACE("{3}");
 
     TRACE("[CprData " << *this << "] CprData::readFromDiskSubHeader(" << i << ") name:'" << m_subProperties[i].name << "' path:'" << subAbsPathname << "' (READING)");
 
     std::string jsonPathname = subAbsPathname + ".json";
-    TRACE("{4}");
 
 #if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
@@ -406,12 +402,10 @@ bool CprData::readFromDiskSubHeader(size_t i)
     }
     std::string jsonContents = *optJsonContents;
 #endif
-    TRACE("{5}");
 
     JSONParser json(jsonPathname, jsonContents);
     rapidjson::Document& document = json.document;
 
-    TRACE("{6}");
     std::string v_name = JsonGetString(document, "name").get_value_or("UNKNOWN");
     ABCA_ASSERT( (v_name == m_subProperties[i].name), "actual sub-property name differs from value stored in parent" );
 
@@ -419,16 +413,13 @@ bool CprData::readFromDiskSubHeader(size_t i)
 
     //std::string v_fullName = root.get("fullName", "UNKNOWN").asString();
 
-    TRACE("{7}");
     std::string v_kind = JsonGetString(document, "kind").get_value_or("UNKNOWN");
 
     std::string v_type     = JsonGetString(document, "type").get_value_or("");
     std::string v_typename = JsonGetString(document, "typename").get_value_or("");
     int v_extent = JsonGetUint(document, "extent").get_value_or(0);
-    TRACE("{8}");
 
     const rapidjson::Value& v_propInfo = document["info"];
-    TRACE("{9}");
 
     bool v_isScalarLike = JsonGetBool(v_propInfo, "isScalarLike").get_value_or(false);
     bool v_isHomogenous = JsonGetBool(v_propInfo, "isHomogenous").get_value_or(false);
@@ -437,19 +428,16 @@ bool CprData::readFromDiskSubHeader(size_t i)
     Util::uint32_t v_firstChangedIndex = JsonGetUint(v_propInfo, "firstChangedIndex").get_value_or(0);
     Util::uint32_t v_lastChangedIndex = JsonGetUint(v_propInfo, "lastChangedIndex").get_value_or(0);
     std::string v_metadata = JsonGetString(v_propInfo, "metadata").get_value_or("");
-    TRACE("{10}");
 
     AbcA::MetaData metadata;
     metadata.deserialize( v_metadata );
 
     assert( !m_subProperties[i].header );
-    TRACE("{11}");
 
     PropertyHeaderPtr header( new PropertyHeaderAndFriends() );
     header->header.setName( v_name );
 
     header->isScalarLike = v_isScalarLike;
-    TRACE("{12}");
 
     if (v_kind == "CompoundProperty")
     {
@@ -478,7 +466,6 @@ bool CprData::readFromDiskSubHeader(size_t i)
         TRACE("[CprData " << *this << "]  timeSamplingIndex:" << v_timeSamplingIndex);
         header->header.setTimeSampling( m_archive.getTimeSampling( header->timeSamplingIndex ) );
     }
-    TRACE("{13}");
 
     header->header.setMetaData( metadata );
 
