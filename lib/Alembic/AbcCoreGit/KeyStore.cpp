@@ -118,8 +118,10 @@ KeyStoreMap::~KeyStoreMap()
     std::map <TypeInfoWrapper, KeyStoreBase*>::iterator it;
     for (it = m_map.begin(); it != m_map.end(); ++it)
     {
+#if GLOBAL_TRACE_ENABLE
         const TypeInfoWrapper& tiw = (*it).first;
-        KeyStoreBase* ksptr   = (*it).second;
+#endif
+        KeyStoreBase* ksptr        = (*it).second;
         if (ksptr)
         {
             assert(ksptr);
@@ -135,7 +137,9 @@ bool KeyStoreMap::writeToDisk()
     std::map <TypeInfoWrapper, KeyStoreBase*>::iterator it;
     for (it = m_map.begin(); it != m_map.end(); ++it)
     {
+#if GLOBAL_TRACE_ENABLE
         const TypeInfoWrapper& tiw = (*it).first;
+#endif
         KeyStoreBase* ksptr   = (*it).second;
         if (ksptr)
         {

@@ -22,6 +22,19 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+#define GLOBAL_TRACE_ENABLE 1
+
+extern bool trace_enable;
+
+inline bool TRACE_ENABLE(bool enable = true)
+{
+    bool old = trace_enable;
+    trace_enable = enable;
+    return old;
+}
+
+inline bool TRACE_ENABLED() { return trace_enable; }
+
 #if defined(DEBUG) && (! defined(NDEBUG))
 
 #define PRINT_SHORT_FUNCNAME
@@ -51,13 +64,16 @@ namespace ALEMBIC_VERSION_NS {
 #define _T_UNIMPLEMENTED    "[" << ANSI_COLOR_RED << "UNIMPLEMENTED" << ANSI_RESET << "] "
 #define _T_TODO             "[" << ANSI_COLOR_RED << "TODO" << ANSI_RESET << "] "
 
+#if GLOBAL_TRACE_ENABLE
 #define TRACE( TEXT )                             \
 do                                                               \
 {                                                                \
-    std::cerr << _T_TRACE <<                                     \
-        ANSI_BOLD << TEXT << ANSI_RESET <<                       \
-        std::endl << "\tin " << _T_FUNC << std::endl;            \
-    std::cerr.flush();                                           \
+    if (TRACE_ENABLED()) {                                       \
+        std::cerr << _T_TRACE <<                                 \
+            ANSI_BOLD << TEXT << ANSI_RESET <<                   \
+            std::endl << "\tin " << _T_FUNC << std::endl;        \
+        std::cerr.flush();                                       \
+    }                                                            \
 }                                                                \
 while( 0 )
 
@@ -80,6 +96,14 @@ do                                                               \
     std::cerr.flush();                                           \
 }                                                                \
 while( 0 )
+
+#else /* start !GLOBAL_TRACE_ENABLE */
+
+#define TRACE( TEXT )          do { } while(0)
+#define UNIMPLEMENTED( TEXT )  do { } while(0)
+#define TODO( TEXT )           do { } while(0)
+
+#endif /* end !GLOBAL_TRACE_ENABLE */
 
 #else /* start of ! DEBUG */
 
