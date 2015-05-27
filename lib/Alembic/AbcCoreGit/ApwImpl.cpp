@@ -181,7 +181,7 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
 
     if (! m_store.get())
     {
-        m_store.reset( BuildSampleStore( m_header->datatype(), dims ) );
+        m_store.reset( BuildSampleStore( getArchiveImpl(), m_header->datatype(), dims ) );
     }
     m_store->addSample( iSamp );
 
@@ -493,7 +493,7 @@ void ApwImpl::ensureSampleStore()
 {
     if (! m_store.get())
     {
-        m_store.reset( BuildSampleStore( m_header->datatype(), AbcA::Dimensions() ) );
+        m_store.reset( BuildSampleStore( getArchiveImpl(), m_header->datatype(), AbcA::Dimensions() ) );
     }
 }
 
@@ -501,7 +501,7 @@ void ApwImpl::ensureSampleStore(const AbcA::Dimensions &iDims)
 {
     if (! m_store.get())
     {
-        m_store.reset( BuildSampleStore( m_header->datatype(), iDims ) );
+        m_store.reset( BuildSampleStore( getArchiveImpl(), m_header->datatype(), iDims ) );
     }
 }
 

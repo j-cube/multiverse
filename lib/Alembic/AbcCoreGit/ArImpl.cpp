@@ -26,6 +26,8 @@ ArImpl::ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOp
   : m_fileName( iFileName )
   , m_header( new AbcA::ObjectHeader() )
   , m_options( iOptions )
+  , m_repo_ptr( new GitRepo(m_fileName, m_options, GitMode::Read) )
+  , m_ksm( m_repo_ptr->rootGroup(), READ )
   , m_read( false )
 {
     TRACE("ArImpl::ArImpl('" << iFileName << "')");

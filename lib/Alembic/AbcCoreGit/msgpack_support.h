@@ -203,6 +203,177 @@ struct MsgPackTraits<Stream, std::wstring>
     }
 };
 
+template <typename Stream>
+struct MsgPackTraits<Stream, AbcA::ArraySample::Key>
+{
+    typedef AbcA::ArraySample::Key OwnType;
+
+    inline static std::string pod2str(const Alembic::Util::PlainOldDataType& pod)
+    {
+        std::ostringstream ss;
+        ss << PODName( pod );
+        return ss.str();
+    }
+
+    inline static uint8_t hexchar2int(char input)
+    {
+        if ((input >= '0') && (input <= '9'))
+            return (input - '0');
+        if ((input >= 'A') && (input <= 'F'))
+            return (input - 'A') + 10;
+        if ((input >= 'a') && (input <= 'f'))
+            return (input - 'a') + 10;
+        ABCA_THROW( "invalid input char" );
+    }
+
+    // This function assumes src to be a zero terminated sanitized string with
+    // an even number of [0-9a-f] characters, and target to be sufficiently large
+    inline static size_t hex2bin(uint8_t *dst, const char* src)
+    {
+        uint8_t *dst_orig = dst;
+
+        while (*src && src[1])
+        {
+            *dst      = hexchar2int(*(src++)) << 4;
+            *(dst++) |= hexchar2int(*(src++));
+        }
+
+        return (dst - dst_orig);
+    }
+
+    inline static bool Pack(msgpack::packer<Stream>& pk, const AbcA::ArraySample::Key& value)
+    {
+        msgpack::type::tuple< size_t, std::string, std::string, std::string >
+            tuple(value.numBytes, pod2str(value.origPOD), pod2str(value.readPOD), value.digest.str());
+        pk.pack(tuple);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, AbcA::ArraySample::Key& value)
+    {
+        msgpack::type::tuple< size_t, std::string, std::string, std::string > tuple;
+        pko.convert(&tuple);
+
+        size_t      k_num_bytes = tuple.get<0>();
+        std::string k_orig_pod  = tuple.get<1>();
+        std::string k_read_pod  = tuple.get<2>();
+        std::string k_digest    = tuple.get<3>();
+
+        AbcA::ArraySample::Key key;
+
+        key.numBytes = k_num_bytes;
+        key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
+        key.readPOD = Alembic::Util::PODFromName( k_read_pod );
+        hex2bin(key.digest.d, k_digest.c_str());
+
+        value = key;
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, AbcA::Dimensions>
+{
+    typedef AbcA::Dimensions OwnType;
+
+    inline static bool Pack(msgpack::packer<Stream>& pk, const AbcA::Dimensions& value)
+    {
+        std::vector<uint64_t> v_dimensions;
+        for (size_t i = 0; i < value.rank(); ++i )
+            v_dimensions.push_back( static_cast<uint64_t>( value[i] ) );
+        pk.pack(v_dimensions);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, AbcA::Dimensions& value)
+    {
+        std::vector<uint64_t> v_dimensions;
+        pko.convert(&v_dimensions);
+
+        AbcA::Dimensions dimensions;
+        dimensions.setRank( v_dimensions.size() );
+        {
+            int idx = 0;
+            for (std::vector<uint64_t>::const_iterator it = v_dimensions.begin(); it != v_dimensions.end(); ++it)
+            {
+                dimensions[idx] = (*it);
+                idx++;
+            }
+        }
+
+        value = dimensions;
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, Alembic::Util::PlainOldDataType>
+{
+    typedef Alembic::Util::PlainOldDataType OwnType;
+
+    inline static bool Pack(msgpack::packer<Stream>& pk, const Alembic::Util::PlainOldDataType& value)
+    {
+        std::string v_typename;
+        {
+            std::ostringstream ss;
+            ss << PODName( value );
+            v_typename = ss.str();
+        }
+
+        pk.pack(v_typename);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, Alembic::Util::PlainOldDataType& value)
+    {
+        std::string v_typename;
+        pko.convert(&v_typename);
+
+        Alembic::Util::PlainOldDataType pod = Alembic::Util::PODFromName( v_typename );
+
+        value = pod;
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, AbcA::DataType>
+{
+    typedef AbcA::DataType OwnType;
+
+    inline static bool Pack(msgpack::packer<Stream>& pk, const AbcA::DataType& value)
+    {
+        std::string v_typename;
+        {
+            std::ostringstream ss;
+            ss << PODName( value.getPod() );
+            v_typename = ss.str();
+        }
+
+        int v_extent = value.getExtent();
+
+        msgpack::type::tuple< std::string, int >
+            tuple(v_typename, v_extent);
+        pk.pack(tuple);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, AbcA::DataType& value)
+    {
+        msgpack::type::tuple< std::string, int > tuple;
+        pko.convert(&tuple);
+
+        std::string v_typename  = tuple.get<0>();
+        int         v_extent    = tuple.get<1>();
+
+        Alembic::Util::PlainOldDataType pod = Alembic::Util::PODFromName( v_typename );
+        AbcA::DataType dataType(pod, v_extent);
+
+        value = dataType;
+        return true;
+    }
+};
+
 template <typename Stream, typename W>
 struct MsgPackTraits<Stream, std::vector<W> >
 {

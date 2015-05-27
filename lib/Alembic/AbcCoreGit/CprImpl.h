@@ -12,10 +12,13 @@
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/CprData.h>
 #include <Alembic/AbcCoreGit/Git.h>
+#include <Alembic/AbcCoreGit/OrImpl.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
+
+class ArImpl;
 
 class CprImpl;
 typedef Util::shared_ptr<CprImpl> CprImplPtr;
@@ -76,6 +79,11 @@ public:
     const std::string& name() const               { return m_data ? m_data->name() : m_header->name(); }
     std::string relPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->relPathname(); }
     std::string absPathname() const               { ABCA_ASSERT(m_data, "invalid data"); return m_data->absPathname(); }
+
+    Alembic::Util::shared_ptr< ArImpl > getArchiveImpl() const
+    {
+        return getOrImplPtr(m_object)->getArchiveImpl();
+    }
 
 private:
 

@@ -30,7 +30,7 @@ AprImpl::AprImpl( AbcA::CompoundPropertyReaderPtr iParent,
   : m_parent( iParent )
   , m_group( iGroup )
   , m_header( iHeader )
-  , m_store( BuildSampleStore( iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) )
+  , m_store( BuildSampleStore( getCprImplPtr(iParent)->getArchiveImpl(), iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) )
   , m_read( false )
 {
     TRACE("AprImpl::AprImpl(parent:" << CONCRETE_CPRPTR(m_parent)->repr() << ", parent group:" << m_group->repr() << ", header:'" << m_header->name() << "')");

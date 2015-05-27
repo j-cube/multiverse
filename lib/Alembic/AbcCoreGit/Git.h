@@ -533,6 +533,7 @@ public:
     bool isChild() const                          { return (!isTopLevel()); }
 
     GitRepoPtr repo()                             { return m_repo_ptr; }
+    GitGroupPtr root()                            { return repo()->rootGroup(); }
     GitRepoConstPtr repo() const                  { return m_repo_ptr; }
     const GitMode& mode() const                   { return repo()->mode(); }
     GitGroupPtr parent() const                    { return m_parent_ptr; }

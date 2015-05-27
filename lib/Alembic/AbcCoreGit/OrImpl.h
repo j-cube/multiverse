@@ -17,6 +17,9 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class OrImpl;
+typedef Util::shared_ptr<OrImpl> OrImplPtr;
+
 //-*****************************************************************************
 class OrImpl
     : public AbcA::ObjectReader
@@ -64,9 +67,9 @@ public:
 
     virtual bool getChildrenHash( Util::Digest & oDigest );
 
-private:
-
     Alembic::Util::shared_ptr< ArImpl > getArchiveImpl() const;
+
+private:
 
     // The parent object
     Alembic::Util::shared_ptr< OrImpl > m_parent;
@@ -78,6 +81,17 @@ private:
     ObjectHeaderPtr m_header;
 
 };
+
+inline OrImplPtr getOrImplPtr(AbcA::ObjectReaderPtr aOrPtr)
+{
+    ABCA_ASSERT( aOrPtr, "Invalid pointer to AbcA::ObjectReader" );
+    Util::shared_ptr< OrImpl > concretePtr =
+       Alembic::Util::dynamic_pointer_cast< OrImpl,
+        AbcA::ObjectReader > ( aOrPtr );
+    return concretePtr;
+}
+
+#define CONCRETE_OWPTR(aOwPtr)   getOwImplPtr(aOwPtr)
 
 } // End namespace ALEMBIC_VERSION_NS
 

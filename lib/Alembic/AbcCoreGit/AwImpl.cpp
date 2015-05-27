@@ -29,6 +29,8 @@ AwImpl::AwImpl( const std::string &iFileName,
   , m_metaData( iMetaData )
   , m_metaDataMap( new MetaDataMap() )
   , m_options( options )
+  , m_repo_ptr( new GitRepo(m_fileName, GitMode::Write) )
+  , m_ksm( m_repo_ptr->rootGroup(), WRITE )
   , m_written( false )
 {
     TRACE("AwImpl::AwImpl('" << iFileName << "')");
@@ -38,7 +40,7 @@ AwImpl::AwImpl( const std::string &iFileName,
     m_timeSamples.push_back(ts);
     m_maxSamples.push_back(0);
 
-    m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Write) );
+    // m_repo_ptr.reset( new GitRepo(m_fileName, GitMode::Write) );
 
     // init the repo
     init();
@@ -278,9 +280,13 @@ void AwImpl::writeToDisk()
 #else
         t_start = time_us();
 
+        // this must be before treebuilder()->write()
+        ksm().writeToDisk();
+
         m_repo_ptr->rootGroup()->add_file_from_memory("archive.json", output);
         m_repo_ptr->rootGroup()->treebuilder()->write();
 
+        TRACE("committing...");
         boost::optional<std::string> commitMessageOpt = m_options.getCommitMessage();
         if (commitMessageOpt)
             m_repo_ptr->commit_treebuilder(*commitMessageOpt);

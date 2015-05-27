@@ -26,7 +26,7 @@ SpwImpl::SpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   PropertyHeaderPtr iHeader,
                   size_t iIndex ) :
     m_parent( iParent ), m_header( iHeader ),
-    m_store( BuildSampleStore( iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) ),
+    m_store( BuildSampleStore( getCpwImplPtr(iParent)->getArchiveImpl(), iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) ),
     m_group( iGroup ),
     m_index( iIndex ),
     m_written(false)

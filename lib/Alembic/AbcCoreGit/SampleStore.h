@@ -11,6 +11,11 @@
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Utils.h>
+#include <Alembic/AbcCoreGit/Git.h>
+#include <Alembic/AbcCoreGit/AwImpl.h>
+#include <Alembic/AbcCoreGit/ArImpl.h>
+
+#include <Alembic/AbcCoreGit/KeyStore.h>
 
 // Use msgpack to store samples
 #define MSGPACK_SAMPLES 1
@@ -19,6 +24,12 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+class AwImpl;
+typedef Util::shared_ptr<AwImpl> AwImplPtr;
+class ArImpl;
+typedef Util::shared_ptr<ArImpl> ArImplPtr;
+
+
 //-*****************************************************************************
 // Abstract Typed Sample Store Base
 class AbstractTypedSampleStore
@@ -26,9 +37,11 @@ class AbstractTypedSampleStore
 public:
     virtual ~AbstractTypedSampleStore() {}
 
-    virtual void copyFrom( const void* iData ) = 0;
+    virtual RWMode mode() = 0;
 
-    virtual const void *getDataPtr() const = 0;
+    // virtual void copyFrom( const void* iData ) = 0;
+
+    // virtual const void *getDataPtr() const = 0;
 
     virtual void getSample( void *iIntoLocation, int index ) = 0;
     virtual void getSample( AbcA::ArraySamplePtr& oSample, int index ) = 0;
@@ -52,7 +65,7 @@ public:
     virtual std::string repr(bool extended = false) const = 0;
 
     // binary serialization
-    virtual std::string pack() const = 0;
+    virtual std::string pack() = 0;
     virtual void unpack(const std::string& packed) = 0;
 
     friend std::ostream& operator<< ( std::ostream& out, const AbstractTypedSampleStore& value );
@@ -72,31 +85,34 @@ class TypedSampleStore
     , public Alembic::Util::enable_shared_from_this< TypedSampleStore<T> >
 {
 public:
-    TypedSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
-    TypedSampleStore( const void *iData, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
+    TypedSampleStore( AwImplPtr awimpl_ptr, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
+    TypedSampleStore( ArImplPtr arimpl_ptr, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
+    // TypedSampleStore( const void *iData, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
     virtual ~TypedSampleStore();
 
-    virtual void copyFrom( const std::vector<T>& iData );
-    virtual void copyFrom( const T* iData );
-    virtual void copyFrom( const void* iData );
+    virtual RWMode mode() { return m_rwmode; }
 
-    const std::vector<T>& getData() const           { return m_data; }
-    std::vector<T>& getData()                       { return m_data; }
-    virtual const void *getDataPtr() const          { return static_cast<const void *>(&m_data.front()); }
+    // virtual void copyFrom( const std::vector<T>& iData );
+    // virtual void copyFrom( const T* iData );
+    // virtual void copyFrom( const void* iData );
 
-    const T& operator[](int index) const            { return m_data[index]; }
-    T& operator[](int index)                        { return m_data[index]; }
+    // const std::vector<T>& getData() const           { return m_data; }
+    // std::vector<T>& getData()                       { return m_data; }
+    // virtual const void *getDataPtr() const          { return static_cast<const void *>(&m_data.front()); }
+
+    // const T& operator[](int index) const            { return m_data[index]; }
+    // T& operator[](int index)                        { return m_data[index]; }
 
     virtual int sampleIndexToDataIndex( int sampleIndex );
     virtual int dataIndexToSampleIndex( int dataIndex );
 
-    virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
+    // virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
     virtual void getSampleT( T* iIntoLocation, int index );
     virtual void getSample( void *iIntoLocation, int index );
     virtual void getSample( AbcA::ArraySamplePtr& oSample, int index );
 
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
-    virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
+    // virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
     virtual void addSample( const T* iSamp, const AbcA::ArraySample::Key& key );
     virtual void addSample( const void *iSamp, const AbcA::ArraySample::Key& key );
@@ -120,22 +136,91 @@ public:
     virtual std::string repr(bool extended = false) const;
 
     // binary serialization
-    virtual std::string pack() const;
+    virtual std::string pack();
     virtual void unpack(const std::string& packed);
+
+protected:
+#if 0
+    bool hasKey(const AbcA::ArraySample::Key& key) const         { return (m_key_to_kid.count(key) != 0); }
+    bool hasKid(size_t kid) const                                { return (m_kid_to_key.count(kid) != 0); }
+    size_t KeyToKid(const AbcA::ArraySample::Key& key) const     { return m_key_to_kid[key]; }
+    size_t KeyToKid(const AbcA::ArraySample::Key& key)           { return m_key_to_kid[key]; }
+    const AbcA::ArraySample::Key& KidToKey(size_t kid) const     { return m_kid_to_key[kid]; }
+    const AbcA::ArraySample::Key& KidToKey(size_t kid)           { return m_kid_to_key[kid]; }
+    size_t addKey(const AbcA::ArraySample::Key& key)
+    {
+        if (! m_key_to_kid.count(key)) {
+            size_t kid = m_next_kid++;
+            m_key_to_kid[key] = kid;
+            m_kid_to_key[kid] = key;
+            return kid;
+        } else
+            return m_key_to_kid[key];
+    }
+#endif
+    typedef KeyStore<T>* KeyStorePtr;
+
+    KeyStorePtr ks();
+
+    bool hasKey(const AbcA::ArraySample::Key& key)               { return ks()->hasKey(key);   }
+    bool hasKid(size_t kid)                                      { return ks()->hasKid(kid);   }
+    size_t KeyToKid(const AbcA::ArraySample::Key& key)           { return ks()->KeyToKid(key); }
+    const AbcA::ArraySample::Key& KidToKey(size_t kid)           { return ks()->KidToKey(kid); }
+    size_t addKey(const AbcA::ArraySample::Key& key)             { return ks()->addKey(key);   }
+    size_t addKey(const AbcA::ArraySample::Key& key, const std::vector<T>& data)
+        { return ks()->addKey(key, data); }
+    bool hasData(size_t kid)                                     { return ks()->hasData(kid); }
+    bool hasData(const AbcA::ArraySample::Key& key)              { return ks()->hasData(key); }
+    void addData(size_t kid, const std::vector<T>& data)         { return ks()->addData(kid, data); }
+    const std::vector<T>& data(size_t kid)                       { return ks()->data(kid); }
+    const std::vector<T>& data(const AbcA::ArraySample::Key& key) { return ks()->data(key); }
+
+    bool hasIndex(size_t sampleIndex) const           { return (m_index_to_kid.count(sampleIndex) != 0); }
+    size_t sampleIndexToKid(size_t sampleIndex) const { return m_index_to_kid[sampleIndex]; }
+    size_t sampleIndexToKid(size_t sampleIndex)       { return m_index_to_kid[sampleIndex]; }
+
+    const AbcA::ArraySample::Key& sampleIndexToKey(size_t sampleIndex) const { size_t kid = sampleIndexToKid(sampleIndex); return KidToKey(kid); }
+    const AbcA::ArraySample::Key& sampleIndexToKey(size_t sampleIndex)       { size_t kid = sampleIndexToKid(sampleIndex); return KidToKey(kid); }
+
+    const std::vector<T>& kidToSampleData(size_t kid)            { return ks()->data(kid); }
+
+    const std::vector<T>& sampleIndexToSampleData(size_t sampleIndex) { size_t kid = sampleIndexToKid(sampleIndex); return kidToSampleData(kid); }
+
+    AbcA::DataType& dataType() { return m_dataType; }
+
+    GitRepoPtr repo();
+    GitGroupPtr group();
 
 private:
     TypedSampleStore();
     TypedSampleStore( const TypedSampleStore<T>& iStore );
 
+    AwImplPtr m_awimpl_ptr;
+    ArImplPtr m_arimpl_ptr;
+    RWMode m_rwmode;
+
     AbcA::DataType m_dataType;
     AbcA::Dimensions m_dimensions;
 
-    std::vector<T> m_data;
-    std::map< std::string, std::vector<size_t> > m_key_pos;
-    std::map<size_t, AbcA::ArraySample::Key> m_pos_key;
+    std::map< size_t, size_t > m_index_to_kid;                                   // sample index to kid
+    std::map< size_t, std::vector<size_t> > m_kid_indexes;                     // kid to array of sample indexes
+    // std::map< size_t, std::vector<T> > m_kid_to_data;                          // kid to sample data
+    size_t m_next_index;                                                       // next sample index
+
+    // std::map<size_t, AbcA::ArraySample::Key> m_index_key;                      // sample index to key
+    // std::map< AbcA::ArraySample::Key, std::vector<size_t> > m_key_indexes;     // key to array of sample indexes
+    // std::map< AbcA::ArraySample::Key, std::vector<T> > m_key_data;             // key to sample
+    // size_t m_next_index;                                                       // next sample index
+
+    // std::vector<T> m_data;
+    // std::map< std::string, std::vector<T> > m_key_data;             // key to sample
+    // std::map< std::string, std::vector<size_t> > m_key_pos;         // key to array of T-index
+    // std::map<size_t, AbcA::ArraySample::Key> m_pos_key;             // T-index to key
+
 };
 
-AbstractTypedSampleStore* BuildSampleStore( const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
+AbstractTypedSampleStore* BuildSampleStore( AwImplPtr awimpl_ptr, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
+AbstractTypedSampleStore* BuildSampleStore( ArImplPtr arimpl_ptr, const AbcA::DataType &iDataType, const AbcA::Dimensions &iDims );
 
 
 } // End namespace ALEMBIC_VERSION_NS

@@ -11,6 +11,7 @@
 
 #include <Alembic/AbcCoreGit/Foundation.h>
 #include <Alembic/AbcCoreGit/Git.h>
+#include <Alembic/AbcCoreGit/KeyStore.h>
 
 #include <Alembic/AbcCoreFactory/IFactory.h>
 
@@ -76,6 +77,9 @@ public:
 
     const std::vector< AbcA::MetaData > & getIndexedMetaData();
 
+    GitRepoPtr repo()           { return m_repo_ptr; }
+    GitGroupPtr group()         { return repo()->rootGroup(); }
+
     std::string relPathname() const;
     std::string absPathname() const;
 
@@ -89,15 +93,14 @@ public:
 
     std::string getHistoryJSON(bool& error) { return m_repo_ptr->getHistoryJSON(error); }
 
+    KeyStoreMap& ksm() { return m_ksm; }
+
     friend std::ostream& operator<< ( std::ostream& out, const ArImpl& value );
 
 private:
     void init();
 
     std::string m_fileName;
-
-    // libgit2 repo/wt info
-    GitRepoPtr m_repo_ptr;
 
     Alembic::Util::weak_ptr< AbcA::ObjectReader > m_top;
     Alembic::Util::shared_ptr < OrData > m_data;
@@ -113,6 +116,11 @@ private:
     std::vector< AbcA::MetaData > m_indexMetaData;
 
     Alembic::AbcCoreFactory::IOptions m_options;
+
+    // libgit2 repo/wt info
+    GitRepoPtr m_repo_ptr;
+
+    KeyStoreMap m_ksm;
 
     bool m_read;
 };

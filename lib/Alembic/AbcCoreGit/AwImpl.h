@@ -14,6 +14,7 @@
 #include <Alembic/AbcCoreGit/ReadWriteUtil.h>
 #include <Alembic/AbcCoreGit/ReadWrite.h>
 #include <Alembic/AbcCoreGit/Git.h>
+#include <Alembic/AbcCoreGit/KeyStore.h>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -75,17 +76,20 @@ public:
     virtual void setMaxNumSamplesForTimeSamplingIndex( Util::uint32_t iIndex,
                                                       AbcA::index_t iMaxIndex );
 
+    GitRepoPtr repo()           { return m_repo_ptr; }
+    GitGroupPtr group()         { return repo()->rootGroup(); }
+
     std::string relPathname() const;
     std::string absPathname() const;
 
     void writeToDisk();
 
+    KeyStoreMap& ksm() { return m_ksm; }
+
 private:
     void init();
     std::string m_fileName;
     AbcA::MetaData m_metaData;
-    // libgit2 repo/wt info
-    GitRepoPtr m_repo_ptr;
 
     Alembic::Util::weak_ptr< AbcA::ObjectWriter > m_top;    // concretely an OwImpl
     Alembic::Util::shared_ptr < OwData > m_data;
@@ -98,6 +102,12 @@ private:
     MetaDataMapPtr m_metaDataMap;
 
     WriteOptions m_options;
+
+    // libgit2 repo/wt info
+    GitRepoPtr m_repo_ptr;
+
+    KeyStoreMap m_ksm;
+
     bool m_written;
 };
 
