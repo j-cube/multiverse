@@ -297,6 +297,14 @@ void AwImpl::writeToDisk()
         Profile::add_git(t_end - t_start);
 #endif
 
+        // Write archive.json as the entry file for reading.
+        //
+        std::string jsonPathname = absPathname() + "/archive.json";
+        std::ofstream jsonFile;
+        jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
+        jsonFile << output;
+        jsonFile.close();
+
         m_written = true;
     } else
     {
