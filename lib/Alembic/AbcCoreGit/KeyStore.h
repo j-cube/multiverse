@@ -99,11 +99,17 @@ struct KeyStore : public KeyStoreBase
     virtual bool loaded() const     { return m_loaded; }
     virtual void loaded(bool value) { m_loaded = value; }
 
-    std::string pack();
-    bool unpack(const std::string& packed);
+    // std::string pack();
+    // bool unpack(const std::string& packed);
 
     virtual bool writeToDisk();
     virtual bool readFromDisk();
+
+    bool writeToDiskSample(const std::string& basename, std::map< size_t, AbcA::ArraySample::Key >::const_iterator& p_it, size_t& npacked);
+    bool readFromDiskSample(GitTreePtr gitTree, const std::string& basename, size_t kid, size_t& unpacked);
+
+    std::string packSample(size_t kid, const AbcA::ArraySample::Key& key);
+    bool unpackSample(const std::string& packedSample, size_t kid);
 
     GitGroupPtr m_group;
     RWMode m_rwmode;
