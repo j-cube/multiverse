@@ -1,6 +1,6 @@
 ##-*****************************************************************************
 ##
-## Copyright (c) 2009-2011,
+## Copyright (c) 2013,
 ##  Sony Pictures Imageworks Inc. and
 ##  Industrial Light & Magic, a division of Lucasfilm Entertainment Company Ltd.
 ##
@@ -33,12 +33,24 @@
 ##
 ##-*****************************************************************************
 
-ADD_SUBDIRECTORY( SimpleAbcViewer )
-ADD_SUBDIRECTORY( AbcConvert )
-ADD_SUBDIRECTORY( AbcHistory )
-ADD_SUBDIRECTORY( AbcEcho )
-ADD_SUBDIRECTORY( AbcStitcher )
-ADD_SUBDIRECTORY( AbcTree )
-ADD_SUBDIRECTORY( AbcLs )
-ADD_SUBDIRECTORY( Bug26 )
-ADD_SUBDIRECTORY( Issue35 )
+SET( FULL_ABC_LIBS
+     AlembicAbcGeom
+     AlembicAbcCoreFactory
+     AlembicAbc
+     AlembicAbcCoreHDF5
+     AlembicAbcCoreOgawa
+     AlembicAbcCoreGit
+     AlembicAbcCoreAbstract
+     AlembicOgawa
+     AlembicUtil
+     ${ALEMBIC_HDF5_LIBS}
+     ${ALEMBIC_LIBGIT2_LIBS}
+     ${ALEMBIC_MSGPACK_LIBS}
+     ${ALEMBIC_JSONCPP_LIBS}
+     ${ALEMBIC_ILMBASE_LIBS}
+     ${CMAKE_THREAD_LIBS_INIT} ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY}
+     ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )
+
+#-******************************************************************************
+ADD_EXECUTABLE( issue35 issue35.cpp )
+TARGET_LINK_LIBRARIES( issue35 ${FULL_ABC_LIBS} )
