@@ -228,18 +228,33 @@ bool KeyStore<T>::writeToDisk()
     mp_pack(pk, static_cast<size_t>(m_kid_to_key.size()));
     mp_pack(pk, static_cast<size_t>(m_next_kid));
 
+    size_t n_samples = 0;
+    {
+        std::map< size_t, AbcA::ArraySample::Key >::const_iterator p_it;
+        for (p_it = m_kid_to_key.begin(); p_it != m_kid_to_key.end(); ++p_it)
+        {
+            size_t kid                        = (*p_it).first;
+            const AbcA::ArraySample::Key& key = (*p_it).second;
+
+            msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string >
+                tuple(kid, key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
+
+            mp_pack(pk, tuple);
+            n_samples++;
+        }
+    }
+
     std::string packedHeader = buffer.str();
     m_group->add_file_from_memory(name_header, packedHeader);
 
     npacked = packedHeader.length();
     all_npacked += npacked;
-    TRACE("packed header " << npacked << " bytes for header type " << GetTypeStr<T>());
+    TRACE("header packed to " << npacked << " bytes for # " << n_samples << " (different) samples of type " << GetTypeStr<T>());
 
     // pack & write samples
 
     bool all_ok = true, ok;
 
-    size_t n_samples = 0;
     std::map< size_t, AbcA::ArraySample::Key >::const_iterator p_it;
     for (p_it = m_kid_to_key.begin(); p_it != m_kid_to_key.end(); ++p_it)
     {
@@ -252,7 +267,6 @@ bool KeyStore<T>::writeToDisk()
             break;
 
         all_npacked += npacked;
-        n_samples++;
     }
 
     if (all_ok)
@@ -331,6 +345,37 @@ bool KeyStore<T>::readFromDisk()
         pac.next(&msg);
         pko = msg.get();
         mp_unpack(pko, v_next_kid);
+
+        for (size_t i = 0; i < v_n_kid; ++i)
+        {
+            msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
+
+            pac.next(&msg);
+            msgpack::object pko = msg.get();
+            mp_unpack(pko, tuple);
+
+            size_t      k_kid       = tuple.get<0>();
+            size_t      k_num_bytes = tuple.get<1>();
+            std::string k_orig_pod  = tuple.get<2>();
+            std::string k_read_pod  = tuple.get<3>();
+            std::string k_digest    = tuple.get<4>();
+
+            AbcA::ArraySample::Key key;
+
+            key.numBytes = k_num_bytes;
+            key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
+            key.readPOD = Alembic::Util::PODFromName( k_read_pod );
+            hex2bin(key.digest.d, k_digest.c_str());
+
+            //std::string key_str = j_key.asString();
+
+            m_kid_to_key[k_kid] = key;
+            m_key_to_kid[key]   = k_kid;
+        }
+
+        // set m_next_kid
+        m_next_kid = v_next_kid;
+        assert(static_cast<size_t>(m_kid_to_key.size()) == v_n_kid);
     }
 
     all_unpacked += packedHeader.length();
@@ -338,10 +383,6 @@ bool KeyStore<T>::readFromDisk()
     // read & unpack samples
 
     bool all_ok = true, ok;
-
-    m_key_to_kid.clear();
-    m_kid_to_key.clear();
-    m_next_kid = 0;
 
     for (size_t i = 0; i < v_n_kid; ++i)
     {
@@ -353,10 +394,6 @@ bool KeyStore<T>::readFromDisk()
         all_unpacked += unpacked;
     }
     // TRACE("unpacked " << v_n_kid << " (different) samples");
-
-    // set m_next_kid
-    m_next_kid = v_next_kid;
-    assert(static_cast<size_t>(m_kid_to_key.size()) == v_n_kid);
 
     TRACE("unpacked " << all_unpacked << " total bytes for # " << v_n_kid << " (different) samples of type " << GetTypeStr<T>());
     loaded(true);
@@ -377,7 +414,7 @@ bool KeyStore<T>::writeToDiskSample(const std::string& basename, std::map< size_
     const AbcA::ArraySample::Key& key = (*p_it).second;
 
     std::ostringstream ss;
-    ss << "_" << kid;
+    ss << "_" << key.digest.str();
     std::string suffix = ss.str();
 
     // basename: "keystore_" + GetTypeStr<T>();
@@ -401,8 +438,10 @@ bool KeyStore<T>::readFromDiskSample(GitTreePtr gitTree, const std::string& base
 
     unpacked = 0;
 
+    const AbcA::ArraySample::Key& key = KidToKey(kid);
+
     std::ostringstream ss;
-    ss << "_" << kid;
+    ss << "_" << key.digest.str();
     std::string suffix = ss.str();
 
     // basename: "keystore_" + GetTypeStr<T>();
@@ -435,10 +474,10 @@ std::string KeyStore<T>::packSample(size_t kid, const AbcA::ArraySample::Key& ke
 
     // msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string >
     //     tuple(kid, key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
-    msgpack::type::tuple< size_t, std::string, std::string, std::string >
-        tuple(key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
+    // msgpack::type::tuple< size_t, std::string, std::string, std::string >
+    //     tuple(key.numBytes, pod2str(key.origPOD), pod2str(key.readPOD), key.digest.str());
 
-    mp_pack(pk, tuple);
+    // mp_pack(pk, tuple);
 
     std::vector<T>& data = m_kid_to_data[kid];
     mp_pack(pk, data);
@@ -461,36 +500,36 @@ bool KeyStore<T>::unpackSample(const std::string& packedSample, size_t kid)
     // deserialize it.
     msgpack::unpacked msg;
 
-    // msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
-    msgpack::type::tuple< size_t, std::string, std::string, std::string > tuple;
+    // // msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
+    // msgpack::type::tuple< size_t, std::string, std::string, std::string > tuple;
 
-    pac.next(&msg);
-    msgpack::object pko = msg.get();
-    mp_unpack(pko, tuple);
+    // pac.next(&msg);
+    // msgpack::object pko = msg.get();
+    // mp_unpack(pko, tuple);
 
-    // size_t      k_kid       = tuple.get<0>();
-    size_t      k_num_bytes = tuple.get<0>();
-    std::string k_orig_pod  = tuple.get<1>();
-    std::string k_read_pod  = tuple.get<2>();
-    std::string k_digest    = tuple.get<3>();
+    // // size_t      k_kid       = tuple.get<0>();
+    // size_t      k_num_bytes = tuple.get<0>();
+    // std::string k_orig_pod  = tuple.get<1>();
+    // std::string k_read_pod  = tuple.get<2>();
+    // std::string k_digest    = tuple.get<3>();
 
-    AbcA::ArraySample::Key key;
+    // AbcA::ArraySample::Key key;
 
-    key.numBytes = k_num_bytes;
-    key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
-    key.readPOD = Alembic::Util::PODFromName( k_read_pod );
-    hex2bin(key.digest.d, k_digest.c_str());
+    // key.numBytes = k_num_bytes;
+    // key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
+    // key.readPOD = Alembic::Util::PODFromName( k_read_pod );
+    // hex2bin(key.digest.d, k_digest.c_str());
 
-    //std::string key_str = j_key.asString();
+    // //std::string key_str = j_key.asString();
 
-    // m_kid_to_key[k_kid] = key;
-    // m_key_to_kid[key]   = k_kid;
-    m_kid_to_key[kid] = key;
-    m_key_to_kid[key] = kid;
+    // // m_kid_to_key[k_kid] = key;
+    // // m_key_to_kid[key]   = k_kid;
+    // m_kid_to_key[kid] = key;
+    // m_key_to_kid[key] = kid;
 
     std::vector<T> data;
     pac.next(&msg);
-    pko = msg.get();
+    msgpack::object pko = msg.get();
     mp_unpack(pko, data);
     // m_kid_to_data[k_kid] = data;
     m_kid_to_data[kid] = data;
