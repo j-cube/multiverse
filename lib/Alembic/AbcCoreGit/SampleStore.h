@@ -172,6 +172,8 @@ protected:
     bool hasData(size_t kid)                                     { return ks()->hasData(kid); }
     bool hasData(const AbcA::ArraySample::Key& key)              { return ks()->hasData(key); }
     void addData(size_t kid, const std::vector<T>& data)         { return ks()->addData(kid, data); }
+    void addData(size_t kid, const AbcA::ArraySample::Key& key, const std::vector<T>& data)
+                                                                 { return ks()->addData(kid, key, data); }
     const std::vector<T>& data(size_t kid)                       { return ks()->data(kid); }
     const std::vector<T>& data(const AbcA::ArraySample::Key& key) { return ks()->data(key); }
 

@@ -76,8 +76,14 @@ struct KeyStore : public KeyStoreBase
 
     void addData(size_t kid, const std::vector<T>& data)
     {
-        assert(! m_kid_to_data.count(kid));
-        m_kid_to_data[kid] = data;
+        addData(kid, KidToKey(kid), data);
+    }
+
+    void addData(size_t kid, const AbcA::ArraySample::Key& key, const std::vector<T>& data)
+    {
+        // assert(! m_kid_to_data.count(kid));
+        // m_kid_to_data[kid] = data;
+        writeToDiskSampleData(kid, key, data);
     }
 
     const std::vector<T>& data(size_t kid)
@@ -111,6 +117,10 @@ struct KeyStore : public KeyStoreBase
     std::string packSample(size_t kid, const AbcA::ArraySample::Key& key);
     bool unpackSample(const std::string& packedSample, size_t kid);
 
+    void ensureWriteInfo()   { if (! m_write_info) _ensureWriteInfo(); }
+    void _ensureWriteInfo();
+    bool writeToDiskSampleData(size_t kid, const AbcA::ArraySample::Key& key, const std::vector<T>& data);
+
     GitGroupPtr m_group;
     RWMode m_rwmode;
 
@@ -120,6 +130,13 @@ struct KeyStore : public KeyStoreBase
     size_t m_next_kid;                                                         // next key id
     bool m_saved;
     bool m_loaded;
+
+    // write cached values
+    bool m_write_info;                                                         // write info ready (m_git_tree, m_base_path, ...)
+    // GitTreePtr m_git_tree;
+    std::string m_basepath;
+    std::string m_basename;
+    size_t m_write_packed;
 };
 
 typedef Util::shared_ptr<KeyStoreBase> KeyStoreBasePtr;

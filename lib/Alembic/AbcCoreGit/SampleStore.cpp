@@ -314,7 +314,7 @@ void TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Ke
             }
         }
 
-        addData(kid, data);
+        addData(kid, key, data);
     }
 }
 

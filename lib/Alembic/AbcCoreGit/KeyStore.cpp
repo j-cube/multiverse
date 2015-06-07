@@ -171,7 +171,7 @@ KeyStoreBase::~KeyStoreBase()
 
 template <typename T>
 KeyStore<T>::KeyStore(GitGroupPtr groupPtr, RWMode rwmode) :
-    m_group(groupPtr), m_rwmode(rwmode), m_next_kid(0), m_saved(false), m_loaded(false)
+    m_group(groupPtr), m_rwmode(rwmode), m_next_kid(0), m_saved(false), m_loaded(false), m_write_info(false), m_write_packed(0)
 {
     TRACE("KeyStore<T>::KeyStore() type: " << GetTypeStr<T>());
     if (mode() == READ)
@@ -195,6 +195,50 @@ const std::string KeyStore<T>::typestr() const
 }
 
 template <typename T>
+void KeyStore<T>::_ensureWriteInfo()
+{
+    assert(m_rwmode == WRITE);
+
+    if (m_write_info)
+        return;
+
+    assert(! m_write_info);
+
+    // m_git_tree = m_group->tree();
+    m_basename = "keystore_" + GetTypeStr<T>();
+    m_basepath = pathjoin(m_group->absPathname(), m_basename);
+
+    m_write_info = true;
+}
+
+template <typename T>
+bool KeyStore<T>::writeToDiskSampleData(size_t kid, const AbcA::ArraySample::Key& key, const std::vector<T>& data)
+{
+    assert(m_rwmode == WRITE);
+
+    ensureWriteInfo();
+
+    std::stringstream buffer;
+    msgpack::packer<std::stringstream> pk(&buffer);
+
+    mp_pack(pk, data);
+
+    std::string packedSample = buffer.str();
+
+    std::ostringstream ss;
+    ss << "_" << key.digest.str();
+    std::string suffix = ss.str();
+
+    std::string name = m_basename + suffix + ".bin";
+
+    m_group->add_file_from_memory(name, packedSample);
+
+    m_write_packed += packedSample.length();
+
+    return true;
+}
+
+template <typename T>
 bool KeyStore<T>::writeToDisk()
 {
     if (m_rwmode != WRITE)
@@ -215,8 +259,6 @@ bool KeyStore<T>::writeToDisk()
     assert(! saved());
 
     TRACE("KeyStore::writeToDisk() base path:'" << basepath << "_*' (WRITING)");
-
-    size_t all_npacked = 0, npacked;
 
     // pack & write header
 
@@ -247,10 +289,11 @@ bool KeyStore<T>::writeToDisk()
     std::string packedHeader = buffer.str();
     m_group->add_file_from_memory(name_header, packedHeader);
 
-    npacked = packedHeader.length();
-    all_npacked += npacked;
+    size_t npacked = packedHeader.length();
+    m_write_packed += npacked;
     TRACE("header packed to " << npacked << " bytes for # " << n_samples << " (different) samples of type " << GetTypeStr<T>());
 
+#if 0
     // pack & write samples
 
     bool all_ok = true, ok;
@@ -268,18 +311,13 @@ bool KeyStore<T>::writeToDisk()
 
         all_npacked += npacked;
     }
+#endif
 
-    if (all_ok)
-    {
-        saved(true);
-        TRACE("packed " << all_npacked << " total bytes for # " << n_samples << " (different) samples of type " << GetTypeStr<T>());
-    } else
-    {
-        TRACE("WARNING: KeyStore::writeToDisk() base path:'" << basepath << "_*' not all samples written...");
-    }
+    saved(true);
+    TRACE("packed " << m_write_packed << " total bytes for # " << n_samples << " (different) samples of type " << GetTypeStr<T>());
 
     ABCA_ASSERT( saved(), "data not written" );
-    return all_ok;
+    return true;
 }
 
 template <typename T>
@@ -402,6 +440,7 @@ bool KeyStore<T>::readFromDisk()
     return all_ok;
 }
 
+#if 0
 template <typename T>
 bool KeyStore<T>::writeToDiskSample(const std::string& basename, std::map< size_t, AbcA::ArraySample::Key >::const_iterator& p_it, size_t& npacked)
 {
@@ -429,7 +468,7 @@ bool KeyStore<T>::writeToDiskSample(const std::string& basename, std::map< size_
 
     return true;
 }
-
+#endif
 template <typename T>
 bool KeyStore<T>::readFromDiskSample(GitTreePtr gitTree, const std::string& basename, size_t kid, size_t& unpacked)
 {
