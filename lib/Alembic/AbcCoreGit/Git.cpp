@@ -52,6 +52,16 @@ namespace ALEMBIC_VERSION_NS {
 #define GIT_MEMCACHED_BACKEND_HOST "127.0.0.1"
 #define GIT_MEMCACHED_BACKEND_PORT 11211
 
+#if defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND)
+#error "define only one of USE_SQLITE_BACKEND or USE_MEMCACHED_BACKEND"
+#endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
+
+
+#if defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND)
+#define USE_CUSTOM_BACKEND
+#endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
+
+
 /* --------------------------------------------------------------------
  *   PROTOTYPES
  * -------------------------------------------------------------------- */
@@ -385,6 +395,8 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
     assert(m_sig);
 
+#ifdef USE_CUSTOM_BACKEND
+
     rc = git_odb_new(&m_odb);
     ok = ok && git_check_ok(rc, "creating new odb without backends");
     if (!ok) goto ret;
@@ -409,32 +421,13 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
     git_repository_set_odb(m_repo, m_odb);
 
-#if 0
-    rc = git_odb_new(&m_odb);
-    ok = ok && git_check_ok(rc, "creating new odb without backends");
-    if (!ok) goto ret;
+#else /* start !USE_CUSTOM_BACKEND */
 
-    rc = git_repository_wrap_odb(&m_repo, m_odb);
-    ok = ok && git_check_ok(rc, "creating 'fake' repository to wrap custom object database");
-    if (!ok) goto ret;
-
-    rc = git_odb_backend_memcached(&m_git_backend, GIT_MEMCACHED_BACKEND_HOST, GIT_MEMCACHED_BACKEND_PORT)
-    ok = ok && git_check_ok(rc, "connecting to memcached backend");
-    if (!ok) goto ret;
-
-    rc = git_odb_add_backend(m_odb, m_git_backend, 1);
-    ok = ok && git_check_ok(rc, "add custom backend to object database");
-    if (!ok) goto ret;
-#endif
-
-#if 0
     rc = git_repository_odb(&m_odb, m_repo);
     ok = ok && git_check_ok(rc, "accessing git repository database");
-    if (!ok)
-    {
-        goto ret;
-    }
-#endif
+    if (!ok) goto ret;
+
+#endif /* end !USE_CUSTOM_BACKEND */
 
     rc = git_repository_index(&m_index, m_repo);
     ok = ok && git_check_ok(rc, "opening repository index");
@@ -456,6 +449,9 @@ ret:
         if (m_odb)
             git_odb_free(m_odb);
         m_odb = NULL;
+
+#ifdef USE_CUSTOM_BACKEND
+
 #ifdef USE_SQLITE_BACKEND
         if (m_git_backend)
             sqlite_backend__free(m_git_backend);
@@ -465,6 +461,9 @@ ret:
             memcached_backend__free(m_git_backend);
 #endif
         m_git_backend = NULL;
+
+#endif /* end USE_CUSTOM_BACKEND */
+
         if (m_cfg)
             git_config_free(m_cfg);
         m_cfg = NULL;
@@ -559,6 +558,8 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
 
     assert(m_sig);
 
+#ifdef USE_CUSTOM_BACKEND
+
     rc = git_odb_new(&m_odb);
     ok = ok && git_check_ok(rc, "creating new odb without backends");
     if (!ok) goto ret;
@@ -582,14 +583,13 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
 
     git_repository_set_odb(m_repo, m_odb);
 
-#if 0
+#else /* start !USE_CUSTOM_BACKEND */
+
     rc = git_repository_odb(&m_odb, m_repo);
     ok = ok && git_check_ok(rc, "accessing git repository database");
-    if (!ok)
-    {
-        goto ret;
-    }
-#endif
+    if (!ok) goto ret;
+
+#endif /* end !USE_CUSTOM_BACKEND */
 
     rc = git_repository_index(&m_index, m_repo);
     ok = ok && git_check_ok(rc, "opening repository index");
@@ -611,6 +611,9 @@ ret:
         if (m_odb)
             git_odb_free(m_odb);
         m_odb = NULL;
+
+#ifdef USE_CUSTOM_BACKEND
+
 #ifdef USE_SQLITE_BACKEND
         if (m_git_backend)
             sqlite_backend__free(m_git_backend);
@@ -620,6 +623,9 @@ ret:
             memcached_backend__free(m_git_backend);
 #endif
         m_git_backend = NULL;
+
+#endif /* end USE_CUSTOM_BACKEND */
+
         if (m_cfg)
             git_config_free(m_cfg);
         m_cfg = NULL;
@@ -637,15 +643,21 @@ GitRepo::~GitRepo()
     if (m_odb)
         git_odb_free(m_odb);
     m_odb = NULL;
+
+#ifdef USE_CUSTOM_BACKEND
+
 #ifdef USE_SQLITE_BACKEND
-    if (m_git_backend)
-        sqlite_backend__free(m_git_backend);
+        if (m_git_backend)
+            sqlite_backend__free(m_git_backend);
 #endif
 #ifdef USE_MEMCACHED_BACKEND
-    if (m_git_backend)
-        memcached_backend__free(m_git_backend);
+        if (m_git_backend)
+            memcached_backend__free(m_git_backend);
 #endif
-    m_git_backend = NULL;
+        m_git_backend = NULL;
+
+#endif /* end USE_CUSTOM_BACKEND */
+
     if (m_sig)
         git_signature_free(m_sig);
     m_sig = NULL;
