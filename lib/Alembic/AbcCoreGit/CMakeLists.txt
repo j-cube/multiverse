@@ -40,6 +40,8 @@ SET( CXX_FILES
   ReadWriteUtil.cpp
   msgpack_support.cpp
   JSON.cpp
+  git-memcached.c
+  git-sqlite.c
 )
 
 SET( H_FILES
@@ -81,12 +83,14 @@ SET( H_FILES
   # WrittenArraySampleMap.h
   msgpack_support.h
   JSON.h
+  git-memcached.h
+  git-sqlite.h
 )
 
 SET( SOURCE_FILES ${CXX_FILES} ${H_FILES} )
 
 ADD_LIBRARY( AlembicAbcCoreGit ${SOURCE_FILES} )
-TARGET_LINK_LIBRARIES( AlembicAbcCoreGit ${ALEMBIC_LIBGIT2_LIBS} ${ALEMBIC_MSGPACK_LIBS} ${ALEMBIC_JSONCPP_LIBS} )
+TARGET_LINK_LIBRARIES( AlembicAbcCoreGit ${ALEMBIC_LIBGIT2_LIBS} ${ALEMBIC_MSGPACK_LIBS} ${ALEMBIC_JSONCPP_LIBS} ${ALEMBIC_LIBMEMCACHED_LIBS} ${ALEMBIC_SQLITE3_LIBS} )
 
 INSTALL( TARGETS AlembicAbcCoreGit
          LIBRARY DESTINATION lib

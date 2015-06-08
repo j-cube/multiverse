@@ -237,6 +237,8 @@ private:
     git_signature *m_sig;
     git_odb *m_odb;
     git_index *m_index;
+
+    git_odb_backend *m_git_backend;
     bool m_error;
 
     bool m_index_dirty;
