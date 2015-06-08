@@ -66,12 +66,13 @@ struct KeyStore : public KeyStoreBase
     size_t addKey(const AbcA::ArraySample::Key& key, const std::vector<T>& data)
     {
         size_t kid = addKey(key);
-        if (! m_kid_to_data.count(kid))
-            addData(kid, data);
+        if (! m_has_kid_data.count(kid))
+            addData(kid, key, data);
+        assert(m_has_kid_data.count(kid));
         return kid;
     }
 
-    bool hasData(size_t kid)                        { return (m_kid_to_data.count(kid)); }
+    bool hasData(size_t kid)                        { return (m_has_kid_data.count(kid)); }
     bool hasData(const AbcA::ArraySample::Key& key) { size_t kid = KeyToKid(key); return hasData(kid); }
 
     void addData(size_t kid, const std::vector<T>& data)
@@ -81,13 +82,14 @@ struct KeyStore : public KeyStoreBase
 
     void addData(size_t kid, const AbcA::ArraySample::Key& key, const std::vector<T>& data)
     {
-        // assert(! m_kid_to_data.count(kid));
-        // m_kid_to_data[kid] = data;
+        assert(! m_has_kid_data.count(kid));
+        m_has_kid_data[kid] = true;
         writeToDiskSampleData(kid, key, data);
     }
 
     const std::vector<T>& data(size_t kid)
     {
+        assert(m_has_kid_data.count(kid));
         assert(m_kid_to_data.count(kid));
         return m_kid_to_data[kid];
     }
@@ -95,6 +97,7 @@ struct KeyStore : public KeyStoreBase
     const std::vector<T>& data(const AbcA::ArraySample::Key& key)
     {
         size_t kid = KeyToKid(key);
+        assert(m_has_kid_data.count(kid));
         assert(m_kid_to_data.count(kid));
         return m_kid_to_data[kid];
     }
@@ -114,7 +117,7 @@ struct KeyStore : public KeyStoreBase
     bool writeToDiskSample(const std::string& basename, std::map< size_t, AbcA::ArraySample::Key >::const_iterator& p_it, size_t& npacked);
     bool readFromDiskSample(GitTreePtr gitTree, const std::string& basename, size_t kid, size_t& unpacked);
 
-    std::string packSample(size_t kid, const AbcA::ArraySample::Key& key);
+    // std::string packSample(size_t kid, const AbcA::ArraySample::Key& key);
     bool unpackSample(const std::string& packedSample, size_t kid);
 
     void ensureWriteInfo()   { if (! m_write_info) _ensureWriteInfo(); }
@@ -127,6 +130,7 @@ struct KeyStore : public KeyStoreBase
     std::map< AbcA::ArraySample::Key, size_t > m_key_to_kid;                   // key to progressive key id
     std::map< size_t, AbcA::ArraySample::Key > m_kid_to_key;                   // progressive key id to key
     std::map< size_t, std::vector<T> > m_kid_to_data;                          // kid to sample data
+    std::map< size_t, bool > m_has_kid_data;                                   // has kid AND its data
     size_t m_next_kid;                                                         // next key id
     bool m_saved;
     bool m_loaded;

@@ -503,6 +503,7 @@ bool KeyStore<T>::readFromDiskSample(GitTreePtr gitTree, const std::string& base
     return ok;
 }
 
+#if 0
 template <typename T>
 std::string KeyStore<T>::packSample(size_t kid, const AbcA::ArraySample::Key& key)
 {
@@ -523,6 +524,7 @@ std::string KeyStore<T>::packSample(size_t kid, const AbcA::ArraySample::Key& ke
 
     return buffer.str();
 }
+#endif
 
 template <typename T>
 bool KeyStore<T>::unpackSample(const std::string& packedSample, size_t kid)
@@ -572,6 +574,7 @@ bool KeyStore<T>::unpackSample(const std::string& packedSample, size_t kid)
     mp_unpack(pko, data);
     // m_kid_to_data[k_kid] = data;
     m_kid_to_data[kid] = data;
+    m_has_kid_data[kid] = true;
 
     return true;
 }
