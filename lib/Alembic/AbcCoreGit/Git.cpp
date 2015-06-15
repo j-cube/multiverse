@@ -46,7 +46,7 @@ namespace ALEMBIC_VERSION_NS {
 #endif /* GIT_SUCCESS */
 
 // define only one of these
-#define USE_SQLITE_BACKEND
+// #define USE_SQLITE_BACKEND
 // #define USE_MEMCACHED_BACKEND
 
 #define GIT_MEMCACHED_BACKEND_HOST "127.0.0.1"
