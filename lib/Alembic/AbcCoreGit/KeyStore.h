@@ -21,6 +21,8 @@ namespace ALEMBIC_VERSION_NS {
 
 enum RWMode { READ = 0, WRITE = 1 };
 
+const size_t BUNDLE_SAMPLES_BELOW = 200;        // bundle samples together if below this size (in bytes)
+
 struct KeyStoreBase
 {
     virtual ~KeyStoreBase();
@@ -131,9 +133,13 @@ struct KeyStore : public KeyStoreBase
     std::map< size_t, AbcA::ArraySample::Key > m_kid_to_key;                   // progressive key id to key
     std::map< size_t, std::vector<T> > m_kid_to_data;                          // kid to sample data
     std::map< size_t, bool > m_has_kid_data;                                   // has kid AND its data
+    std::map< size_t, std::vector<T> > m_bundled_data;                         // sample data to write lazily in bundled form
     size_t m_next_kid;                                                         // next key id
     bool m_saved;
     bool m_loaded;
+
+    size_t m_samples_unbundled;
+    size_t m_samples_bundled;
 
     // write cached values
     bool m_write_info;                                                         // write info ready (m_git_tree, m_base_path, ...)

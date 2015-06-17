@@ -171,7 +171,9 @@ KeyStoreBase::~KeyStoreBase()
 
 template <typename T>
 KeyStore<T>::KeyStore(GitGroupPtr groupPtr, RWMode rwmode) :
-    m_group(groupPtr), m_rwmode(rwmode), m_next_kid(0), m_saved(false), m_loaded(false), m_write_info(false), m_write_packed(0)
+    m_group(groupPtr), m_rwmode(rwmode), m_next_kid(0), m_saved(false), m_loaded(false),
+    m_samples_unbundled(0), m_samples_bundled(0),
+    m_write_info(false), m_write_packed(0)
 {
     TRACE("KeyStore<T>::KeyStore() type: " << GetTypeStr<T>());
     if (mode() == READ)
@@ -218,22 +220,33 @@ bool KeyStore<T>::writeToDiskSampleData(size_t kid, const AbcA::ArraySample::Key
 
     ensureWriteInfo();
 
-    std::stringstream buffer;
-    msgpack::packer<std::stringstream> pk(&buffer);
+    size_t estimated_size = data.size() * sizeof(T);
 
-    mp_pack(pk, data);
+    if (estimated_size >= BUNDLE_SAMPLES_BELOW)
+    {
+        TRACE("KeyStore::writeToDiskSampleData() estimated_size:" << estimated_size << " >= " << BUNDLE_SAMPLES_BELOW);
+        std::stringstream buffer;
+        msgpack::packer<std::stringstream> pk(&buffer);
 
-    std::string packedSample = buffer.str();
+        mp_pack(pk, data);
 
-    std::ostringstream ss;
-    ss << "_" << key.digest.str();
-    std::string suffix = ss.str();
+        std::string packedSample = buffer.str();
 
-    std::string name = m_basename + suffix + ".bin";
+        std::ostringstream ss;
+        ss << "_" << key.digest.str();
+        std::string suffix = ss.str();
 
-    m_group->add_file_from_memory(name, packedSample);
+        std::string name = m_basename + suffix + ".bin";
 
-    m_write_packed += packedSample.length();
+        m_group->add_file_from_memory(name, packedSample);
+
+        m_write_packed += packedSample.length();
+        m_samples_unbundled++;
+    } else
+    {
+        // write later, in bundled form
+        m_bundled_data[kid] = data;
+    }
 
     return true;
 }
@@ -292,6 +305,36 @@ bool KeyStore<T>::writeToDisk()
     size_t npacked = packedHeader.length();
     m_write_packed += npacked;
     TRACE("header packed to " << npacked << " bytes for # " << n_samples << " (different) samples of type " << GetTypeStr<T>());
+
+    // pack & write bundled samples
+    {
+        std::string name_bundle = basename + "_bundle" + ".bin";
+
+        std::stringstream buffer;
+        msgpack::packer<std::stringstream> pk(&buffer);
+
+        mp_pack(pk, static_cast<size_t>(m_bundled_data.size()));
+
+        m_samples_bundled = 0;
+        typename std::map< size_t, std::vector<T> >::const_iterator b_it;
+        for (b_it = m_bundled_data.begin(); b_it != m_bundled_data.end(); ++b_it)
+        {
+            size_t kid                 = (*b_it).first;
+            const std::vector<T>& data = (*b_it).second;
+
+            mp_pack(pk, kid);
+            mp_pack(pk, data);
+
+            m_samples_bundled++;
+        }
+
+        std::string packedBundle = buffer.str();
+        m_group->add_file_from_memory(name_bundle, packedBundle);
+
+        size_t npacked = packedBundle.length();
+        m_write_packed += npacked;
+        TRACE("bundle packed to " << npacked << " bytes for # " << m_samples_bundled << " (different) bundled samples of type " << GetTypeStr<T>());
+    }
 
 #if 0
     // pack & write samples
@@ -418,20 +461,83 @@ bool KeyStore<T>::readFromDisk()
 
     all_unpacked += packedHeader.length();
 
-    // read & unpack samples
+    // read samples
 
-    bool all_ok = true, ok;
+    bool all_ok = true;
 
-    for (size_t i = 0; i < v_n_kid; ++i)
+    // read & unpack bundled samples
+
     {
-        ok = readFromDiskSample(gitTree, basename, i, unpacked);
-        all_ok = all_ok && ok;
-        if (! ok)
-            break;
+        std::string name_bundle = basename + "_bundle" + ".bin";
+        boost::optional<std::string> optBinBundleContents = gitTree->getChildFile(name_bundle);
+        if (optBinBundleContents)
+        {
+            std::string packedBundle = *optBinBundleContents;
 
-        all_unpacked += unpacked;
+            msgpack::unpacker pac;
+
+            // copy the buffer data to the unpacker object
+            pac.reserve_buffer(packedBundle.size());
+            memcpy(pac.buffer(), packedBundle.data(), packedBundle.size());
+            pac.buffer_consumed(packedBundle.size());
+
+            size_t n_bundled = 0;
+
+            // deserialize it.
+            msgpack::unpacked msg;
+
+            pac.next(&msg);
+            msgpack::object pko = msg.get();
+            mp_unpack(pko, n_bundled);
+
+            for (size_t i = 0; i < n_bundled; ++i)
+            {
+                size_t kid;
+                std::vector<T> data;
+
+                pac.next(&msg);
+                pko = msg.get();
+                mp_unpack(pko, kid);
+
+                pac.next(&msg);
+                pko = msg.get();
+                mp_unpack(pko, data);
+
+                m_kid_to_data[kid] = data;
+                m_has_kid_data[kid] = true;
+            }
+
+            all_unpacked += packedBundle.length();
+
+            TRACE("unpacked " << packedBundle.length() << " bytes for # " << n_bundled << " (different) bundled samples of type " << GetTypeStr<T>());
+        }
     }
-    // TRACE("unpacked " << v_n_kid << " (different) samples");
+
+    // read & unpack unbundled samples
+
+    {
+        bool ok;
+
+        size_t n_unbundled = 0;
+        size_t unbundled_unpacked = 0;
+        for (size_t i = 0; i < v_n_kid; ++i)
+        {
+            size_t kid = i;
+            if ((! m_has_kid_data.count(kid)) || (! m_has_kid_data[kid]))
+            {
+                ok = readFromDiskSample(gitTree, basename, i, unpacked);
+                all_ok = all_ok && ok;
+                if (! ok)
+                    break;
+
+                n_unbundled++;
+                unbundled_unpacked += unpacked;
+                all_unpacked += unpacked;
+            }
+        }
+        // TRACE("unpacked " << v_n_kid << " (different) samples");
+        TRACE("unpacked " << unbundled_unpacked << " bytes for # " << n_unbundled << " (different) unbundled samples of type " << GetTypeStr<T>());
+    }
 
     TRACE("unpacked " << all_unpacked << " total bytes for # " << v_n_kid << " (different) samples of type " << GetTypeStr<T>());
     loaded(true);
