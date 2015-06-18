@@ -123,7 +123,7 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
 {
     Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
 
-    TRACE( "TypedSampleStore::getSample() index:" << index << "  #bytes:" << PODNumBytes( curPod ) );
+    TRACE( "TypedSampleStore::getSample() index:" << index << "  #bytes:" << PODNumBytes( curPod ) << " dataType:" << m_dataType << " T:" << GetTypeStr<T>());
     ABCA_ASSERT( (curPod != Alembic::Util::kStringPOD) && (curPod != Alembic::Util::kWstringPOD),
         "Can't convert " << m_dataType <<
         "to non-std::string / non-std::wstring" );
@@ -140,6 +140,10 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
     {
         size_t extent = m_dataType.getExtent();
 
+        if (extent > sampleData.size())
+        {
+            TRACE("extent:" << extent << " sampleData.size:" << sampleData.size() << " kid:" << kid << " index:" << index);
+        }
         assert(extent <= sampleData.size());
 
         for (size_t i = 0; i < extent; ++i)
@@ -270,7 +274,7 @@ void TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Ke
     m_index_to_kid[at] = kid;
     // TRACE("set index_to_kid[" << at << "] := " << kid);
 
-    TRACE("SampleStore::addSample(key:'" << key_str << "' #bytes:" << key.numBytes << " kid:" << kid << " index:=" << at << ")");
+    TRACE("SampleStore::addSample(key:'" << key_str << "' #bytes:" << key.numBytes << " kid:" << kid << " index:=" << at << ")  T:" << GetTypeStr<T>() << " dataType:" << m_dataType);
 
     if (! ks()->hasData(kid))
     {
