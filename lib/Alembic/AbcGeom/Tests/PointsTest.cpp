@@ -47,6 +47,9 @@ using namespace AbcG;
 using Alembic::AbcCoreAbstract::chrono_t;
 using Alembic::AbcCoreAbstract::index_t;
 
+// #define NUM_FRAMES 20
+#define NUM_FRAMES 1
+
 #define USE_GIT
 // #define USE_HDF5
 // #define USE_OGAWA
@@ -413,6 +416,10 @@ void pointTestReadWrite()
 
             IFloatGeomParam::Sample widthSamp;
             widthProp.getExpanded(widthSamp, i);
+            if (pointSamp.getPositions()->size() != i)
+            {
+                std::cout << "pointSamp.getPositions()->size() (" << pointSamp.getPositions()->size() << ") != i (" << i << ")" << std::endl;
+            }
             TESTING_ASSERT( pointSamp.getPositions()->size() == i );
             TESTING_ASSERT( pointSamp.getVelocities()->size() == i );
             TESTING_ASSERT( pointSamp.getIds()->size() == i );
@@ -561,7 +568,7 @@ int main( int argc, char *argv[] )
 #endif
         OObject topObj( archive, kTop );
 
-        RunAndWriteParticles( topObj, params, 20, 1.0/24.0 );
+        RunAndWriteParticles( topObj, params, NUM_FRAMES, 1.0/24.0 );
     }
 
 #ifdef USE_GIT
