@@ -35,7 +35,9 @@
 //-*****************************************************************************
 
 #include <Alembic/AbcGeom/All.h>
+#include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcCoreHDF5/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 #include <ImathRandom.h>
 #include <Alembic/AbcCoreAbstract/Tests/Assert.h>
 
@@ -44,6 +46,10 @@ using namespace AbcG;
 
 using Alembic::AbcCoreAbstract::chrono_t;
 using Alembic::AbcCoreAbstract::index_t;
+
+#define USE_GIT
+// #define USE_HDF5
+// #define USE_OGAWA
 
 //-*****************************************************************************
 //-*****************************************************************************
@@ -298,8 +304,18 @@ void RunAndWriteParticles
 //-*****************************************************************************
 void ReadParticles( const std::string &iFileName )
 {
+#ifdef USE_HDF5
     IArchive archive( Alembic::AbcCoreHDF5::ReadArchive(),
                       iFileName );
+#endif
+#ifdef USE_OGAWA
+    IArchive archive( Alembic::AbcCoreOgawa::ReadArchive(),
+                      iFileName );
+#endif
+#ifdef USE_GIT
+    IArchive archive( Alembic::AbcCoreGit::ReadArchive(),
+                      iFileName );
+#endif
     IObject topObj( archive, kTop );
 
     IPoints points( topObj, "simpleParticles" );
@@ -334,8 +350,18 @@ void ReadParticles( const std::string &iFileName )
 void pointTestReadWrite()
 {
     {
+#ifdef USE_HDF5
         OArchive archive( Alembic::AbcCoreHDF5::WriteArchive(),
             "particlesOut2.abc" );
+#endif
+#ifdef USE_OGAWA
+        OArchive archive( Alembic::AbcCoreOgawa::WriteArchive(),
+            "particlesOut2.abc" );
+#endif
+#ifdef USE_GIT
+        OArchive archive( Alembic::AbcCoreGit::WriteArchive(),
+            "particlesOut2.abc.git" );
+#endif
         OObject topObj( archive, kTop );
         OPoints ptsObj(topObj, "somePoints");
 
@@ -363,9 +389,18 @@ void pointTestReadWrite()
     }
 
     {
+#ifdef USE_HDF5
         IArchive archive( Alembic::AbcCoreHDF5::ReadArchive(),
                           "particlesOut2.abc" );
-
+#endif
+#ifdef USE_OGAWA
+        IArchive archive( Alembic::AbcCoreOgawa::ReadArchive(),
+                          "particlesOut2.abc" );
+#endif
+#ifdef USE_GIT
+        IArchive archive( Alembic::AbcCoreGit::ReadArchive(),
+                          "particlesOut2.abc.git" );
+#endif
         IObject topObj = archive.getTop();
         IPoints points( topObj, "somePoints" );
         IPointsSchema& pointsSchema = points.getSchema();
@@ -404,7 +439,15 @@ void optPropTest()
 {
     std::string name = "pointsOptPropTest.abc";
     {
+#ifdef USE_HDF5
         OArchive archive( Alembic::AbcCoreHDF5::WriteArchive(), name );
+#endif
+#ifdef USE_OGAWA
+        OArchive archive( Alembic::AbcCoreOgawa::WriteArchive(), name );
+#endif
+#ifdef USE_GIT
+        OArchive archive( Alembic::AbcCoreGit::WriteArchive(), name + ".git");
+#endif
         OPoints ptObj( OObject( archive, kTop ), "pts" );
         OPointsSchema &pt= ptObj.getSchema();
 
@@ -466,7 +509,15 @@ void optPropTest()
     }
 
     {
+#ifdef USE_HDF5
         IArchive archive( Alembic::AbcCoreHDF5::ReadArchive(), name );
+#endif
+#ifdef USE_OGAWA
+        IArchive archive( Alembic::AbcCoreOgawa::ReadArchive(), name );
+#endif
+#ifdef USE_GIT
+        IArchive archive( Alembic::AbcCoreGit::ReadArchive(), name );
+#endif
 
         IPoints ptsObj( IObject( archive, kTop ), "pts" );
         IPointsSchema &pts = ptsObj.getSchema();
@@ -496,17 +547,32 @@ int main( int argc, char *argv[] )
     params.emitColor = C3f( 0.85f, 0.9f, 0.1f );
 
     {
+#ifdef USE_HDF5
         OArchive archive( Alembic::AbcCoreHDF5::WriteArchive(),
                           "particlesOut1.abc" );
+#endif
+#ifdef USE_OGAWA
+        OArchive archive( Alembic::AbcCoreOgawa::WriteArchive(),
+                          "particlesOut1.abc" );
+#endif
+#ifdef USE_GIT
+        OArchive archive( Alembic::AbcCoreGit::WriteArchive(),
+                          "particlesOut1.abc.git" ) ;
+#endif
         OObject topObj( archive, kTop );
 
         RunAndWriteParticles( topObj, params, 20, 1.0/24.0 );
     }
 
+#ifdef USE_GIT
+    std::cout << "Wrote particlesOut1.abc.git" << std::endl;
+
+    ReadParticles( "particlesOut1.abc.git" );
+#else
     std::cout << "Wrote particlesOut1.abc" << std::endl;
 
     ReadParticles( "particlesOut1.abc" );
-
+#endif
     pointTestReadWrite();
 
     optPropTest();
