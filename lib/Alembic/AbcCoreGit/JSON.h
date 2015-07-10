@@ -675,6 +675,14 @@ inline void JsonSet(rapidjson::Document& container, const char *key, const T& va
     JsonTraits<T>::Set(container, key, value);
 }
 
+// template specialization for size_t for portability (no guarantees on size_t size across platforms...)
+// we use uint64_t to account for the largest possible size
+template <>
+inline void JsonSet<size_t>(rapidjson::Document& container, const char *key, const size_t& value)
+{
+    JsonTraits<uint64_t>::Set(container, key, static_cast<uint64_t>(value));
+}
+
 // NOTE: this is not a template specialization!
 inline void JsonSet(rapidjson::Document& container, const char *key, const char* value)
 {
@@ -698,6 +706,14 @@ template <typename T>
 inline void JsonSet(rapidjson::Document& document, rapidjson::Value& container, const char *key, const T& value)
 {
     JsonTraits<T>::Set(document, container, key, value);
+}
+
+// template specialization for size_t for portability (no guarantees on size_t size across platforms...)
+// we use uint64_t to account for the largest possible size
+template <>
+inline void JsonSet<size_t>(rapidjson::Document& document, rapidjson::Value& container, const char *key, const size_t& value)
+{
+    JsonTraits<uint64_t>::Set(document, container, key, static_cast<uint64_t>(value));
 }
 
 template <>
