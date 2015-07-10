@@ -635,7 +635,7 @@ inline boost::optional<Util::uint64_t> JsonGetUint64(const rapidjson::Value& con
 
 inline boost::optional<size_t> JsonGetSizeT(const rapidjson::Value& value)
 {
-    boost::optional<int64_t> o_r = JsonTraits<int64_t>::Get(value);
+    boost::optional<uint64_t> o_r = JsonTraits<uint64_t>::Get(value);
     if (o_r)
         return static_cast<size_t>(*o_r);
     return boost::none;
@@ -643,7 +643,7 @@ inline boost::optional<size_t> JsonGetSizeT(const rapidjson::Value& value)
 
 inline boost::optional<size_t> JsonGetSizeT(const rapidjson::Value& container, const char *key)
 {
-    boost::optional<int64_t> o_r = JsonTraits<int64_t>::Get(container, key);
+    boost::optional<uint64_t> o_r = JsonTraits<uint64_t>::Get(container, key);
     if (o_r)
         return static_cast<size_t>(*o_r);
     return boost::none;
