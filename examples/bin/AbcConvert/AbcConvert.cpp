@@ -229,7 +229,10 @@ int main(int argc, char *argv[])
     Alembic::AbcCoreFactory::IOptions rOptions;
 
     if (! revision.empty())
+    {
         rOptions["revision"] = revision;
+        // rOptions["ignoreNonexistentRevision"] = true;
+    }
 
     Alembic::AbcCoreFactory::IFactory factory;
     Alembic::AbcCoreFactory::IFactory::CoreType coreType;

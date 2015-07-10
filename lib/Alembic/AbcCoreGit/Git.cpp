@@ -307,7 +307,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
     m_index_dirty(false),
-    m_options(options)
+    m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
@@ -320,6 +320,12 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     {
         m_revision = boost::any_cast<std::string>(m_options["revision"]);
         TRACE("GitRepo has revision '" << m_revision << "' specified.");
+    }
+
+    if (m_options.has("ignoreNonexistentRevision"))
+    {
+        m_ignore_wrong_rev = boost::any_cast<bool>(m_options["ignoreNonexistentRevision"]);
+        TRACE("ignoreNonexistentRevision specified: " << m_ignore_wrong_rev);
     }
 
     std::string dotGitPathname = pathjoin(pathname(), ".git");
@@ -476,7 +482,7 @@ ret:
 GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_error(false),
-    m_index_dirty(false)
+    m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
@@ -1196,7 +1202,7 @@ std::ostream& operator<< (std::ostream& out, const GitRepo& repo)
 /* --- GitTree -------------------------------------------------------- */
 
 GitTree::GitTree(GitRepoPtr repo) :
-    m_repo(repo), m_filename("/"), m_tree(NULL), m_error(false)
+    m_repo(repo), m_filename("/"), m_tree(NULL), m_ignore_wrong_rev(false), m_error(false)
 {
     git_reference* head = NULL;
     git_commit* commit = NULL;
@@ -1224,8 +1230,8 @@ GitTree::GitTree(GitRepoPtr repo) :
     commit = NULL;
 }
 
-GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str) :
-    m_repo(repo), m_filename("/"), m_tree(NULL), m_revision(rev_str), m_error(false)
+GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str, bool ignoreWrongRevision) :
+    m_repo(repo), m_filename("/"), m_tree(NULL), m_revision(rev_str), m_ignore_wrong_rev(ignoreWrongRevision), m_error(false)
 {
     git_object* obj = NULL;
     git_commit* commit = NULL;
@@ -1233,6 +1239,10 @@ GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str) :
     memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
 
     int rc = git_revparse_single(&obj, repo->g_ptr(), m_revision.c_str());
+    if ((rc != GIT_SUCCESS) && m_ignore_wrong_rev)
+    {
+        goto go_ahead;
+    }
     m_error = m_error || git_check_error(rc, "parsing revision string");
 
     rc = git_commit_lookup(&commit, repo->g_ptr(), git_object_id(obj));
@@ -1240,6 +1250,24 @@ GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str) :
 
     // rc = git_tree_lookup(&m_tree, repo->g_ptr(), git_object_id(obj));
     // m_error = m_error || git_check_error(rc, "looking up tree");
+
+go_ahead:
+    if ((! commit) && m_ignore_wrong_rev)
+    {
+        /* flag to ignore wrong/non-existent revision specified: fetch HEAD */
+
+        std::cerr << "WARNING: specified revision not found, but ignore-wrong-rev flag active: try to fetch/return HEAD" << std::endl;
+
+        git_reference* head = NULL;
+
+        rc = git_repository_head(&head, m_repo->g_ptr());
+        m_error = m_error || git_check_error(rc, "determining HEAD");
+
+        rc = git_commit_lookup(&commit, repo->g_ptr(), git_reference_target(head));
+        m_error = m_error || git_check_error(rc, "getting HEAD commit");
+        git_reference_free(head);
+        head = NULL;
+    }
 
     if (commit)
     {
@@ -1258,7 +1286,7 @@ GitTree::GitTree(GitRepoPtr repo, const std::string& rev_str) :
 }
 
 GitTree::GitTree(GitRepoPtr repo, GitTreePtr parent_ptr, git_tree* lg_ptr) :
-    m_repo(repo), m_parent(parent_ptr), m_tree(NULL), m_error(false)
+    m_repo(repo), m_parent(parent_ptr), m_tree(NULL), m_ignore_wrong_rev(false), m_error(false)
 {
     memset(m_tree_oid.id, 0, GIT_OID_RAWSZ);
 
@@ -1724,8 +1752,8 @@ GitTreePtr GitGroup::tree()
                 ABCA_ASSERT( isTopLevel(), "Specifying a revision is only possible for toplevel groups" );
                 ABCA_ASSERT( (!m_tree_ptr), "Tree already determined" );
 
-                TRACE("fetching top-level tree for revision '" << revisionString() << "'");
-                m_tree_ptr = GitTree::Create(repo(), revisionString());
+                TRACE("fetching top-level tree for revision '" << revisionString() << "' (ignore wrong revision: " << ignoreWrongRevision() << ")");
+                m_tree_ptr = GitTree::Create(repo(), revisionString(), ignoreWrongRevision());
             } else
                 m_tree_ptr = GitTree::Create(repo());
         }

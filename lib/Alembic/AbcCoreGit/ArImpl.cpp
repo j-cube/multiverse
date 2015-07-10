@@ -181,6 +181,13 @@ std::string ArImpl::revisionString()
     return std::string();
 }
 
+bool ArImpl::ignoreWrongRevision()
+{
+    if (m_options.has("ignoreNonexistentRevision"))
+        return boost::any_cast<bool>(m_options["ignoreNonexistentRevision"]);
+    return GitRepo::DEFAULT_IGNORE_WRONG_REV;
+}
+
 bool ArImpl::readFromDisk()
 {
     if (m_read)

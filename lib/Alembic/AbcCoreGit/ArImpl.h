@@ -36,7 +36,6 @@ private:
     ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOptions& iOptions );
 
 public:
-
     virtual ~ArImpl();
 
     //-*************************************************************************
@@ -86,6 +85,7 @@ public:
     Alembic::AbcCoreFactory::IOptions options() const { return m_options; }
     bool hasRevisionSpec() const;
     std::string revisionString();
+    bool ignoreWrongRevision();
 
     bool readFromDisk();
 

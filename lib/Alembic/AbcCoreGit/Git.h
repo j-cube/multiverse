@@ -148,6 +148,8 @@ std::ostream& operator<< (std::ostream& out, const GitCommitInfo& value);
 class GitRepo : public Alembic::Util::enable_shared_from_this<GitRepo>
 {
 public:
+    static const bool DEFAULT_IGNORE_WRONG_REV = false;
+
     GitRepo(const std::string& pathname, GitMode mode = GitMode::ReadWrite);
     GitRepo(const std::string& pathname, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode = GitMode::Read);
     // GitRepo(const std::string& pathname);
@@ -191,6 +193,7 @@ public:
     Alembic::AbcCoreFactory::IOptions options() const { return m_options; }
     bool hasRevisionSpec() const { return (! m_revision.empty()); }
     std::string revisionString() const { return m_revision; }
+    bool ignoreWrongRevision() const { return m_ignore_wrong_rev; }
 
     std::string relpath(const std::string& pathname_) const;
 
@@ -249,6 +252,7 @@ private:
 
     Alembic::AbcCoreFactory::IOptions m_options;
     std::string m_revision;
+    bool m_ignore_wrong_rev;
 };
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo);
@@ -314,16 +318,17 @@ public:
 
     bool hasRevisionSpec() const { return (! m_revision.empty()); }
     std::string revisionString() const { return m_revision; }
+    bool ignoreWrongRevision() const { return m_ignore_wrong_rev; }
 
     static GitTreePtr Create(GitRepoPtr repo_ptr) { return GitTreePtr(new GitTree(repo_ptr)); }
-    static GitTreePtr Create(GitRepoPtr repo_ptr, const std::string& revision) { return GitTreePtr(new GitTree(repo_ptr, revision)); }
+    static GitTreePtr Create(GitRepoPtr repo_ptr, const std::string& revision, bool ignoreWrongRevision = false) { return GitTreePtr(new GitTree(repo_ptr, revision, ignoreWrongRevision)); }
     static boost::optional<GitTreePtr> Create(GitTreePtr parent_ptr, const std::string& filename);
 
 private:
     GitTree();                                   // disable default constructor
     GitTree(const GitTree& other);               // disable copy constructor
     GitTree(GitRepoPtr repo_ptr);                // private constructor
-    GitTree(GitRepoPtr repo_ptr, const std::string& rev_str);  // private constructor
+    GitTree(GitRepoPtr repo_ptr, const std::string& rev_str, bool ignoreWrongRevision = false);  // private constructor
     GitTree(GitRepoPtr repo_ptr, GitTreePtr parent_ptr, git_tree* lg_ptr);     // private constructor
 
     GitRepoPtr m_repo;
@@ -332,6 +337,7 @@ private:
     git_tree* m_tree;
     git_oid m_tree_oid;                     /* the SHA1 for our corresponding tree */
     std::string m_revision;
+    bool m_ignore_wrong_rev;
     bool m_error;
 
     friend GitTreePtr GitRepo::rootTree();
@@ -548,6 +554,7 @@ public:
 
     bool hasRevisionSpec() const                  { return m_repo_ptr->hasRevisionSpec(); }
     std::string revisionString() const            { return m_repo_ptr->revisionString(); }
+    bool ignoreWrongRevision() const              { return m_repo_ptr->ignoreWrongRevision(); }
 
     void writeToDisk();
     bool readFromDisk();
