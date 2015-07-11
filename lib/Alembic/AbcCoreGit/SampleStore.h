@@ -46,9 +46,9 @@ public:
     virtual void getSample( void *iIntoLocation, int index ) = 0;
     virtual void getSample( AbcA::ArraySamplePtr& oSample, int index ) = 0;
 
-    virtual void addSample( const void *iSamp, const AbcA::ArraySample::Key& key ) = 0;
-    virtual void addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
-    virtual void setFromPreviousSample() = 0;                       // duplicate last added sample
+    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key ) = 0;
+    virtual size_t addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
+    virtual size_t setFromPreviousSample() = 0;                       // duplicate last added sample
 
     virtual bool getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey ) = 0;
 
@@ -114,12 +114,12 @@ public:
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     // virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
-    virtual void addSample( const T* iSamp, const AbcA::ArraySample::Key& key );
-    virtual void addSample( const void *iSamp, const AbcA::ArraySample::Key& key );
+    virtual size_t addSample( const T* iSamp, const AbcA::ArraySample::Key& key );
+    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key );
 
-    virtual void addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
+    virtual size_t addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
 
-    virtual void setFromPreviousSample();                           // duplicate last added sample
+    virtual size_t setFromPreviousSample();                           // duplicate last added sample
 
     virtual bool getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey );
 

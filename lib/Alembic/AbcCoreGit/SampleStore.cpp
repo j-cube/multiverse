@@ -262,7 +262,7 @@ struct scalar_traits<std::string>
 };
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key )
+size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key )
 {
     std::string key_str = key.digest.str();
 
@@ -320,17 +320,19 @@ void TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Ke
 
         addData(kid, key, data);
     }
+
+    return at;
 }
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const void *iSamp, const AbcA::ArraySample::Key& key )
+size_t TypedSampleStore<T>::addSample( const void *iSamp, const AbcA::ArraySample::Key& key )
 {
     const T* iSampT = reinterpret_cast<const T*>(iSamp);
-    addSample(iSampT, key);
+    return addSample(iSampT, key);
 }
 
 template <typename T>
-void TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
+size_t TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
 {
     ABCA_ASSERT( iSamp.getDataType() == m_dataType,
         "DataType on ArraySample iSamp: " << iSamp.getDataType() <<
@@ -339,11 +341,11 @@ void TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
 
     AbcA::ArraySample::Key key = iSamp.getKey();
 
-    addSample( iSamp.getData(), key );
+    return addSample( iSamp.getData(), key );
 }
 
 template <typename T>
-void TypedSampleStore<T>::setFromPreviousSample()                           // duplicate last added sample
+size_t TypedSampleStore<T>::setFromPreviousSample()                           // duplicate last added sample
 {
     size_t previousSampleIndex = m_next_index;
 
@@ -356,6 +358,8 @@ void TypedSampleStore<T>::setFromPreviousSample()                           // d
     m_kid_indexes[kid].push_back( at );
     m_index_to_kid[at] = kid;
     // TRACE("set index_to_kid[" << at << "] := " << kid);
+
+    return at;
 }
 
 template <typename T>
