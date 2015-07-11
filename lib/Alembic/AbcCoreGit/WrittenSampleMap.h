@@ -19,7 +19,7 @@ namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
 // A Written Sample ID is a receipt that contains information that
-// refers to the exact location in an Git file that a sample was written to.
+// refers to the exact location in a Git-backed archive that a sample was written to.
 //
 // It also contains the Key of the sample, so it may be verified.
 //
@@ -38,21 +38,21 @@ public:
     }
 
     WrittenSampleID( const AbcA::ArraySample::Key &iKey,
-                     GitDataPtr iData,
+                     std::size_t iWhere,
                      std::size_t iNumPoints )
-      : m_sampleKey( iKey ), m_data( iData ), m_numPoints( iNumPoints )
+      : m_sampleKey( iKey ), m_where( iWhere ), m_numPoints( iNumPoints )
     {
     }
 
     const AbcA::ArraySample::Key &getKey() const { return m_sampleKey; }
 
-    GitDataPtr getObjectLocation() const { return m_data; }
+    std::size_t getObjectLocation() const { return m_where; }
 
     std::size_t getNumPoints() { return m_numPoints; }
 
 private:
     AbcA::ArraySample::Key m_sampleKey;
-    GitDataPtr m_data;
+    std::size_t m_where;
     std::size_t m_numPoints;
 };
 

@@ -151,8 +151,8 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
 
     // TRACE("ApwImpl::setSample() n:" << m_header->name() << " idx:" << m_header->nextSampleIndex << " key:" << key.digest.str() << " dims:" << dims << " (m_dims:" << m_dims << ") type:" << m_header->datatype());
 
+#if 0
     // We need to write the sample
-    UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
     if ( m_header->nextSampleIndex == 0  ||
          !( m_previousWrittenSampleID &&
             key == m_previousWrittenSampleID->getKey() ) )
@@ -184,50 +184,36 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
         m_store.reset( BuildSampleStore( getArchiveImpl(), m_header->datatype(), dims ) );
     }
     m_store->addSample( iSamp );
+#endif
 
-    // We need to write the sample
-    //UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
-#if 0
-    if ( m_header->nextSampleIndex == 0  ||
-         !( m_previousWrittenSampleID &&
-            key == m_previousWrittenSampleID->getKey() ) )
+    // write the sample
+    // (for some reason, we must always do it unconditionally here, to prevent
+    //  an assertion in samplestore and/or discrepancies in json metadata)
+    if (! m_store.get())
     {
+        m_store.reset( BuildSampleStore( getArchiveImpl(), m_header->datatype(), dims ) );
+    }
+    size_t where = m_store->addSample( iSamp );
 
-        // we only need to repeat samples if this is not the first change
-        if (m_header->firstChangedIndex != 0)
-        {
-            // copy the samples from after the last change to the latest index
-            for ( index_t smpI = m_header->lastChangedIndex + 1;
-                smpI < m_header->nextSampleIndex; ++smpI )
-            {
-                assert( smpI > 0 );
-                CopyWrittenData( m_group, m_previousWrittenSampleID );
-                WriteDimensions( m_group, m_dims,
-                                 iSamp.getDataType().getPod() );
-            }
-        }
+    if ( (m_header->nextSampleIndex == 0) ||
+         (! (m_previousWrittenSampleID && (key == m_previousWrittenSampleID->getKey()))) )
+    {
+        // We need to write the sample
 
-        // Write this sample, which will update its internal
-        // cache of what the previously written sample was.
+        // store the previous written sample id
         AbcA::ArchiveWriterPtr awp = this->getObject()->getArchive();
-
-        // Write the sample.
-        // This distinguishes between string, wstring, and regular arrays.
-        m_previousWrittenSampleID =
-            WriteData( GetWrittenSampleMap( awp ), m_group, iSamp, key );
+        m_previousWrittenSampleID = getWrittenSampleID( GetWrittenSampleMap(awp), iSamp, key, where );
 
         m_dims = iSamp.getDimensions();
-        WriteDimensions( m_group, m_dims, iSamp.getDataType().getPod() );
 
         // if we haven't written this already, isScalarLike will be true
-        if ( m_header->isScalarLike && m_dims.numPoints() != 1 )
+        if (m_header->isScalarLike && (m_dims.numPoints() != 1))
         {
             m_header->isScalarLike = false;
         }
 
         if ( m_header->isHomogenous && m_previousWrittenSampleID &&
-             m_dims.numPoints() !=
-             m_previousWrittenSampleID->getNumPoints() )
+             (m_dims.numPoints() != m_previousWrittenSampleID->getNumPoints()) )
         {
             m_header->isHomogenous = false;
         }
@@ -241,6 +227,7 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
         m_header->lastChangedIndex = m_header->nextSampleIndex;
     }
 
+#if 0
     Util::Digest digest = m_previousWrittenSampleID->getKey().digest;
     HashDimensions( m_dims, digest );
     if ( m_header->nextSampleIndex == 0 )
@@ -254,7 +241,7 @@ void ApwImpl::setSample( const AbcA::ArraySample & iSamp )
     }
 #endif /* 0 */
 
-    m_header->lastChangedIndex = m_header->nextSampleIndex;
+    // m_header->lastChangedIndex = m_header->nextSampleIndex;
     m_header->nextSampleIndex ++;
 }
 
@@ -375,8 +362,13 @@ void ApwImpl::writeToDisk()
         ABCA_ASSERT( m_store.get(),
             "SampleStore not present!" );
 
-        ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+        // nextSampleIndex is the actual number of samples considering repetitions
+        // while m_store->getNumSamples() returns the number of different samples
+        // actually stored
+        ABCA_ASSERT( m_header->nextSampleIndex >= m_store->getNumSamples(),
                      "invalid number of samples in SampleStore!" );
+        // ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+        //              "invalid number of samples in SampleStore!" );
 
         double t_end, t_start = time_us();
 

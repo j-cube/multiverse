@@ -131,134 +131,25 @@ GetWrittenSampleMap( AbcA::ArchiveWriterPtr iVal )
     return ptr->getWrittenSampleMap();
 }
 
-//-*****************************************************************************
-void WriteDimensions( GitGroupPtr iGroup,
-                      const AbcA::Dimensions & iDims,
-                      Alembic::Util::PlainOldDataType iPod )
+WrittenSampleIDPtr getWrittenSampleID( WrittenSampleMap &iMap,
+                                       const AbcA::ArraySample &iSamp,
+                                       const AbcA::ArraySample::Key &iKey,
+                                       size_t iWhere )
 {
-
-    size_t rank = iDims.rank();
-
-    if ( iPod != Alembic::Util::kStringPOD &&
-         iPod != Alembic::Util::kWstringPOD &&
-         rank == 1 )
-    {
-        // we can figure out the dimensions based on the size  of the data
-        // so just set empty data.
-        iGroup->addEmptyData();
-        return;
-    }
-
-    iGroup->addData( rank * sizeof( Util::uint64_t ),
-                     ( const void * )iDims.rootPtr() );
-}
-
-//-*****************************************************************************
-WrittenSampleIDPtr
-WriteData( WrittenSampleMap &iMap,
-           GitGroupPtr iGroup,
-           const AbcA::ArraySample &iSamp,
-           const AbcA::ArraySample::Key &iKey )
-{
-
-    // Okay, need to actually store it.
-    // Write out the hash id, and the data together
-
-    const AbcA::Dimensions & dims = iSamp.getDimensions();
-
     // See whether or not we've already stored this.
     WrittenSampleIDPtr writeID = iMap.find( iKey );
-    if ( writeID )
-    {
-        CopyWrittenData( iGroup, writeID );
+    if (writeID)
         return writeID;
-    }
 
-    GitDataPtr dataPtr;
-
+    const AbcA::Dimensions &dims = iSamp.getDimensions();
     const AbcA::DataType &dataType = iSamp.getDataType();
 
-    if ( dataType.getPod() == Alembic::Util::kStringPOD )
-    {
-        size_t numPods = dataType.getExtent() * dims.numPoints();
-        std::vector <Util::int8_t> v;
-        for ( size_t j = 0; j < numPods; ++j )
-        {
-            const std::string &str =
-                static_cast<const std::string*>( iSamp.getData() )[j];
-
-            ABCA_ASSERT( str.find( '\0' ) == std::string::npos,
-                     "Illegal NULL character found in string data " );
-
-            size_t strLen = str.length();
-            for ( size_t k = 0; k < strLen; ++k )
-            {
-                v.push_back(str[k]);
-            }
-
-            // append a 0 for the NULL seperator character
-            v.push_back(0);
-        }
-
-        const void * datas[2] = { &iKey.digest, &v.front() };
-        Alembic::Util::uint64_t sizes[2] = { 16, v.size() };
-        dataPtr =  iGroup->addData( 2, sizes, datas );
-    }
-    else if ( dataType.getPod() == Alembic::Util::kWstringPOD )
-    {
-        size_t numPods = dataType.getExtent() * dims.numPoints();
-        std::vector <Util::int32_t> v;
-        for ( size_t j = 0; j < numPods; ++j )
-        {
-            const std::wstring &str =
-                static_cast<const std::wstring*>( iSamp.getData() )[j];
-
-            wchar_t nullChar = 0;
-            ABCA_ASSERT( str.find( nullChar ) == std::wstring::npos,
-                     "Illegal NULL character found in wstring data" );
-
-            size_t strLen = str.length();
-            for ( size_t k = 0; k < strLen; ++k )
-            {
-                v.push_back(str[k]);
-            }
-
-            // append a 0 for the NULL seperator character
-            v.push_back(0);
-        }
-
-        const void * datas[2] = { &iKey.digest, &v.front() };
-        Alembic::Util::uint64_t sizes[2] = { 16,
-            v.size() * sizeof(Util::int32_t) };
-        dataPtr =  iGroup->addData( 2, sizes, datas );
-    }
-    else
-    {
-        const void * datas[2] = { &iKey.digest, iSamp.getData() };
-        Alembic::Util::uint64_t sizes[2] = { 16, iKey.numBytes };
-
-        dataPtr = iGroup->addData( 2, sizes, datas );
-    }
-
-    writeID.reset( new WrittenSampleID( iKey, dataPtr,
-                        dataType.getExtent() * dims.numPoints() ) );
+    writeID.reset( new WrittenSampleID(iKey, iWhere,
+                        dataType.getExtent() * dims.numPoints()) );
     iMap.store( writeID );
 
     // Return the reference.
     return writeID;
-}
-
-//-*****************************************************************************
-void CopyWrittenData( GitGroupPtr iGroup,
-                      WrittenSampleIDPtr iRef )
-{
-    ABCA_ASSERT( ( bool )iRef,
-                  "CopyWrittenData() passed a bogus ref" );
-
-    ABCA_ASSERT( iGroup,
-                "CopyWrittenData() passed in a bogus OGroupPtr" );
-
-    iGroup->addData(iRef->getObjectLocation());
 }
 
 //-*****************************************************************************

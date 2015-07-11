@@ -144,43 +144,31 @@ void SpwImpl::setSample( const void *iSamp )
         key.readPOD = Alembic::Util::kInt8POD;
     }
 
+#if 0
+    m_store->addSample( iSamp, key );
+#endif
+
+    // write the sample
+    // (for some reason, we must always do it unconditionally here, to prevent
+    //  an assertion in samplestore)
     // as an optimization, we re-use our rank-0 AbcA::Dimensions() copy
     // instead of re-creating one each time
-    m_store->addSample( iSamp, key, m_rank0_dims );
+    size_t where = m_store->addSample( iSamp, key, m_rank0_dims );
 
-    // We need to write the sample
-    UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
-#if 0
-    if ( m_header->nextSampleIndex == 0  ||
-        !( m_previousWrittenSampleID &&
-            key == m_previousWrittenSampleID->getKey() ) )
+    if ( (m_header->nextSampleIndex == 0)  ||
+         (! (m_previousWrittenSampleID && (key == m_previousWrittenSampleID->getKey()))) )
     {
+        // We need to write the sample
 
-        // we only need to repeat samples if this is not the first change
-        if (m_header->firstChangedIndex != 0)
-        {
-            // copy the samples from after the last change to the latest index
-            for ( index_t smpI = m_header->lastChangedIndex + 1;
-                smpI < m_header->nextSampleIndex; ++smpI )
-            {
-                assert( smpI > 0 );
-                CopyWrittenData( m_group, m_previousWrittenSampleID );
-            }
-        }
-
-        // Write this sample, which will update its internal
-        // cache of what the previously written sample was.
+        // store the previous written sample id
         AbcA::ArchiveWriterPtr awp = this->getObject()->getArchive();
-
-        // Write the sample.
-        // This distinguishes between string, wstring, and regular arrays.
-        m_previousWrittenSampleID =
-            WriteData( GetWrittenSampleMap( awp ), m_group, samp, key );
+        m_previousWrittenSampleID = getWrittenSampleID( GetWrittenSampleMap(awp), samp, key, where );
 
         if (m_header->firstChangedIndex == 0)
         {
             m_header->firstChangedIndex = m_header->nextSampleIndex;
         }
+
         // this index is now the last change
         m_header->lastChangedIndex = m_header->nextSampleIndex;
     }
@@ -195,9 +183,8 @@ void SpwImpl::setSample( const void *iSamp )
         Util::SpookyHash::ShortEnd( m_hash.words[0], m_hash.words[1],
                                     digest.words[0], digest.words[1] );
     }
-#endif /* 0 */
 
-    m_header->lastChangedIndex = m_header->nextSampleIndex;
+    // m_header->lastChangedIndex = m_header->nextSampleIndex;
     m_header->nextSampleIndex ++;
 }
 
@@ -318,8 +305,13 @@ void SpwImpl::writeToDisk()
 
         TRACE("create '" << absPathname() << "'");
 
-        ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+        // nextSampleIndex is the actual number of samples considering repetitions
+        // while m_store->getNumSamples() returns the number of different samples
+        // actually stored
+        ABCA_ASSERT( m_header->nextSampleIndex >= m_store->getNumSamples(),
                      "invalid number of samples in SampleStore!" );
+        // ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
+        //              "invalid number of samples in SampleStore!" );
 
         double t_end, t_start = time_us();
 

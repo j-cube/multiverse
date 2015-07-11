@@ -65,21 +65,21 @@ void AwImpl::init()
     // seed with the common empty keys
     AbcA::ArraySampleKey emptyKey;
     emptyKey.numBytes = 0;
-    GitDataPtr emptyData( new GitData() );
+    size_t emptyPos = static_cast<size_t>(-1);
 
     emptyKey.origPOD = Alembic::Util::kInt8POD;
     emptyKey.readPOD = Alembic::Util::kInt8POD;
-    WrittenSampleIDPtr wsid( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    WrittenSampleIDPtr wsid( new WrittenSampleID( emptyKey, emptyPos, 0 ) );
     m_writtenSampleMap.store( wsid );
 
     emptyKey.origPOD = Alembic::Util::kStringPOD;
     emptyKey.readPOD = Alembic::Util::kStringPOD;
-    wsid.reset( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    wsid.reset( new WrittenSampleID( emptyKey, emptyPos, 0 ) );
     m_writtenSampleMap.store( wsid );
 
     emptyKey.origPOD = Alembic::Util::kWstringPOD;
     emptyKey.readPOD = Alembic::Util::kWstringPOD;
-    wsid.reset( new WrittenSampleID( emptyKey, emptyData, 0 ) );
+    wsid.reset( new WrittenSampleID( emptyKey, emptyPos, 0 ) );
     m_writtenSampleMap.store( wsid );
 }
 

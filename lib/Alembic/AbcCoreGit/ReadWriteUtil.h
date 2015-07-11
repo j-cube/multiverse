@@ -34,23 +34,10 @@ void HashDimensions( const AbcA::Dimensions & iDims,
 WrittenSampleMap& GetWrittenSampleMap(
     AbcA::ArchiveWriterPtr iArchive );
 
-//-*****************************************************************************
-void
-WriteDimensions( GitGroupPtr iGroup,
-                 const AbcA::Dimensions & iDims,
-                 Alembic::Util::PlainOldDataType iPod );
-
-//-*****************************************************************************
-void
-CopyWrittenData( GitGroupPtr iParent,
-                 WrittenSampleIDPtr iRef );
-
-//-*****************************************************************************
-WrittenSampleIDPtr
-WriteData( WrittenSampleMap &iMap,
-           GitGroupPtr iGroup,
-           const AbcA::ArraySample &iSamp,
-           const AbcA::ArraySample::Key &iKey );
+WrittenSampleIDPtr getWrittenSampleID( WrittenSampleMap &iMap,
+                                       const AbcA::ArraySample &iSamp,
+                                       const AbcA::ArraySample::Key &iKey,
+                                       size_t iWhere );
 
 //-*****************************************************************************
 void
