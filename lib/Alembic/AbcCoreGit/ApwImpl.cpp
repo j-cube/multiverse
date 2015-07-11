@@ -362,13 +362,8 @@ void ApwImpl::writeToDisk()
         ABCA_ASSERT( m_store.get(),
             "SampleStore not present!" );
 
-        // nextSampleIndex is the actual number of samples considering repetitions
-        // while m_store->getNumSamples() returns the number of different samples
-        // actually stored
-        ABCA_ASSERT( m_header->nextSampleIndex >= m_store->getNumSamples(),
+        ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
                      "invalid number of samples in SampleStore!" );
-        // ABCA_ASSERT( m_header->nextSampleIndex == m_store->getNumSamples(),
-        //              "invalid number of samples in SampleStore!" );
 
         double t_end, t_start = time_us();
 
