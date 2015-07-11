@@ -49,11 +49,12 @@ ArImpl::ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOp
 void ArImpl::init()
 {
     int32_t formatversion = m_repo_ptr->formatVersion();
+    int32_t libversion = m_repo_ptr->libVersion();
 
     ABCA_ASSERT( formatversion >= 0 && formatversion <= ALEMBIC_GIT_FILE_VERSION,
         "Unsupported Alembic Git repository version detected: " << formatversion );
 
-    m_archiveVersion = formatversion;
+    m_archiveVersion = libversion;
 
     GitGroupPtr group = m_repo_ptr->rootGroup();
 
