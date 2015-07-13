@@ -62,6 +62,7 @@ inline hid_t GetNativeDtype<wchar_t>()
     }
 }
 
+#if 0
 //-*****************************************************************************
 // We always use little-endian types in the file itself.
 // We also always use 32-bits for the wchars, even if on Windows wchar is
@@ -74,6 +75,7 @@ inline hid_t GetFileDtype<char>() { return H5T_STD_I8LE; }
 
 template <>
 inline hid_t GetFileDtype<wchar_t>() { return H5T_STD_I32LE; }
+#endif
 
 //-*****************************************************************************
 template <class StringT, class CharT>
