@@ -850,21 +850,21 @@ bool KeyStore<T>::readFromDisk()
 
 
 /* force template instantiation for the types interesting to us */
-template class KeyStore< Util::bool_t >;
-template class KeyStore< Util::uint8_t >;
-template class KeyStore< Util::int8_t >;
-template class KeyStore< Util::uint16_t >;
-template class KeyStore< Util::int16_t >;
-template class KeyStore< Util::uint32_t >;
-template class KeyStore< Util::int32_t >;
-template class KeyStore< Util::uint64_t >;
-template class KeyStore< Util::int64_t >;
-template class KeyStore< Util::float16_t >;
-template class KeyStore< Util::float32_t >;
-template class KeyStore< Util::float64_t >;
-template class KeyStore< char >;
-template class KeyStore< Util::string >;
-template class KeyStore< Util::wstring >;
+template struct KeyStore< Util::bool_t >;
+template struct KeyStore< Util::uint8_t >;
+template struct KeyStore< Util::int8_t >;
+template struct KeyStore< Util::uint16_t >;
+template struct KeyStore< Util::int16_t >;
+template struct KeyStore< Util::uint32_t >;
+template struct KeyStore< Util::int32_t >;
+template struct KeyStore< Util::uint64_t >;
+template struct KeyStore< Util::int64_t >;
+template struct KeyStore< Util::float16_t >;
+template struct KeyStore< Util::float32_t >;
+template struct KeyStore< Util::float64_t >;
+template struct KeyStore< char >;
+template struct KeyStore< Util::string >;
+template struct KeyStore< Util::wstring >;
 
 
 } // End namespace ALEMBIC_VERSION_NS
