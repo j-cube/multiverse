@@ -46,6 +46,11 @@ SET( CXX_FILES
   JSON.cpp
 )
 
+SET( C_FILES
+  git-memcached.c
+  git-sqlite.c
+)
+
 SET( H_FILES
   All.h
   AprImpl.h
