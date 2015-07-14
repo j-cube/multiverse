@@ -46,7 +46,7 @@ public:
     virtual void getSample( void *iIntoLocation, int index ) = 0;
     virtual void getSample( AbcA::ArraySamplePtr& oSample, int index ) = 0;
 
-    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key ) = 0;
+    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims ) = 0;
     virtual size_t addSample( const AbcA::ArraySample& iSamp ) = 0;   // rank-N sample (N >= 1)
     virtual size_t setFromPreviousSample() = 0;                       // duplicate last added sample
 
@@ -55,9 +55,13 @@ public:
     virtual size_t getNumSamples() const = 0;
 
     virtual const AbcA::DataType& getDataType() const = 0;
+#if 0
     virtual const AbcA::Dimensions& getDimensions() const = 0;
+#endif
     virtual int extent() const = 0;
+#if 0
     virtual size_t rank() const = 0;
+#endif
     virtual AbcA::PlainOldDataType getPod() const = 0;
     virtual std::string getTypeName() const = 0;
     virtual std::string getFullTypeName() const = 0;
@@ -103,8 +107,10 @@ public:
     // const T& operator[](int index) const            { return m_data[index]; }
     // T& operator[](int index)                        { return m_data[index]; }
 
+#if 0
     virtual int sampleIndexToDataIndex( int sampleIndex );
     virtual int dataIndexToSampleIndex( int dataIndex );
+#endif
 
     // virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
     virtual void getSampleT( T* iIntoLocation, int index );
@@ -114,8 +120,8 @@ public:
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     // virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
-    virtual size_t addSample( const T* iSamp, const AbcA::ArraySample::Key& key );
-    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key );
+    virtual size_t addSample( const T* iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
+    virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
 
     virtual size_t addSample( const AbcA::ArraySample& iSamp );       // rank-N sample (N >= 1)
 
@@ -126,9 +132,13 @@ public:
     virtual size_t getNumSamples() const;
 
     virtual const AbcA::DataType& getDataType() const     { return m_dataType; }
+#if 0
     virtual const AbcA::Dimensions& getDimensions() const { return m_dimensions; }
+#endif
     virtual int extent() const                            { return m_dataType.getExtent(); }
+#if 0
     virtual size_t rank() const                           { return m_dimensions.rank(); }
+#endif
     virtual AbcA::PlainOldDataType getPod() const         { return m_dataType.getPod(); }
     virtual std::string getTypeName() const               { return PODName(m_dataType.getPod()); }
     virtual std::string getFullTypeName() const;
@@ -181,6 +191,11 @@ protected:
     size_t sampleIndexToKid(size_t sampleIndex) const { return m_index_to_kid[sampleIndex]; }
     size_t sampleIndexToKid(size_t sampleIndex)       { return m_index_to_kid[sampleIndex]; }
 
+    bool hasDimensions(size_t kid) const                          { return (m_kid_dims.count(kid) != 0); }
+    const AbcA::Dimensions& getDimensions(size_t kid) const       { return m_kid_dims[kid]; }
+    AbcA::Dimensions getDimensions(size_t kid)                    { return m_kid_dims[kid]; }
+    void setDimensions(size_t kid, const AbcA::Dimensions& dims)  { m_kid_dims[kid] = dims; }
+
     const AbcA::ArraySample::Key& sampleIndexToKey(size_t sampleIndex) const { size_t kid = sampleIndexToKid(sampleIndex); return KidToKey(kid); }
     const AbcA::ArraySample::Key& sampleIndexToKey(size_t sampleIndex)       { size_t kid = sampleIndexToKid(sampleIndex); return KidToKey(kid); }
 
@@ -207,6 +222,7 @@ private:
     std::map< size_t, size_t > m_index_to_kid;                                   // sample index to kid
     std::map< size_t, std::vector<size_t> > m_kid_indexes;                     // kid to array of sample indexes
     // std::map< size_t, std::vector<T> > m_kid_to_data;                          // kid to sample data
+    std::map< size_t, AbcA::Dimensions > m_kid_dims;                           // kid to dimensions
     size_t m_next_index;                                                       // next sample index
 
     // std::map<size_t, AbcA::ArraySample::Key> m_index_key;                      // sample index to key

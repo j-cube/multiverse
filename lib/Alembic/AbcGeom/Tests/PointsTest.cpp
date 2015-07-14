@@ -47,8 +47,8 @@ using namespace AbcG;
 using Alembic::AbcCoreAbstract::chrono_t;
 using Alembic::AbcCoreAbstract::index_t;
 
-// #define NUM_FRAMES 20
-#define NUM_FRAMES 1
+#define NUM_FRAMES 20
+// #define NUM_FRAMES 2
 
 #define USE_GIT
 // #define USE_HDF5
@@ -523,7 +523,7 @@ void optPropTest()
         IArchive archive( Alembic::AbcCoreOgawa::ReadArchive(), name );
 #endif
 #ifdef USE_GIT
-        IArchive archive( Alembic::AbcCoreGit::ReadArchive(), name );
+        IArchive archive( Alembic::AbcCoreGit::ReadArchive(), name + ".git" );
 #endif
 
         IPoints ptsObj( IObject( archive, kTop ), "pts" );

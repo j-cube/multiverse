@@ -75,6 +75,7 @@ typename TypedSampleStore<T>::KeyStorePtr TypedSampleStore<T>::ks()
     return NULL;
 }
 
+#if 0
 template <typename T>
 int TypedSampleStore<T>::sampleIndexToDataIndex( int sampleIndex )
 {
@@ -117,6 +118,7 @@ int TypedSampleStore<T>::dataIndexToSampleIndex( int dataIndex )
         return dataIndex / pods_per_sample;
     }
 }
+#endif
 
 template <typename T>
 void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
@@ -136,7 +138,12 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
     // TRACE("got sample data");
     // const std::vector<T>& sampleData = sampleIndexToSampleData(index);
 
-    if (rank() == 0)
+    ABCA_ASSERT( hasDimensions(kid),
+        "Can't obtain dimension info for sample with index:" << index <<
+        " (kid:" << kid << ")" );
+    const AbcA::Dimensions dims = getDimensions(kid);
+
+    if (dims.rank() == 0)
     {
         size_t extent = m_dataType.getExtent();
 
@@ -150,10 +157,10 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
             iIntoLocation[i] = sampleData[i];
     } else
     {
-        assert( rank() >= 1 );
+        assert( dims.rank() >= 1 );
 
         size_t extent = m_dataType.getExtent();
-        size_t points_per_sample = m_dimensions.numPoints();
+        size_t points_per_sample = dims.numPoints();
         size_t pods_per_sample = points_per_sample * extent;
 
         for (size_t i = 0; i < pods_per_sample; ++i)
@@ -211,7 +218,14 @@ template <typename T>
 void TypedSampleStore<T>::getSample( AbcA::ArraySamplePtr& oSample, int index )
 {
     // how much space do we need?
-    Util::Dimensions dims = getDimensions();
+    // determine sample dimensions to know
+    size_t kid = sampleIndexToKid(index);
+    ABCA_ASSERT( hasDimensions(kid),
+        "Can't obtain dimension info for sample with index:" << index <<
+        " (kid:" << kid << ")" );
+    const AbcA::Dimensions dims = getDimensions(kid);
+
+    // Util::Dimensions dims = getDimensions();
 
     oSample = AbcA::AllocateArraySample( getDataType(), dims );
 
@@ -262,7 +276,7 @@ struct scalar_traits<std::string>
 };
 
 template <typename T>
-size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key )
+size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
 {
     std::string key_str = key.digest.str();
 
@@ -274,7 +288,12 @@ size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::
     m_index_to_kid[at] = kid;
     // TRACE("set index_to_kid[" << at << "] := " << kid);
 
-    TRACE("SampleStore::addSample(key:'" << key_str << "' #bytes:" << key.numBytes << " kid:" << kid << " index:=" << at << ")  T:" << GetTypeStr<T>() << " dataType:" << m_dataType);
+    if (! hasDimensions(kid))
+    {
+        setDimensions(kid, dims);
+    }
+
+    TRACE("SampleStore::addSample(key:'" << key_str << "' #bytes:" << key.numBytes << " kid:" << kid << " index:=" << at << ")  T:" << GetTypeStr<T>() << " dataType:" << m_dataType << " dims:" << dims);
 
     if (! ks()->hasData(kid))
     {
@@ -282,7 +301,7 @@ size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::
         // std::vector<T>& data = m_kid_to_data[kid];
         std::vector<T> data;
 
-        if (rank() == 0)
+        if (dims.rank() == 0)
         {
             size_t extent = m_dataType.getExtent();
 
@@ -299,10 +318,10 @@ size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::
             }
         } else
         {
-            assert( rank() >= 1 );
+            assert( dims.rank() >= 1 );
 
             size_t extent = m_dataType.getExtent();
-            size_t points_per_sample = m_dimensions.numPoints();
+            size_t points_per_sample = dims.numPoints();
             size_t pods_per_sample = points_per_sample * extent;
 
             data.reserve(pods_per_sample);
@@ -325,10 +344,10 @@ size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::
 }
 
 template <typename T>
-size_t TypedSampleStore<T>::addSample( const void *iSamp, const AbcA::ArraySample::Key& key )
+size_t TypedSampleStore<T>::addSample( const void *iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
 {
     const T* iSampT = reinterpret_cast<const T*>(iSamp);
-    return addSample(iSampT, key);
+    return addSample(iSampT, key, dims);
 }
 
 template <typename T>
@@ -340,8 +359,9 @@ size_t TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
         m_dataType );
 
     AbcA::ArraySample::Key key = iSamp.getKey();
+    AbcA::Dimensions dims = iSamp.getDimensions();
 
-    return addSample( iSamp.getData(), key );
+    return addSample( iSamp.getData(), key, dims );
 }
 
 template <typename T>
@@ -447,7 +467,9 @@ std::string TypedSampleStore<T>::pack()
     mp_pack(pk, v_type);        // not necessary actually (redundant, given m_dataType)
     // mp_pack(pk, extent());      // not necessary actually (redundant, given m_dataType)
     mp_pack(pk, m_dataType);
+#if 0
     mp_pack(pk, rank());
+#endif
     mp_pack(pk, getNumSamples());
     mp_pack(pk, m_dimensions);
     // TRACE("saved dimensions of rank " << m_dimensions.rank());
@@ -472,6 +494,22 @@ std::string TypedSampleStore<T>::pack()
         mp_pack(pk, m_next_index);
     }
 
+    // save kid->dimensions map
+    {
+        TRACE("serializing " << m_kid_dims.size() << " dimensions");
+        mp_pack(pk, static_cast<size_t>(m_kid_dims.size()));
+        std::map< size_t, AbcA::Dimensions >::const_iterator p_it;
+        for (p_it = m_kid_dims.begin(); p_it != m_kid_dims.end(); ++p_it)
+        {
+            size_t kid                   = (*p_it).first;
+            const AbcA::Dimensions& dims = (*p_it).second;
+
+            mp_pack(pk, kid);
+            mp_pack(pk, dims);
+            // TRACE("serialized kid_to_dimensions[" << kid << "] == " << dims);
+        }
+    }
+
     return buffer.str();
 }
 
@@ -494,7 +532,9 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     std::string v_type;
     AbcA::DataType dataType;
     // int v_extent;
+#if 0
     size_t v_rank;
+#endif
     size_t v_num_samples;
     AbcA::Dimensions dimensions;
 
@@ -516,9 +556,11 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     pko = msg.get();
     mp_unpack(pko, dataType);
 
+#if 0
     pac.next(&msg);
     pko = msg.get();
     mp_unpack(pko, v_rank);
+#endif
 
     pac.next(&msg);
     pko = msg.get();
@@ -533,14 +575,18 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
 
     // re-initialize using deserialized data
 
+#if 0
     ABCA_ASSERT( dimensions.rank() == v_rank, "wrong dimensions rank" );
+#endif
 
     // ABCA_ASSERT( dataType.getExtent() == v_extent, "wrong datatype extent" );
 
     m_dataType = dataType;
     m_dimensions = dimensions;
 
+#if 0
     ABCA_ASSERT( rank() == v_rank, "wrong rank" );
+#endif
     // ABCA_ASSERT( extent() == v_extent, "wrong extent" );
 
     assert(ks()->loaded());
@@ -573,6 +619,32 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     pac.next(&msg);
     pko = msg.get();
     mp_unpack(pko, m_next_index);
+
+    // deserialize kid->dimensions map
+    m_kid_dims.clear();
+    {
+        size_t v_n_dims = 0;
+        pac.next(&msg);
+        pko = msg.get();
+        mp_unpack(pko, v_n_dims);
+        TRACE("deserializing " << v_n_dims << " dimensions");
+        for (size_t i = 0; i < v_n_dims; ++i)
+        {
+            size_t kid;
+            AbcA::Dimensions dims;
+
+            pac.next(&msg);
+            pko = msg.get();
+            mp_unpack(pko, kid);
+
+            pac.next(&msg);
+            pko = msg.get();
+            mp_unpack(pko, dims);
+
+            m_kid_dims[kid] = dims;
+            // TRACE("deserialized kid_to_dimensions[" << kid << "] := " << dims);
+        }
+    }
 }
 
 template <typename T>

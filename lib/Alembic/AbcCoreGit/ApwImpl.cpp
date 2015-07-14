@@ -400,7 +400,9 @@ void ApwImpl::writeToDisk()
         assert( dataType.getExtent() == m_store->extent() );
 
         JsonSet(document, "extent", dataType.getExtent());
+#if 0
         JsonSet(document, "rank", m_store->rank());
+#endif
 
         {
             std::ostringstream ss;

@@ -143,7 +143,8 @@ void SpwImpl::setSample( const void *iSamp )
         key.readPOD = Alembic::Util::kInt8POD;
     }
 
-    m_store->addSample( iSamp, key );
+    // optimize this by keeping around a copy of AbcA::Dimensions()
+    m_store->addSample( iSamp, key, /* rank-0 */ AbcA::Dimensions() );
 
     // We need to write the sample
     UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
