@@ -77,6 +77,7 @@ private:
     // for accumulating our hierarchical hash
     Util::Digest m_hash;
 
+    AbcA::Dimensions m_rank0_dims;
     Alembic::Util::auto_ptr<AbstractTypedSampleStore> m_store;
 
     GitGroupPtr m_group;

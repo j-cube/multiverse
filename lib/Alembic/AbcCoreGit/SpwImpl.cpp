@@ -26,6 +26,7 @@ SpwImpl::SpwImpl( AbcA::CompoundPropertyWriterPtr iParent,
                   PropertyHeaderPtr iHeader,
                   size_t iIndex ) :
     m_parent( iParent ), m_header( iHeader ),
+    m_rank0_dims( /* rank-0 */ AbcA::Dimensions() ),
     m_store( BuildSampleStore( getCpwImplPtr(iParent)->getArchiveImpl(), iHeader->datatype(), /* rank-0 */ AbcA::Dimensions() ) ),
     m_group( iGroup ),
     m_index( iIndex ),
@@ -143,8 +144,9 @@ void SpwImpl::setSample( const void *iSamp )
         key.readPOD = Alembic::Util::kInt8POD;
     }
 
-    // optimize this by keeping around a copy of AbcA::Dimensions()
-    m_store->addSample( iSamp, key, /* rank-0 */ AbcA::Dimensions() );
+    // as an optimization, we re-use our rank-0 AbcA::Dimensions() copy
+    // instead of re-creating one each time
+    m_store->addSample( iSamp, key, m_rank0_dims );
 
     // We need to write the sample
     UNIMPLEMENTED("WrittenSampleIDPtr m_previousWrittenSampleID");
