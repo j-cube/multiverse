@@ -55,13 +55,7 @@ public:
     virtual size_t getNumSamples() const = 0;
 
     virtual const AbcA::DataType& getDataType() const = 0;
-#if 0
-    virtual const AbcA::Dimensions& getDimensions() const = 0;
-#endif
     virtual int extent() const = 0;
-#if 0
-    virtual size_t rank() const = 0;
-#endif
     virtual AbcA::PlainOldDataType getPod() const = 0;
     virtual std::string getTypeName() const = 0;
     virtual std::string getFullTypeName() const = 0;
@@ -107,11 +101,6 @@ public:
     // const T& operator[](int index) const            { return m_data[index]; }
     // T& operator[](int index)                        { return m_data[index]; }
 
-#if 0
-    virtual int sampleIndexToDataIndex( int sampleIndex );
-    virtual int dataIndexToSampleIndex( int dataIndex );
-#endif
-
     // virtual void getSamplePieceT( T* iIntoLocation, size_t dataIndex, int index, int subIndex );
     virtual void getSampleT( T* iIntoLocation, int index );
     virtual void getSample( void *iIntoLocation, int index );
@@ -132,13 +121,7 @@ public:
     virtual size_t getNumSamples() const;
 
     virtual const AbcA::DataType& getDataType() const     { return m_dataType; }
-#if 0
-    virtual const AbcA::Dimensions& getDimensions() const { return m_dimensions; }
-#endif
     virtual int extent() const                            { return m_dataType.getExtent(); }
-#if 0
-    virtual size_t rank() const                           { return m_dimensions.rank(); }
-#endif
     virtual AbcA::PlainOldDataType getPod() const         { return m_dataType.getPod(); }
     virtual std::string getTypeName() const               { return PODName(m_dataType.getPod()); }
     virtual std::string getFullTypeName() const;

@@ -75,51 +75,6 @@ typename TypedSampleStore<T>::KeyStorePtr TypedSampleStore<T>::ks()
     return NULL;
 }
 
-#if 0
-template <typename T>
-int TypedSampleStore<T>::sampleIndexToDataIndex( int sampleIndex )
-{
-    if (rank() == 0)
-    {
-        size_t extent = m_dataType.getExtent();
-
-        return sampleIndex * extent;
-    } else
-    {
-        assert( rank() >= 1 );
-
-        size_t extent = m_dataType.getExtent();
-        size_t points_per_sample = m_dimensions.numPoints();
-        size_t pods_per_sample = points_per_sample * extent;
-
-        return sampleIndex * pods_per_sample;
-    }
-}
-
-template <typename T>
-int TypedSampleStore<T>::dataIndexToSampleIndex( int dataIndex )
-{
-    if (dataIndex == 0)
-        return 0;
-
-    if (rank() == 0)
-    {
-        size_t extent = m_dataType.getExtent();
-
-        return dataIndex / extent;
-    } else
-    {
-        assert( rank() >= 1 );
-
-        size_t extent = m_dataType.getExtent();
-        size_t points_per_sample = m_dimensions.numPoints();
-        size_t pods_per_sample = points_per_sample * extent;
-
-        return dataIndex / pods_per_sample;
-    }
-}
-#endif
-
 template <typename T>
 void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
 {
@@ -467,9 +422,6 @@ std::string TypedSampleStore<T>::pack()
     mp_pack(pk, v_type);        // not necessary actually (redundant, given m_dataType)
     // mp_pack(pk, extent());      // not necessary actually (redundant, given m_dataType)
     mp_pack(pk, m_dataType);
-#if 0
-    mp_pack(pk, rank());
-#endif
     mp_pack(pk, getNumSamples());
     mp_pack(pk, m_dimensions);
     // TRACE("saved dimensions of rank " << m_dimensions.rank());
@@ -532,9 +484,6 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     std::string v_type;
     AbcA::DataType dataType;
     // int v_extent;
-#if 0
-    size_t v_rank;
-#endif
     size_t v_num_samples;
     AbcA::Dimensions dimensions;
 
@@ -556,12 +505,6 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
     pko = msg.get();
     mp_unpack(pko, dataType);
 
-#if 0
-    pac.next(&msg);
-    pko = msg.get();
-    mp_unpack(pko, v_rank);
-#endif
-
     pac.next(&msg);
     pko = msg.get();
     mp_unpack(pko, v_num_samples);
@@ -575,18 +518,11 @@ void TypedSampleStore<T>::unpack(const std::string& packed)
 
     // re-initialize using deserialized data
 
-#if 0
-    ABCA_ASSERT( dimensions.rank() == v_rank, "wrong dimensions rank" );
-#endif
-
     // ABCA_ASSERT( dataType.getExtent() == v_extent, "wrong datatype extent" );
 
     m_dataType = dataType;
     m_dimensions = dimensions;
 
-#if 0
-    ABCA_ASSERT( rank() == v_rank, "wrong rank" );
-#endif
     // ABCA_ASSERT( extent() == v_extent, "wrong extent" );
 
     assert(ks()->loaded());
