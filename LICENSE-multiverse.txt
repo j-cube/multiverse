@@ -1,5 +1,4 @@
----------------------------------------------------------------------------  
-  
+---------------------------------------------------------------------------    
   
   multiverse - a next generation storage back-end for Alembic
   Copyright (C) 2015 J CUBE Inc. Tokyo, Japan. All Rights Reserved.     
