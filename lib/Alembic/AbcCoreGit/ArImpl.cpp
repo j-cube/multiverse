@@ -296,13 +296,7 @@ std::string ArImpl::repr(bool extended) const
     return ss.str();
 }
 
-bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName)
-{
-    Alembic::AbcCoreFactory::IOptions rOptions;
-
-    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
-    return repo_ptr->trashHistory(errorMessage, branchName);
-}
+/* History API */
 
 std::vector<GitCommitInfo> getHistory(const std::string& archivePathname, bool& error)
 {
@@ -311,15 +305,6 @@ std::vector<GitCommitInfo> getHistory(const std::string& archivePathname, bool& 
     GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
     return repo_ptr->getHistory(error);
 }
-
-std::string getHistoryJSON(const std::string& archivePathname, bool& error)
-{
-    Alembic::AbcCoreFactory::IOptions rOptions;
-
-    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
-    return repo_ptr->getHistoryJSON(error);
-}
-
 
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit

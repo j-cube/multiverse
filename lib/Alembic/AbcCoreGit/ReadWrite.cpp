@@ -26,6 +26,8 @@
 #include <Alembic/AbcCoreGit/AwImpl.h>
 #include <Alembic/AbcCoreGit/ArImpl.h>
 
+#include <Alembic/AbcCoreGit/Git.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -159,6 +161,30 @@ ReadArchive::operator()( const std::string &iFileName,
         new ArImpl( iFileName, iOptions ) );
 
     return archivePtr;
+}
+
+/* History API */
+
+bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName)
+{
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
+    return repo_ptr->trashHistory(errorMessage, branchName);
+}
+
+std::string getHistoryJSON(Alembic::Abc::IArchive& archive, bool& error)
+{
+    ArImplPtr arImplPtr = getArImplPtr(archive);
+    return arImplPtr->getHistoryJSON(error);
+}
+
+std::string getHistoryJSON(const std::string& archivePathname, bool& error)
+{
+    Alembic::AbcCoreFactory::IOptions rOptions;
+
+    GitRepoPtr repo_ptr( new GitRepo(archivePathname, rOptions, GitMode::Read) );
+    return repo_ptr->getHistoryJSON(error);
 }
 
 } // End namespace ALEMBIC_VERSION_NS

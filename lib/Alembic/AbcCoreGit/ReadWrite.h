@@ -128,6 +128,12 @@ private:
     Alembic::AbcCoreFactory::IOptions m_options;
 };
 
+/* History API */
+
+bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName = "master");
+std::string getHistoryJSON(Alembic::Abc::IArchive& archive, bool& error);
+std::string getHistoryJSON(const std::string& archivePathname, bool& error);
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;

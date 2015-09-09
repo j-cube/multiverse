@@ -165,16 +165,9 @@ inline ArImplPtr getArImplPtr(Alembic::Abc::IArchive& archive)
 
 #define CONCRETE_ARPTR(abstract)   getArImplPtr(abstract)
 
-bool trashHistory(const std::string& archivePathname, std::string& errorMessage, const std::string& branchName = "master");
-
-inline std::string getHistoryJSON(Alembic::Abc::IArchive& archive, bool& error)
-{
-    ArImplPtr arImplPtr = getArImplPtr(archive);
-    return arImplPtr->getHistoryJSON(error);
-}
+/* History API */
 
 std::vector<GitCommitInfo> getHistory(const std::string& archivePathname, bool& error);
-std::string getHistoryJSON(const std::string& archivePathname, bool& error);
 
 } // End namespace ALEMBIC_VERSION_NS
 
