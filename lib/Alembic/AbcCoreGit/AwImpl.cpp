@@ -269,7 +269,7 @@ void AwImpl::writeToDisk()
 
 #if JSON_TO_DISK
         t_start = time_us();
-        std::string jsonPathname = absPathname() + "/archive.json";
+        std::string jsonPathname = absPathname() + "/archive.json.abc";
         std::ofstream jsonFile;
         jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
         jsonFile << output;
@@ -298,7 +298,7 @@ void AwImpl::writeToDisk()
         // this must be before treebuilder()->write()
         ksm().writeToDisk();
 
-        m_repo_ptr->rootGroup()->add_file_from_memory("archive.json", output);
+        m_repo_ptr->rootGroup()->add_file_from_memory("archive.json.abc", output);
         m_repo_ptr->rootGroup()->treebuilder()->write();
 
         TRACE("committing...");
@@ -312,9 +312,9 @@ void AwImpl::writeToDisk()
         Profile::add_git(t_end - t_start);
 #endif
 
-        // Write archive.json as the entry file for reading.
+        // Write archive.json.abc as the entry file for reading.
         //
-        std::string jsonPathname = absPathname() + "/archive.json";
+        std::string jsonPathname = absPathname() + "/archive.json.abc";
         std::ofstream jsonFile;
         jsonFile.open(jsonPathname.c_str(), std::ios::out | std::ios::trunc);
         jsonFile << output;

@@ -219,7 +219,7 @@ bool ArImpl::readFromDisk()
     GitGroupPtr topGroupPtr = m_repo_ptr->rootGroup();
     GitGroupPtr abcGroupPtr = topGroupPtr->addGroup("ABC");
 
-    std::string jsonPathname = absPathname() + "/archive.json";
+    std::string jsonPathname = absPathname() + "/archive.json.abc";
 
 #if JSON_TO_DISK
     std::ifstream jsonFile(jsonPathname.c_str());
@@ -229,7 +229,7 @@ bool ArImpl::readFromDisk()
 
     std::string jsonContents = jsonBuffer.str();
 #else
-    boost::optional<std::string> optJsonContents = topGroupPtr->tree()->getChildFile("archive.json");
+    boost::optional<std::string> optJsonContents = topGroupPtr->tree()->getChildFile("archive.json.abc");
     if (! optJsonContents)
     {
         ABCA_THROW( "can't read git blob '" << jsonPathname << "'" );
