@@ -337,9 +337,9 @@ size_t TypedSampleStore<T>::addSample( const AbcA::ArraySample& iSamp )
 template <typename T>
 size_t TypedSampleStore<T>::setFromPreviousSample()                           // duplicate last added sample
 {
-    size_t previousSampleIndex = m_next_index;
+    size_t previousSampleIndex = m_next_index - 1;
 
-    ABCA_ASSERT( previousSampleIndex > 0,
+    ABCA_ASSERT( previousSampleIndex >= 0,
         "No samples to duplicate in SampleStore" );
 
     size_t kid = sampleIndexToKid(previousSampleIndex);
