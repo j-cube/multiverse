@@ -199,19 +199,88 @@ void AprImpl::getDimensions( index_t iSampleIndex,
     // ReadDimensions( dims, data, id, m_header->header.getDataType(), oDim );
 }
 
+static void Convert(void *toBuffer, void *fromBuffer, size_t fromSize, const AbcA::DataType &fromDataType, Alembic::Util::PlainOldDataType toPod)
+{
+    Alembic::Util::PlainOldDataType fromPod = fromDataType.getPod();
+
+    ABCA_ASSERT( ( toPod == fromPod ) || (
+        toPod != Alembic::Util::kStringPOD &&
+        toPod != Alembic::Util::kWstringPOD &&
+        fromPod != Alembic::Util::kStringPOD &&
+        fromPod != Alembic::Util::kWstringPOD ),
+        "Cannot convert the data to or from a string, or wstring." );
+
+    if (toPod == fromPod)
+    {
+        // no conversion to perform
+        memcpy(toBuffer, fromBuffer, fromSize);
+    } else if (PODNumBytes( fromPod ) <= PODNumBytes( toPod ))
+    {
+        // // in-place conversion
+        // char * buf = static_cast< char * >( fromBuffer );
+        // ConvertData( fromPod, toPod, buf, toBuffer, fromSize );
+
+        // read into a temporary buffer and cast them one at a time
+        char * buf = new char[ fromSize ];
+        memcpy(buf, fromBuffer, fromSize);
+
+        ConvertData( fromPod, toPod, buf, toBuffer, fromSize );
+
+        delete [] buf;
+
+    } else if (PODNumBytes( fromPod ) > PODNumBytes( toPod ))
+    {
+        // read into a temporary buffer and cast them one at a time
+        char * buf = new char[ fromSize ];
+        memcpy(buf, fromBuffer, fromSize);
+
+        ConvertData( fromPod, toPod, buf, toBuffer, fromSize );
+
+        delete [] buf;
+    } else
+    {
+        TRACE("conversion not supported (from pod " << PODName( fromPod ) << " to pod " << PODName( toPod ) << ")");
+    }
+
+}
+
 //-*****************************************************************************
 void AprImpl::getAs( index_t iSampleIndex, void *iIntoLocation,
                      Alembic::Util::PlainOldDataType iPod )
 {
-    UNIMPLEMENTED("AprImpl::getAs()");
-    // size_t index = m_header->verifyIndex( iSampleIndex ) * 2;
+    Alembic::Util::PlainOldDataType srcPod = m_store->getPod();
 
-    // StreamIDPtr streamId = Alembic::Util::dynamic_pointer_cast< ArImpl,
-    //     AbcA::ArchiveReader > ( getObject()->getArchive() )->getStreamID();
+    TRACE("getAs pod:" << PODName( iPod ) << " size:" << PODNumBytes(iPod) << " srcPod:" << PODName(srcPod) << " srcSize:" << PODNumBytes(srcPod));
 
-    // std::size_t id = streamId->getID();
-    // Git::IDataPtr data = m_group->getData( index, id );
-    // ReadData( iIntoLocation, data, id, m_header->header.getDataType(), iPod );
+    Alembic::Util::Dimensions dims;
+    m_store->getDimensions(iSampleIndex, dims);
+
+    size_t extent = m_store->getDataType().getExtent();
+    size_t pods_per_sample;
+    if (dims.rank() == 0)
+    {
+        pods_per_sample = extent;
+    } else
+    {
+        assert( dims.rank() >= 1 );
+
+        size_t points_per_sample = dims.numPoints();
+        pods_per_sample = points_per_sample * extent;
+    }
+
+    // size_t dstSize = PODNumBytes(iPod) * pods_per_sample;
+
+    size_t srcBufferSize = PODNumBytes(srcPod) * pods_per_sample;
+    // TRACE("extent:" << extent << " pods_per_sample:" << pods_per_sample << " srcSize:" << srcBufferSize << " dstSize:" << dstSize);
+
+    char* srcBuffer = new char[ srcBufferSize ];
+    /* void *srcBuffer = alloca( srcBufferSize ); */
+    memset(srcBuffer, 0, srcBufferSize);
+    m_store->getSample((void *)srcBuffer, iSampleIndex);
+
+    Convert(iIntoLocation, (void *)srcBuffer, srcBufferSize, m_header->header.getDataType(), iPod);
+
+    delete [] srcBuffer;
 }
 
 CprImplPtr AprImpl::getTParent() const

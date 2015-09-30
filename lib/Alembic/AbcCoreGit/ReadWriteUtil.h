@@ -88,6 +88,12 @@ void jsonReadTimeSamples( const rapidjson::Value& jsonTimeSamples,
                        std::vector < AbcA::TimeSamplingPtr > & oTimeSamples,
                        std::vector < AbcA::index_t > & oMaxSamples );
 
+void ConvertData( Alembic::Util::PlainOldDataType fromPod,
+                Alembic::Util::PlainOldDataType toPod,
+                char * fromBuffer,
+                void * toBuffer,
+                std::size_t iSize );
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;

@@ -27,6 +27,10 @@
 
 #include <Alembic/AbcCoreGit/JSON.h>
 
+// this is MANDATORY to make std::numeric_limits<>::max() & co.
+// work for half (Util::float16_t) !
+#include <halfLimits.h>
+
 namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
@@ -540,6 +544,1208 @@ void jsonReadTimeSamples( const rapidjson::Value& jsonTimeSamples,
         AbcA::TimeSamplingPtr tptr( tsmp_ptr );
 
         oTimeSamples.push_back( tptr );
+    }
+}
+
+template < typename FROMPOD >
+void ConvertToBool( char * fromBuffer, void * toBuffer, std::size_t iSize )
+{
+    std::size_t numConvert = iSize / sizeof( FROMPOD );
+
+    FROMPOD * fromPodBuffer = ( FROMPOD * ) ( fromBuffer );
+    Util::bool_t * toPodBuffer = (Util::bool_t *) ( toBuffer );
+
+    for ( std::size_t i = 0; i < numConvert; ++i )
+    {
+        Util::bool_t t = ( fromPodBuffer[i] != 0 );
+        toPodBuffer[i] = t;
+    }
+
+}
+
+template < typename TOPOD >
+void ConvertFromBool( char * fromBuffer, void * toBuffer, std::size_t iSize )
+{
+    // bool_t is stored as 1 bytes so iSize really is the size of the array
+
+    TOPOD * toPodBuffer = ( TOPOD * ) ( toBuffer );
+
+    // do it backwards so we don't accidentally clobber over ourself
+    for ( std::size_t i = iSize; i > 0; --i )
+    {
+        TOPOD t = static_cast< TOPOD >( fromBuffer[i-1] != 0 );
+        toPodBuffer[i-1] = t;
+    }
+
+}
+
+template < typename TOPOD >
+void getMinAndMax(TOPOD & iMin, TOPOD & iMax)
+{
+    iMin = std::numeric_limits<TOPOD>::min();
+    iMax = std::numeric_limits<TOPOD>::max();
+}
+
+template <>
+void getMinAndMax<Util::float16_t>(
+    Util::float16_t & iMin, Util::float16_t & iMax )
+{
+    iMax = std::numeric_limits<Util::float16_t>::max();
+    iMin = -iMax;
+}
+
+template <>
+void getMinAndMax<Util::float32_t>(
+    Util::float32_t & iMin, Util::float32_t & iMax )
+{
+    iMax = std::numeric_limits<Util::float32_t>::max();
+    iMin = -iMax;
+}
+
+template <>
+void getMinAndMax<Util::float64_t>(
+    Util::float64_t & iMin, Util::float64_t & iMax )
+{
+    iMax = std::numeric_limits<Util::float64_t>::max();
+    iMin = -iMax;
+}
+
+template < typename FROMPOD, typename TOPOD >
+void ConvertData( char * fromBuffer, void * toBuffer, std::size_t iSize )
+{
+    std::size_t numConvert = iSize / sizeof( FROMPOD );
+
+    FROMPOD * fromPodBuffer = ( FROMPOD * ) ( fromBuffer );
+    TOPOD * toPodBuffer = ( TOPOD * ) ( toBuffer );
+
+    if ( sizeof( FROMPOD ) > sizeof( TOPOD ) )
+    {
+        // get the min and max of the smaller TOPOD type
+        TOPOD toPodMin = 0;
+        TOPOD toPodMax = 0;
+        getMinAndMax< TOPOD >( toPodMin, toPodMax );
+
+        // cast it back into the larger FROMPOD
+        FROMPOD podMin = static_cast< FROMPOD >( toPodMin );
+        FROMPOD podMax = static_cast< FROMPOD >( toPodMax );
+
+        // handle from signed to unsigned wrap case
+        if ( podMin > podMax )
+        {
+            podMin = 0;
+        }
+
+        for ( std::size_t i = 0; i < numConvert; ++i )
+        {
+            FROMPOD f = fromPodBuffer[i];
+            if ( f < podMin )
+            {
+                f = podMin;
+            }
+            else if ( f > podMax )
+            {
+                f = podMax;
+            }
+            TOPOD t = static_cast< TOPOD >( f );
+            toPodBuffer[i] = t;
+        }
+    }
+    else
+    {
+        TOPOD toPodMin = 0;
+        TOPOD toPodMax = 0;
+        getMinAndMax< TOPOD >( toPodMin, toPodMax);
+
+        FROMPOD podMin = 0;
+        FROMPOD podMax = 0;
+        getMinAndMax< FROMPOD >( podMin, podMax);
+
+        if ( (podMin != 0) && (toPodMin == 0) )
+        {
+            podMin = 0;
+        }
+
+        // adjust max when converting to signed from unsigned of the same
+        // sized integral
+        else if ( (podMin == 0) && (toPodMin != 0) &&
+                  (sizeof( FROMPOD ) == sizeof( TOPOD )) )
+        {
+            podMax = static_cast< FROMPOD >( toPodMax );
+        }
+
+        // do it backwards so we don't accidentally clobber over ourself
+        for ( std::size_t i = numConvert; i > 0; --i )
+        {
+            FROMPOD f = fromPodBuffer[i-1];
+            if ( f < podMin )
+            {
+                f = podMin;
+            } else if ( f > podMax )
+            {
+                f = podMax;
+            }
+
+            TOPOD t = static_cast< TOPOD >( f );
+            toPodBuffer[i-1] = t;
+        }
+    }
+
+}
+
+void ConvertData( Alembic::Util::PlainOldDataType fromPod,
+                Alembic::Util::PlainOldDataType toPod,
+                char * fromBuffer,
+                void * toBuffer,
+                std::size_t iSize )
+{
+    switch (fromPod)
+    {
+        case Util::kBooleanPOD:
+        {
+            switch (toPod)
+            {
+                case Util::kUint8POD:
+                {
+                    ConvertFromBool< Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertFromBool< Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertFromBool< Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertFromBool< Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertFromBool< Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertFromBool< Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertFromBool< Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertFromBool< Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertFromBool< Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertFromBool< Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertFromBool< Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kUint8POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::uint8_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::uint8_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::uint8_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::uint8_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::uint8_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::uint8_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::uint8_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::uint8_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::uint8_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::uint8_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kInt8POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::int8_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::int8_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::int8_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::int8_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::int8_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::int8_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::int8_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::int8_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::int8_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::int8_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kUint16POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::uint16_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::uint16_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::uint16_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::uint16_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::uint16_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::uint16_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::uint16_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::uint16_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::uint16_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::uint16_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kInt16POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::int16_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::int16_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::int16_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::int16_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::int16_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::int16_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::int16_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::int16_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::int16_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::int16_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kUint32POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::uint32_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::uint32_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::uint32_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::uint32_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::uint32_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::uint32_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::uint32_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::uint32_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::uint32_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::uint32_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kInt32POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::int32_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::int32_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::int32_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::int32_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::int32_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::int32_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::int32_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::int32_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::int32_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::int32_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kUint64POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::uint64_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::uint64_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::uint64_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::uint64_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::uint64_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::uint64_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::uint64_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::uint64_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::uint64_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::uint64_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kInt64POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool<  Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::int64_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::int64_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::int64_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::int64_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::int64_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::int64_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::int64_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::int64_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::int64_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::int64_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kFloat16POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::float16_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::float16_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::float16_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::float16_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::float16_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::float16_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::float16_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::float16_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::float16_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::float16_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kFloat32POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::float32_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::float32_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::float32_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::float32_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::float32_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::float32_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::float32_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::float32_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::float32_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat64POD:
+                {
+                    ConvertData< Util::float32_t, Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        case Util::kFloat64POD:
+        {
+            switch (toPod)
+            {
+                case Util::kBooleanPOD:
+                {
+                    ConvertToBool< Util::float64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint8POD:
+                {
+                    ConvertData< Util::float64_t, Util::uint8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt8POD:
+                {
+                    ConvertData< Util::float64_t, Util::int8_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint16POD:
+                {
+                    ConvertData< Util::float64_t, Util::uint16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt16POD:
+                {
+                    ConvertData< Util::float64_t, Util::int16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint32POD:
+                {
+                    ConvertData< Util::float64_t, Util::uint32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt32POD:
+                {
+                    ConvertData< Util::float64_t, Util::int32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kUint64POD:
+                {
+                    ConvertData< Util::float64_t, Util::uint64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kInt64POD:
+                {
+                    ConvertData< Util::float64_t, Util::int64_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat16POD:
+                {
+                    ConvertData< Util::float64_t, Util::float16_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                case Util::kFloat32POD:
+                {
+                    ConvertData< Util::float64_t, Util::float32_t >(
+                        fromBuffer, toBuffer, iSize );
+                }
+                break;
+
+                default:
+                break;
+            }
+        }
+        break;
+
+        default:
+        break;
     }
 }
 
