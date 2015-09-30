@@ -98,7 +98,7 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
     TRACE( "TypedSampleStore::getSample() index:" << index << "  #bytes:" << PODNumBytes( curPod ) << " dataType:" << m_dataType << " T:" << GetTypeStr<T>());
     ABCA_ASSERT( (curPod != Alembic::Util::kStringPOD) && (curPod != Alembic::Util::kWstringPOD),
         "Can't convert " << m_dataType <<
-        "to non-std::string / non-std::wstring" );
+        " to non-std::string / non-std::wstring" );
 
     // TODO: optimize skipping the key, by using a key/value index instead:
     //       sample index -> key-index -> value
