@@ -126,6 +126,8 @@ public:
     // a sample is made of X T instances, where X is the extent. This adds only one out of X
     // virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
+    virtual size_t adjustKey( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
+    virtual size_t addSample( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
     virtual size_t addSample( const T* iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
     virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
 

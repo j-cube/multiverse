@@ -301,8 +301,84 @@ struct scalar_traits<std::string>
 };
 
 template <typename T>
-size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+size_t TypedSampleStore<T>::adjustKey( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
 {
+    return key.numBytes;
+}
+
+template <>
+size_t TypedSampleStore<Util::string>::adjustKey( const Util::string* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+    ABCA_ASSERT(m_dataType.getPod() == Alembic::Util::kStringPOD, "wrong POD");
+
+    // re-compute key size, since by default it's fsck-ed up for strings...
+    size_t extent = m_dataType.getExtent();
+    size_t pods_per_sample;
+
+    size_t sample_size = 0;
+    if (dims.rank() == 0)
+    {
+        pods_per_sample = extent;
+    } else
+    {
+        assert( dims.rank() >= 1 );
+
+        size_t points_per_sample = dims.numPoints();
+        pods_per_sample = points_per_sample * extent;
+
+        for (size_t i = 0; i < pods_per_sample; ++i)
+        {
+            const Util::string* sPtr = &(iSamp[i]);
+            const Util::string& s = *sPtr;
+            sample_size += s.size() + 1;
+        }
+    }
+
+    key.numBytes = sample_size;
+
+    return sample_size;
+}
+
+template <>
+size_t TypedSampleStore<Util::wstring>::adjustKey( const Util::wstring* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+    ABCA_ASSERT(m_dataType.getPod() == Alembic::Util::kWstringPOD, "wrong POD");
+
+    // re-compute key size, since by default it's fsck-ed up for strings...
+    size_t extent = m_dataType.getExtent();
+    size_t pods_per_sample;
+
+    size_t sample_size = 0;
+    if (dims.rank() == 0)
+    {
+        pods_per_sample = extent;
+    } else
+    {
+        assert( dims.rank() >= 1 );
+
+        size_t points_per_sample = dims.numPoints();
+        pods_per_sample = points_per_sample * extent;
+
+        for (size_t i = 0; i < pods_per_sample; ++i)
+        {
+            const Util::wstring* sPtr = &(iSamp[i]);
+            const Util::wstring& s = *sPtr;
+            sample_size += s.size() + 1;
+        }
+    }
+
+    sample_size *= sizeof(wchar_t);
+
+    key.numBytes = sample_size;
+
+    return sample_size;
+}
+
+template <typename T>
+size_t TypedSampleStore<T>::addSample( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+    adjustKey(iSamp, key, dims);
+
     std::string key_str = key.digest.str();
 
     size_t at = m_next_index++;
@@ -366,6 +442,14 @@ size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::
     }
 
     return at;
+}
+
+template <typename T>
+size_t TypedSampleStore<T>::addSample( const T* iSamp, const AbcA::ArraySample::Key& origKey, const AbcA::Dimensions& dims )
+{
+    AbcA::ArraySample::Key key = origKey;
+
+    return addSample(iSamp, key, dims);
 }
 
 template <typename T>
