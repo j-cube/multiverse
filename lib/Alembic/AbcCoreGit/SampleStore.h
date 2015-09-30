@@ -69,6 +69,8 @@ public:
 
     virtual size_t getNumSamples() const = 0;
 
+    virtual void getDimensions(AbcA::index_t iSampleIndex, Alembic::Util::Dimensions & oDim) = 0;
+
     virtual const AbcA::DataType& getDataType() const = 0;
     virtual int extent() const = 0;
     virtual AbcA::PlainOldDataType getPod() const = 0;
@@ -134,6 +136,12 @@ public:
     virtual bool getKey( AbcA::index_t iSampleIndex, AbcA::ArraySampleKey& oKey );
 
     virtual size_t getNumSamples() const;
+
+    virtual void getDimensions(AbcA::index_t iSampleIndex, Alembic::Util::Dimensions & oDim)
+    {
+        size_t kid = sampleIndexToKid(static_cast<size_t>(iSampleIndex));
+        oDim = getDimensions(kid);
+    }
 
     virtual const AbcA::DataType& getDataType() const     { return m_dataType; }
     virtual int extent() const                            { return m_dataType.getExtent(); }

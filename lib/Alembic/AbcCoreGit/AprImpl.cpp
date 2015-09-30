@@ -185,7 +185,8 @@ bool AprImpl::isScalarLike()
 void AprImpl::getDimensions( index_t iSampleIndex,
                              Alembic::Util::Dimensions & oDim )
 {
-    UNIMPLEMENTED("AprImpl::getDimensions()");
+    m_store->getDimensions(iSampleIndex, oDim);
+
     // size_t index = m_header->verifyIndex( iSampleIndex ) * 2;
 
     // StreamIDPtr streamId = Alembic::Util::dynamic_pointer_cast< ArImpl,
