@@ -365,6 +365,202 @@ std::ostream& operator<< ( std::ostream& out, const Profile& obj )
     return out;
 }
 
+template <Alembic::Util::PlainOldDataType POD>
+struct PodPrinter;
+
+template <>
+struct PodPrinter<Util::kBooleanPOD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::bool_t *ptr = (Util::bool_t*)buffer;
+        TRACE(msg << " kBooleanPOD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kUint8POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::uint8_t *ptr = (Util::uint8_t*)buffer;
+        TRACE(msg << " kUint8POD: " << ((int)(*ptr)));
+    }
+};
+
+template <>
+struct PodPrinter<Util::kInt8POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::int8_t *ptr = (Util::int8_t*)buffer;
+        TRACE(msg << " kInt8POD: " << ((int)(*ptr)));
+    }
+};
+
+template <>
+struct PodPrinter<Util::kUint16POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::uint16_t *ptr = (Util::uint16_t*)buffer;
+        TRACE(msg << " kUint16POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kInt16POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::int16_t *ptr = (Util::int16_t*)buffer;
+        TRACE(msg << " kInt16POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kUint32POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::uint32_t *ptr = (Util::uint32_t*)buffer;
+        TRACE(msg << " kUint32POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kInt32POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::int32_t *ptr = (Util::int32_t*)buffer;
+        TRACE(msg << " kInt32POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kUint64POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::uint64_t *ptr = (Util::uint64_t*)buffer;
+        TRACE(msg << " kUint64POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kInt64POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::int64_t *ptr = (Util::int64_t*)buffer;
+        TRACE(msg << " kInt64POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kFloat16POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::float16_t *ptr = (Util::float16_t*)buffer;
+        TRACE(msg << " kFloat16POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kFloat32POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::float32_t *ptr = (Util::float32_t*)buffer;
+        TRACE(msg << " kFloat32POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kFloat64POD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::float64_t *ptr = (Util::float64_t*)buffer;
+        TRACE(msg << " kFloat64POD: " << *ptr);
+    }
+};
+
+template <>
+struct PodPrinter<Util::kStringPOD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::string *ptr = (Util::string*)buffer;
+        Util::string& s = *ptr;
+        TRACE(msg << " kStringPOD: '" << s << "' (size:" << s.size() << ")");
+    }
+};
+
+template <>
+struct PodPrinter<Util::kWstringPOD>
+{
+    static void Print(const std::string& msg, void *buffer) {
+        Util::wstring *ptr = (Util::wstring*)buffer;
+        Util::wstring& ws = *ptr;
+        Util::string ws_s(ws.begin(), ws.end());
+        TRACE(msg << " kWstringPOD: '" << ws_s << "' (wsize:" << ws.size() << "  size:" << ws_s.size() << ")");
+    }
+};
+
+
+void printPodValue(const std::string& msg, Alembic::Util::PlainOldDataType pod, void* buffer)
+{
+    switch (pod)
+    {
+    case Util::kBooleanPOD:
+        PodPrinter<Util::kBooleanPOD>::Print(msg, buffer);
+        break;
+    case Util::kUint8POD:
+        PodPrinter<Util::kUint8POD>::Print(msg, buffer);
+        break;
+    case Util::kInt8POD:
+        PodPrinter<Util::kInt8POD>::Print(msg, buffer);
+        break;
+    case Util::kUint16POD:
+        PodPrinter<Util::kUint16POD>::Print(msg, buffer);
+        break;
+    case Util::kInt16POD:
+        PodPrinter<Util::kInt16POD>::Print(msg, buffer);
+        break;
+    case Util::kUint32POD:
+        PodPrinter<Util::kUint32POD>::Print(msg, buffer);
+        break;
+    case Util::kInt32POD:
+        PodPrinter<Util::kInt32POD>::Print(msg, buffer);
+        break;
+    case Util::kUint64POD:
+        PodPrinter<Util::kUint64POD>::Print(msg, buffer);
+        break;
+    case Util::kInt64POD:
+        PodPrinter<Util::kInt64POD>::Print(msg, buffer);
+        break;
+    case Util::kFloat16POD:
+        PodPrinter<Util::kFloat16POD>::Print(msg, buffer);
+        break;
+    case Util::kFloat32POD:
+        PodPrinter<Util::kFloat32POD>::Print(msg, buffer);
+        break;
+    case Util::kFloat64POD:
+        PodPrinter<Util::kFloat64POD>::Print(msg, buffer);
+        break;
+    case Util::kStringPOD:
+        PodPrinter<Util::kStringPOD>::Print(msg, buffer);
+        break;
+    case Util::kWstringPOD:
+        PodPrinter<Util::kWstringPOD>::Print(msg, buffer);
+        break;
+    default:
+        TRACE("UNSUPPORTED POD " << PODName(pod));
+        break;
+    }
+}
+
+void printPodArray(const std::string& msg, Alembic::Util::PlainOldDataType pod, size_t count, void* buffer)
+{
+    for (size_t i = 0; i < count; i++)
+    {
+        std::ostringstream ss;
+        ss << " [" << i << "]";
+        char *ptr = ((char *)buffer) + (i * PODNumBytes(pod));
+        printPodValue(msg + ss.str(), pod, (void*)ptr);
+    }
+}
+
 } // End namespace ALEMBIC_VERSION_NS
 } // End namespace AbcCoreGit
 } // End namespace Alembic

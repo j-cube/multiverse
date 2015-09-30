@@ -195,6 +195,11 @@ private:
 
 std::ostream& operator<< ( std::ostream& out, const Profile& obj );
 
+/* POD printing/debugging */
+
+void printPodValue(const std::string& msg, Alembic::Util::PlainOldDataType pod, void* buffer);
+void printPodArray(const std::string& msg, Alembic::Util::PlainOldDataType pod, size_t count, void* buffer);
+
 } // End namespace ALEMBIC_VERSION_NS
 
 using namespace ALEMBIC_VERSION_NS;
