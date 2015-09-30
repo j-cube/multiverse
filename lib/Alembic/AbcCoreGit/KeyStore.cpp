@@ -408,73 +408,81 @@ bool KeyStore<T>::readFromDisk()
 
     std::string name_header = basename + "_header" + ".bin";
     boost::optional<std::string> optBinHeaderContents = gitTree->getChildFile(name_header);
+#if 0
     if (! optBinHeaderContents)
     {
         ABCA_THROW( "can't read git blob '" << pathjoin(m_group->absPathname(), name_header) << "'" );
         return false;
     }
-
-    std::string packedHeader = *optBinHeaderContents;
+#endif
 
     size_t v_n_kid = 0;
     size_t v_next_kid = 0;
 
+    if (optBinHeaderContents)
     {
-        msgpack::unpacker pac;
+        std::string packedHeader = *optBinHeaderContents;
 
-        // copy the buffer data to the unpacker object
-        pac.reserve_buffer(packedHeader.size());
-        memcpy(pac.buffer(), packedHeader.data(), packedHeader.size());
-        pac.buffer_consumed(packedHeader.size());
-
-        // deserialize it.
-        msgpack::unpacked msg;
-
-        m_key_to_kid.clear();
-        m_kid_to_key.clear();
-        m_next_kid = 0;
-
-        pac.next(&msg);
-        msgpack::object pko = msg.get();
-        mp_unpack(pko, v_n_kid);
-
-        pac.next(&msg);
-        pko = msg.get();
-        mp_unpack(pko, v_next_kid);
-
-        for (size_t i = 0; i < v_n_kid; ++i)
         {
-            msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
+            msgpack::unpacker pac;
+
+            // copy the buffer data to the unpacker object
+            pac.reserve_buffer(packedHeader.size());
+            memcpy(pac.buffer(), packedHeader.data(), packedHeader.size());
+            pac.buffer_consumed(packedHeader.size());
+
+            // deserialize it.
+            msgpack::unpacked msg;
+
+            m_key_to_kid.clear();
+            m_kid_to_key.clear();
+            m_next_kid = 0;
 
             pac.next(&msg);
             msgpack::object pko = msg.get();
-            mp_unpack(pko, tuple);
+            mp_unpack(pko, v_n_kid);
 
-            size_t      k_kid       = tuple.get<0>();
-            size_t      k_num_bytes = tuple.get<1>();
-            std::string k_orig_pod  = tuple.get<2>();
-            std::string k_read_pod  = tuple.get<3>();
-            std::string k_digest    = tuple.get<4>();
+            pac.next(&msg);
+            pko = msg.get();
+            mp_unpack(pko, v_next_kid);
 
-            AbcA::ArraySample::Key key;
+            for (size_t i = 0; i < v_n_kid; ++i)
+            {
+                msgpack::type::tuple< size_t, size_t, std::string, std::string, std::string > tuple;
 
-            key.numBytes = k_num_bytes;
-            key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
-            key.readPOD = Alembic::Util::PODFromName( k_read_pod );
-            hex2bin(key.digest.d, k_digest.c_str());
+                pac.next(&msg);
+                msgpack::object pko = msg.get();
+                mp_unpack(pko, tuple);
 
-            //std::string key_str = j_key.asString();
+                size_t      k_kid       = tuple.get<0>();
+                size_t      k_num_bytes = tuple.get<1>();
+                std::string k_orig_pod  = tuple.get<2>();
+                std::string k_read_pod  = tuple.get<3>();
+                std::string k_digest    = tuple.get<4>();
 
-            m_kid_to_key[k_kid] = key;
-            m_key_to_kid[key]   = k_kid;
+                AbcA::ArraySample::Key key;
+
+                key.numBytes = k_num_bytes;
+                key.origPOD = Alembic::Util::PODFromName( k_orig_pod );
+                key.readPOD = Alembic::Util::PODFromName( k_read_pod );
+                hex2bin(key.digest.d, k_digest.c_str());
+
+                //std::string key_str = j_key.asString();
+
+                m_kid_to_key[k_kid] = key;
+                m_key_to_kid[key]   = k_kid;
+            }
+
+            // set m_next_kid
+            m_next_kid = v_next_kid;
+            assert(static_cast<size_t>(m_kid_to_key.size()) == v_n_kid);
         }
 
-        // set m_next_kid
-        m_next_kid = v_next_kid;
-        assert(static_cast<size_t>(m_kid_to_key.size()) == v_n_kid);
+        all_unpacked += packedHeader.length();
+    } else
+    {
+        std::cerr << "WARNING: can't read git blob '" << pathjoin(m_group->absPathname(), name_header) << "'" << std::endl;
     }
-
-    all_unpacked += packedHeader.length();
 
     // read samples
 
