@@ -143,38 +143,93 @@ void TypedSampleStore<std::string>::getSampleT( std::string* iIntoLocation, int 
 {
     Alembic::Util::PlainOldDataType curPod = dataType().getPod();
 
-    TODO("FIXME!!!");
-
     ABCA_ASSERT( curPod == Alembic::Util::kStringPOD,
         "Can't convert " << dataType() <<
-        "to std::string" );
+        " to std::string" );
 
     const std::vector<std::string>& sampleData = sampleIndexToSampleData(index);
 
-    const std::string& src = sampleData[0];
-    // std::string src = m_data[index];
-    std::string * strPtr =
+    std::vector<std::string>::const_iterator it;
+
+    std::string * strPtrStart =
         reinterpret_cast< std::string * > ( iIntoLocation );
 
-    size_t numChars = src.size() + 1;
-    char * buf = new char[ numChars + 1 ];
-    std::copy(src.begin(), src.end(), buf);
-    buf[src.size()] = '\0';
-
-    std::size_t startStr = 0;
-    std::size_t strPos = 0;
-
-    for ( std::size_t i = 0; i < numChars; ++i )
+    size_t idx = 0;
+    for (it = sampleData.begin(); it != sampleData.end(); ++it)
     {
-        if ( buf[i] == 0 )
-        {
-            strPtr[strPos] = buf + startStr;
-            startStr = i + 1;
-            strPos ++;
-        }
-    }
+        const std::string& src = (*it);
+        // std::string src = m_data[index];
+        std::string * strPtr = strPtrStart + idx;
 
-    delete [] buf;
+        size_t numChars = src.size() + 1;
+        char * buf = new char[ numChars + 1 ];
+        std::copy(src.begin(), src.end(), buf);
+        buf[src.size()] = '\0';
+
+        std::size_t startStr = 0;
+        std::size_t strPos = 0;
+
+        for ( std::size_t i = 0; i < numChars; ++i )
+        {
+            if ( buf[i] == 0 )
+            {
+                strPtr[strPos] = buf + startStr;
+                startStr = i + 1;
+                strPos ++;
+            }
+        }
+
+        delete [] buf;
+
+        idx++;
+    }
+}
+
+template <>
+void TypedSampleStore<std::wstring>::getSampleT( std::wstring* iIntoLocation, int index )
+{
+    Alembic::Util::PlainOldDataType curPod = dataType().getPod();
+
+    ABCA_ASSERT( curPod == Alembic::Util::kWstringPOD,
+        "Can't convert " << dataType() <<
+        " to std::wstring" );
+
+    const std::vector<std::wstring>& sampleData = sampleIndexToSampleData(index);
+
+    std::vector<std::wstring>::const_iterator it;
+
+    std::wstring * strPtrStart =
+        reinterpret_cast< std::wstring * > ( iIntoLocation );
+
+    size_t idx = 0;
+    for (it = sampleData.begin(); it != sampleData.end(); ++it)
+    {
+        const std::wstring& src = (*it);
+        // std::wstring src = m_data[index];
+        std::wstring * strPtr = strPtrStart + idx;
+
+        size_t numChars = src.size() + 1;
+        wchar_t * buf = new wchar_t[ numChars + 1 ];
+        std::copy(src.begin(), src.end(), buf);
+        buf[src.size()] = '\0';
+
+        std::size_t startStr = 0;
+        std::size_t strPos = 0;
+
+        for ( std::size_t i = 0; i < numChars; ++i )
+        {
+            if ( buf[i] == 0 )
+            {
+                strPtr[strPos] = buf + startStr;
+                startStr = i + 1;
+                strPos ++;
+            }
+        }
+
+        delete [] buf;
+
+        idx++;
+    }
 }
 
 template <typename T>
