@@ -96,6 +96,10 @@ void TypedSampleStore<T>::getSampleT( T* iIntoLocation, int index )
     Alembic::Util::PlainOldDataType curPod = m_dataType.getPod();
 
     TRACE( "TypedSampleStore::getSample() index:" << index << "  #bytes:" << PODNumBytes( curPod ) << " dataType:" << m_dataType << " T:" << GetTypeStr<T>());
+
+    ABCA_ASSERT( hasIndex(index),
+        "Requested sample index not present (index:" << index << ")" );
+
     ABCA_ASSERT( (curPod != Alembic::Util::kStringPOD) && (curPod != Alembic::Util::kWstringPOD),
         "Can't convert " << m_dataType <<
         " to non-std::string / non-std::wstring" );
@@ -143,6 +147,9 @@ void TypedSampleStore<std::string>::getSampleT( std::string* iIntoLocation, int 
 {
     Alembic::Util::PlainOldDataType curPod = dataType().getPod();
 
+    ABCA_ASSERT( hasIndex(index),
+        "Requested sample index not present (index:" << index << ")" );
+
     ABCA_ASSERT( curPod == Alembic::Util::kStringPOD,
         "Can't convert " << dataType() <<
         " to std::string" );
@@ -189,6 +196,9 @@ template <>
 void TypedSampleStore<std::wstring>::getSampleT( std::wstring* iIntoLocation, int index )
 {
     Alembic::Util::PlainOldDataType curPod = dataType().getPod();
+
+    ABCA_ASSERT( hasIndex(index),
+        "Requested sample index not present (index:" << index << ")" );
 
     ABCA_ASSERT( curPod == Alembic::Util::kWstringPOD,
         "Can't convert " << dataType() <<
@@ -242,6 +252,9 @@ void TypedSampleStore<T>::getSample( void *iIntoLocation, int index )
 template <typename T>
 void TypedSampleStore<T>::getSample( AbcA::ArraySamplePtr& oSample, int index )
 {
+    ABCA_ASSERT( hasIndex(index),
+        "Requested sample index not present (index:" << index << ")" );
+
     // how much space do we need?
     // determine sample dimensions to know
     size_t kid = sampleIndexToKid(index);
