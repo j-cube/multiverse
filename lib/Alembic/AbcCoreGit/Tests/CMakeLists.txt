@@ -36,6 +36,19 @@ SET( TEST_LIBS
      ${CMAKE_THREAD_LIBS_INIT} ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY}
      ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )
 
+SET( GEOM_TEST_LIBS
+     AlembicAbcGeom
+     AlembicAbc
+     AlembicAbcCoreGit
+     AlembicAbcCoreAbstract
+     AlembicUtil
+     ${ALEMBIC_LIBGIT2_LIBS}
+     ${ALEMBIC_MSGPACK_LIBS}
+     ${ALEMBIC_JSONCPP_LIBS}
+     ${ALEMBIC_ILMBASE_LIBS}
+     ${CMAKE_THREAD_LIBS_INIT} ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY}
+     ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )
+
 SET( CXX_FILES
     ArchiveTests.cpp
     ArrayPropertyTests.cpp
@@ -65,6 +78,11 @@ TARGET_LINK_LIBRARIES( AbcCoreGit_ObjectTests ${TEST_LIBS} )
 ADD_EXECUTABLE( AbcCoreGit_ConstantPropsTest ConstantPropsNumSampsTest.cpp )
 TARGET_LINK_LIBRARIES( AbcCoreGit_ConstantPropsTest ${TEST_LIBS} )
 
+ADD_EXECUTABLE( AbcCoreGit_SubDTest
+                MeshData.h
+                MeshData.cpp
+                SubDTest.cpp )
+TARGET_LINK_LIBRARIES( AbcCoreGit_SubDTest ${GEOM_TEST_LIBS} )
 
 # ADD_TEST( AbcCoreGit_TEST1 AbcCoreGit_Test1 )
 ADD_TEST( AbcCoreGit_ArchiveTESTS AbcCoreGit_ArchiveTests )
@@ -73,3 +91,4 @@ ADD_TEST( AbcCoreGit_ScalarPropertyTESTS AbcCoreGit_ScalarPropertyTests )
 ADD_TEST( AbcCoreGit_TimeSamplingTESTS AbcCoreGit_TimeSamplingTests )
 ADD_TEST( AbcCoreGit_ObjectTESTS AbcCoreGit_ObjectTests )
 ADD_TEST( AbcCoreGit_ConstantPropsTest_TEST AbcCoreGit_ConstantPropsTest )
+ADD_TEST( AbcCoreGit_SubDTESTS AbcCoreGit_SubDTest )
