@@ -41,6 +41,9 @@
 
 #include <Alembic/AbcCoreAbstract/Tests/Assert.h>
 
+//#define ENABLE_LARGE
+//#define ENABLE_INSANE
+
 //-*****************************************************************************
 namespace AO = Alembic::AbcCoreGit;
 
@@ -225,6 +228,7 @@ void testChildObjects()
                 strm.str(), AbcA::MetaData()));
         }
 
+#ifdef ENABLE_LARGE
         AbcA::ObjectWriterPtr largeChild = archive->createChild(
             AbcA::ObjectHeader("large", AbcA::MetaData()));
         for (std::size_t i = 0; i < 33000; ++i)
@@ -234,7 +238,9 @@ void testChildObjects()
             largeChild->createChild(AbcA::ObjectHeader(
                 strm.str(), AbcA::MetaData()));
         }
+#endif /* ENABLE_LARGE */
 
+#ifdef ENABLE_INSANE
         AbcA::ObjectWriterPtr insaneChild = archive->createChild(
             AbcA::ObjectHeader("insane", AbcA::MetaData()));
         for (std::size_t i = 0; i < 66000; ++i)
@@ -244,6 +250,7 @@ void testChildObjects()
             insaneChild->createChild(AbcA::ObjectHeader(
                 strm.str(), AbcA::MetaData()));
         }
+#endif /* ENABLE_INSANE */
     }
 
     {
@@ -253,14 +260,22 @@ void testChildObjects()
         AbcA::ObjectReaderPtr smallChild = archive->getChild(0);
         AbcA::ObjectReaderPtr mdChild = archive->getChild(1);
         AbcA::ObjectReaderPtr mdlgChild = archive->getChild(2);
+#ifdef ENABLE_LARGE
         AbcA::ObjectReaderPtr largeChild = archive->getChild(3);
+#endif /* ENABLE_LARGE */
+#ifdef ENABLE_INSANE
         AbcA::ObjectReaderPtr insaneChild = archive->getChild(4);
+#endif /* ENABLE_INSANE */
 
         TESTING_ASSERT(smallChild->getNumChildren() == 10);
         TESTING_ASSERT(mdChild->getNumChildren() == 150);
         TESTING_ASSERT(mdlgChild->getNumChildren() == 300);
+#ifdef ENABLE_LARGE
         TESTING_ASSERT(largeChild->getNumChildren() == 33000);
+#endif /* ENABLE_LARGE */
+#ifdef ENABLE_INSANE
         TESTING_ASSERT(insaneChild->getNumChildren() == 66000);
+#endif /* ENABLE_INSANE */
     }
 }
 
