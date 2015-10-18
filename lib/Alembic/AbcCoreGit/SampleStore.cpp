@@ -388,8 +388,57 @@ size_t TypedSampleStore<Util::wstring>::adjustKey( const Util::wstring* iSamp, A
 }
 
 template <typename T>
+void TypedSampleStore<T>::checkSamplePieceForAdd( const T& iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+}
+
+template <>
+void TypedSampleStore<std::string>::checkSamplePieceForAdd( const std::string& iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+    ABCA_ASSERT( iSamp.find( '\0' ) == std::string::npos,
+        "string contains NUL character" );
+
+    // TRACE("adding a string '" << iSamp << "'");
+}
+
+template <>
+void TypedSampleStore<std::wstring>::checkSamplePieceForAdd( const std::wstring& iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
+{
+    ABCA_ASSERT( iSamp.find( '\0' ) == std::wstring::npos,
+        "string contains NUL character" );
+}
+
+template <typename T>
 size_t TypedSampleStore<T>::addSample( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
 {
+    // before altering our data (next index, ...), check
+    // the validity of the sample material
+    if (dims.rank() == 0)
+    {
+        size_t extent = m_dataType.getExtent();
+
+        if (iSamp)
+        {
+            for (size_t i = 0; i < extent; ++i)
+                checkSamplePieceForAdd( iSamp[i], key, dims );
+        }
+    } else
+    {
+        assert( dims.rank() >= 1 );
+
+        size_t extent = m_dataType.getExtent();
+        size_t points_per_sample = dims.numPoints();
+        size_t pods_per_sample = points_per_sample * extent;
+
+        if (iSamp)
+        {
+            for (size_t i = 0; i < pods_per_sample; ++i)
+                checkSamplePieceForAdd( iSamp[i], key, dims );
+        }
+    }
+
+    // then do our magic...
+
     adjustKey(iSamp, key, dims);
 
     std::string key_str = key.digest.str();

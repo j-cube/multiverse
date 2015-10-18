@@ -127,6 +127,7 @@ public:
     // virtual void addSamplePiece( const T& iSamp )   { m_data.push_back(iSamp); }
 
     virtual size_t adjustKey( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
+    virtual void   checkSamplePieceForAdd( const T& iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
     virtual size_t addSample( const T* iSamp, AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
     virtual size_t addSample( const T* iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
     virtual size_t addSample( const void *iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims );
