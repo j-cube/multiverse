@@ -259,7 +259,7 @@ void LibGit::CleanUp()
 
 std::ostream& operator<< (std::ostream& out, const GitMode& value)
 {
-    switch (value)
+    switch (GitMode::Type(value))
     {
     case GitMode::Read:
         out << "R";

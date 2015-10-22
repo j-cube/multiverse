@@ -197,12 +197,12 @@ protected:
     const std::vector<T>& data(const AbcA::ArraySample::Key& key) { return ks()->data(key); }
 
     bool hasIndex(size_t sampleIndex) const           { return (m_index_to_kid.count(sampleIndex) != 0); }
-    size_t sampleIndexToKid(size_t sampleIndex) const { return m_index_to_kid[sampleIndex]; }
-    size_t sampleIndexToKid(size_t sampleIndex)       { return m_index_to_kid[sampleIndex]; }
+    size_t sampleIndexToKid(size_t sampleIndex) const { return m_index_to_kid.find(sampleIndex)->second; }
+    size_t sampleIndexToKid(size_t sampleIndex)       { return m_index_to_kid.find(sampleIndex)->second; }
 
     bool hasDimensions(size_t kid) const                          { return (m_kid_dims.count(kid) != 0); }
-    const AbcA::Dimensions& getDimensions(size_t kid) const       { return m_kid_dims[kid]; }
-    AbcA::Dimensions getDimensions(size_t kid)                    { return m_kid_dims[kid]; }
+    const AbcA::Dimensions& getDimensions(size_t kid) const       { return m_kid_dims.find(kid)->second; }
+    AbcA::Dimensions getDimensions(size_t kid)                    { return m_kid_dims.find(kid)->second; }
     void setDimensions(size_t kid, const AbcA::Dimensions& dims)  { m_kid_dims[kid] = dims; }
 
     const AbcA::ArraySample::Key& sampleIndexToKey(size_t sampleIndex) const { size_t kid = sampleIndexToKid(sampleIndex); return KidToKey(kid); }

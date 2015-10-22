@@ -404,7 +404,7 @@ void TypedSampleStore<std::string>::checkSamplePieceForAdd( const std::string& i
 template <>
 void TypedSampleStore<std::wstring>::checkSamplePieceForAdd( const std::wstring& iSamp, const AbcA::ArraySample::Key& key, const AbcA::Dimensions& dims )
 {
-    ABCA_ASSERT( iSamp.find( '\0' ) == std::wstring::npos,
+    ABCA_ASSERT( iSamp.find( L'\0' ) == std::wstring::npos,
         "string contains NUL character" );
 }
 
