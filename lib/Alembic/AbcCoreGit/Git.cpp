@@ -1020,8 +1020,7 @@ bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchN
     git_reference *fresh_branch = NULL;
     LOGMESSAGE("creating new trashed history branch '" << freshBranchName << "'");
     rc = git_branch_create(&fresh_branch, repo,
-        /* branch name */ freshBranchName.c_str() /* "fresh" */, /* target */ fresh_commit, /* force */ 0,
-        /* signature */ sig_author, /* log_message */ log_message.c_str());
+        /* branch name */ freshBranchName.c_str() /* "fresh" */, /* target */ fresh_commit, /* force */ 0);
     ok = ok && git_check_rc(rc, log_message, errorMessage);
     if (! ok)
     {
@@ -1037,7 +1036,7 @@ bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchN
     rc = git_reference_symbolic_create(&head, repo,
         /* name */ "HEAD", /* target */ git_reference_name(fresh_branch),
         /* force */ 1,
-        /* signature */ sig_author, /* log_message */ "change HEAD when trashing history");
+        /* log_message */ "change HEAD when trashing history");
     ok = ok && git_check_rc(rc, "setting HEAD", errorMessage);
     if (! ok)
     {
@@ -1058,8 +1057,7 @@ bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchN
     git_reference *old_master_branch = NULL;
     LOGMESSAGE("renaming original '" << branchName << "' to '" << oldBranchName << "'");
     rc = git_branch_move(&old_master_branch,
-        /* branch */ master_branch, /* new name */ oldBranchName.c_str() /* "old_master" */, /* force */ 0,
-        /* signature */ sig_author, /* log_message */ log_message.c_str());
+        /* branch */ master_branch, /* new name */ oldBranchName.c_str() /* "old_master" */, /* force */ 0);
     ok = ok && git_check_rc(rc, log_message, errorMessage);
     if (! ok)
     {
@@ -1078,8 +1076,7 @@ bool GitRepo::trashHistory(std::string& errorMessage, const std::string& branchN
     assert(fresh_branch);
     LOGMESSAGE("renaming new '" << freshBranchName << "' to '" << branchName << "'");
     rc = git_branch_move(&new_master_branch,
-        /* branch */ fresh_branch, /* new name */ branchName.c_str() /* "master" */, /* force */ 0,
-        /* signature */ sig_author, /* log_message */ log_message.c_str());
+        /* branch */ fresh_branch, /* new name */ branchName.c_str() /* "master" */, /* force */ 0);
     ok = ok && git_check_rc(rc, log_message, errorMessage);
     if (! ok)
     {
