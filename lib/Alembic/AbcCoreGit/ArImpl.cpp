@@ -49,6 +49,9 @@ ArImpl::ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOp
 
     m_repo_ptr.reset( new GitRepo(m_fileName, m_options, GitMode::Read) );
 
+    // since the GitRepo could have normalized/altered the actual path used, use that
+    m_fileName = m_repo_ptr->pathname();
+
     TRACE("repo valid:" << (m_repo_ptr->isValid() ? "TRUE" : "FALSE"));
 
     ABCA_ASSERT( m_repo_ptr->isValid(),

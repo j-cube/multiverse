@@ -100,6 +100,18 @@ bool isfile(const std::string& pathname)
     return (boost::filesystem::is_regular_file(p, ec) || boost::filesystem::is_symlink(p, ec));
 }
 
+std::string dirname(const std::string& pathname)
+{
+    boost::filesystem::path p(pathname);
+    boost::filesystem::path dir = p.parent_path();
+
+#ifdef _MSC_VER
+    return boost::locale::conv::utf_to_utf<char>(dir.native());
+#else
+    return dir.native();
+#endif
+}
+
 /* Function with behaviour like `mkdir -p'  */
 bool mkpath(const std::string& pathname, mode_t mode)
 {

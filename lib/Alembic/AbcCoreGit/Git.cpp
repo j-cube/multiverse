@@ -343,6 +343,13 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
         TRACE("ignoreNonexistentRevision specified: " << m_ignore_wrong_rev);
     }
 
+    // if passed the path to the "archive.json.abc" file, use the containing directory instead
+    if (isfile(m_pathname))
+    {
+        TRACE("file specified ('" << m_pathname << "'), switching to parent directory: '" << dirname(m_pathname) << "'");
+        m_pathname = dirname(m_pathname);
+    }
+
     std::string dotGitPathname = pathjoin(pathname(), ".git");
     std::string sqlitePathname = pathjoin(pathname(), "store.db");
 

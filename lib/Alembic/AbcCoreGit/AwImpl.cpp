@@ -50,6 +50,9 @@ AwImpl::AwImpl( const std::string &iFileName,
 {
     TRACE("AwImpl::AwImpl('" << iFileName << "')");
 
+    // since the GitRepo could have normalized/altered the actual path used, use that
+    m_fileName = m_repo_ptr->pathname();
+
     // add default time sampling
     AbcA::TimeSamplingPtr ts( new AbcA::TimeSampling() );
     m_timeSamples.push_back(ts);

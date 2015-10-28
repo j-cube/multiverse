@@ -159,6 +159,7 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 bool file_exists(const std::string& pathname);
 bool isdir(const std::string& pathname);
 bool isfile(const std::string& pathname);
+std::string dirname(const std::string& pathname);
 bool mkpath(const std::string& path, mode_t mode = 0777);
 
 std::string pathjoin(const std::string& p1, const std::string& p2); // actual OS paths
