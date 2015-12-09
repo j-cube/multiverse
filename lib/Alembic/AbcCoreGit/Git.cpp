@@ -109,6 +109,31 @@ static std::string slurp(std::ifstream& in)
 }
 #endif /* 0 */
 
+static void get_system_user_info(std::string & username,
+                                 std::string & mail)
+{
+#ifdef _MSC_VER
+    const char * username_env = getenv("USERNAME");
+    const char * hostname_env = getenv("COMPUTERNAME");
+#else
+    const char * username_env = getenv("USER");
+    const char * hostname_env = getenv("HOSTNAME");
+#endif
+    if (username_env)
+        username = username_env;
+    else
+        username = "multiverse";
+
+    if (hostname_env)
+    {
+        mail = username + "@";
+        mail += hostname_env;
+        mail += ".com";
+    }
+    else
+        mail = username + "@localhost";
+}
+
 static bool git_check_error(int error_code, const std::string& action)
 {
     if (error_code == GIT_SUCCESS)
@@ -411,6 +436,13 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     assert(m_cfg);
 
     rc = git_signature_default(&m_sig, m_repo);
+    if (rc != GIT_SUCCESS)
+    {
+        std::string username, mail;
+        get_system_user_info(username, mail);
+
+        rc = git_signature_now(&m_sig, username.c_str(), mail.c_str());
+    }
     ok = ok && git_check_ok(rc, "getting default signature");
     if (! ok) goto ret;
 
@@ -574,6 +606,13 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
     assert(m_cfg);
 
     rc = git_signature_default(&m_sig, m_repo);
+    if (rc != GIT_SUCCESS)
+    {
+        std::string username, mail;
+        get_system_user_info(username, mail);
+
+        rc = git_signature_now(&m_sig, username.c_str(), mail.c_str());
+    }
     ok = ok && git_check_ok(rc, "getting default signature");
     if (! ok) goto ret;
 
@@ -792,10 +831,14 @@ bool GitRepo::commit_index(const std::string& message) const
     ABCA_ASSERT( m_index, "libgit2 index must be open" );
 
     /** First use the config to initialize a commit signature for the user. */
-
     rc = git_signature_default(&sig, m_repo);
     if (rc != GIT_SUCCESS)
-        rc = git_signature_now(&sig, getenv("USERNAME"), "");
+    {
+        std::string username, mail;
+        get_system_user_info(username, mail);
+
+        rc = git_signature_now(&sig, username.c_str(), mail.c_str());
+    }
     if (! git_check_ok(rc, "obtaining commit signature. Perhaps 'user.name' and 'user.email' are not set."))
         return false;
 
