@@ -113,7 +113,7 @@ void BTreeNode<B_, KeyTraits, TTraits, Compare>::truncate(int num)
 	assert(num <= n());
 	if (num > n())
 		return;
-	for (int i = num; i < n(); i++)
+	for (int i = num + 1; i <= n(); i++)
 	{
 		child(i) = NODE_ID_INVALID;
 	}
