@@ -165,6 +165,8 @@ public:
     // GitRepo(const std::string& pathname);
     virtual ~GitRepo();
 
+    virtual void cleanup();
+
     static GitRepoPtr Create(const std::string& dotGitPathname) { return GitRepoPtr(new GitRepo(dotGitPathname)); }
 
     GitRepoPtr ptr()                { return shared_from_this(); }
@@ -263,6 +265,8 @@ private:
     Alembic::AbcCoreFactory::IOptions m_options;
     std::string m_revision;
     bool m_ignore_wrong_rev;
+
+    bool m_cleaned_up;
 };
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo);

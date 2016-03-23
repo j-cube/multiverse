@@ -146,6 +146,11 @@ ArImpl::getMaxNumSamplesForTimeSamplingIndex( Util::uint32_t iIndex )
 //-*****************************************************************************
 ArImpl::~ArImpl()
 {
+    TRACE("AR CALLING CLEANUP on m_repo_ptr");
+    if (m_repo_ptr)
+        m_repo_ptr->cleanup();
+    TRACE("AR CALLING RESET on m_repo_ptr");
+    m_repo_ptr.reset();
 }
 
 //-*****************************************************************************

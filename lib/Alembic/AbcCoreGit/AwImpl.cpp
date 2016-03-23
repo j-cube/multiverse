@@ -204,6 +204,12 @@ AwImpl::~AwImpl()
 
     writeToDisk();
 
+    TRACE("CALLING CLEANUP on m_repo_ptr");
+    if (m_repo_ptr)
+        m_repo_ptr->cleanup();
+    TRACE("CALLING RESET on m_repo_ptr");
+    m_repo_ptr.reset();
+
     TRACE(Profile());
 }
 

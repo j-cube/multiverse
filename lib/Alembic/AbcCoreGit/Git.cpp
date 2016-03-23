@@ -35,6 +35,7 @@
 #include <git2/sys/repository.h>
 #include <Alembic/AbcCoreGit/git-memcached.h>
 #include <Alembic/AbcCoreGit/git-sqlite.h>
+#include <Alembic/AbcCoreGit/git-milliways.h>
 
 #include <Alembic/AbcCoreGit/JSON.h>
 #include "Utils.h"
@@ -58,18 +59,19 @@ namespace ALEMBIC_VERSION_NS {
 // define only one of these
 // #define USE_SQLITE_BACKEND
 // #define USE_MEMCACHED_BACKEND
+#define USE_MILLIWAYS_BACKEND
 
 #define GIT_MEMCACHED_BACKEND_HOST "127.0.0.1"
 #define GIT_MEMCACHED_BACKEND_PORT 11211
 
 #if defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND)
-#error "define only one of USE_SQLITE_BACKEND or USE_MEMCACHED_BACKEND"
+#error "define only one of USE_SQLITE_BACKEND or USE_MEMCACHED_BACKEND or USE_MILLIWAYS_BACKEND"
 #endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
 
 
-#if defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND)
+#if defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND)
 #define USE_CUSTOM_BACKEND
-#endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
+#endif /* defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND) */
 
 
 /* --------------------------------------------------------------------
@@ -317,7 +319,8 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
     m_index_dirty(false),
-    m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV)
+    m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
+    m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
@@ -347,6 +350,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
     std::string dotGitPathname = pathjoin(pathname(), ".git");
     std::string sqlitePathname = pathjoin(pathname(), "store.db");
+    std::string milliwaysPathname = pathjoin(pathname(), "store.mwdb");
 
     if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
     {
@@ -436,6 +440,11 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     ok = ok && git_check_ok(rc, "connecting to memcached backend");
 #endif
 
+#ifdef USE_MILLIWAYS_BACKEND
+    rc = git_odb_backend_milliways(&m_git_backend, milliwaysPathname.c_str());
+    ok = ok && git_check_ok(rc, "connecting to milliways backend");
+#endif
+
     if (!ok) goto ret;
 
     rc = git_odb_add_backend(m_odb, m_git_backend, /* priority */ 1);
@@ -483,7 +492,11 @@ ret:
         if (m_git_backend)
             memcached_backend__free(m_git_backend);
 #endif
-        m_git_backend = NULL;
+#ifdef USE_MILLIWAYS_BACKEND
+        // if (m_git_backend)
+        //     milliways_backend__free(m_git_backend);
+#endif
+        // m_git_backend = NULL;
 
 #endif /* end USE_CUSTOM_BACKEND */
 
@@ -493,13 +506,15 @@ ret:
         if (m_repo)
             git_repository_free(m_repo);
         m_repo = NULL;
+        m_git_backend = NULL;
     }
 }
 
 GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_error(false),
-    m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV)
+    m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
+    m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
 
@@ -510,6 +525,7 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
 
     std::string dotGitPathname = pathjoin(pathname(), ".git");
     std::string sqlitePathname = pathjoin(pathname(), "store.db");
+    std::string milliwaysPathname = pathjoin(pathname(), "store.mwdb");
 
     if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
     {
@@ -598,6 +614,12 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
     rc = git_odb_backend_memcached(&m_git_backend, GIT_MEMCACHED_BACKEND_HOST, GIT_MEMCACHED_BACKEND_PORT);
     ok = ok && git_check_ok(rc, "connecting to memcached backend");
 #endif
+
+#ifdef USE_MILLIWAYS_BACKEND
+    rc = git_odb_backend_milliways(&m_git_backend, milliwaysPathname.c_str());
+    ok = ok && git_check_ok(rc, "connecting to milliways backend");
+#endif
+
     if (!ok) goto ret;
 
     rc = git_odb_add_backend(m_odb, m_git_backend, /* priority */ 1);
@@ -645,7 +667,11 @@ ret:
         if (m_git_backend)
             memcached_backend__free(m_git_backend);
 #endif
-        m_git_backend = NULL;
+#ifdef USE_MILLIWAYS_BACKEND
+        // if (m_git_backend)
+        //     milliways_backend__free(m_git_backend);
+#endif
+        // m_git_backend = NULL;
 
 #endif /* end USE_CUSTOM_BACKEND */
 
@@ -655,11 +681,26 @@ ret:
         if (m_repo)
             git_repository_free(m_repo);
         m_repo = NULL;
+        m_git_backend = NULL;
     }
 }
 
 GitRepo::~GitRepo()
 {
+    std::cerr << "GitRepo::DESTRUCT\n";
+    if (! m_cleaned_up)
+        cleanup();
+}
+
+void GitRepo::cleanup()
+{
+    if (m_cleaned_up)
+        return;
+
+    m_cleaned_up = true;
+
+    TRACE("GitRepo::cleanup()");
+
     if (m_index)
         git_index_free(m_index);
     m_index = NULL;
@@ -670,14 +711,18 @@ GitRepo::~GitRepo()
 #ifdef USE_CUSTOM_BACKEND
 
 #ifdef USE_SQLITE_BACKEND
-        if (m_git_backend)
-            sqlite_backend__free(m_git_backend);
+    if (m_git_backend)
+        sqlite_backend__free(m_git_backend);
 #endif
 #ifdef USE_MEMCACHED_BACKEND
-        if (m_git_backend)
-            memcached_backend__free(m_git_backend);
+    if (m_git_backend)
+        memcached_backend__free(m_git_backend);
 #endif
-        m_git_backend = NULL;
+#ifdef USE_MILLIWAYS_BACKEND
+    // if (m_git_backend)
+    //     milliways_backend__free(m_git_backend);
+#endif
+    // m_git_backend = NULL;
 
 #endif /* end USE_CUSTOM_BACKEND */
 
@@ -690,6 +735,8 @@ GitRepo::~GitRepo()
     if (m_repo)
         git_repository_free(m_repo);
     m_repo = NULL;
+
+    m_git_backend = NULL;
 }
 
 // WARNING: be sure to have an existing shared_ptr to the repo
