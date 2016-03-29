@@ -39,7 +39,7 @@ AwImpl::AwImpl( const std::string &iFileName,
   , m_metaData( iMetaData )
   , m_metaDataMap( new MetaDataMap() )
   , m_options( options )
-  , m_repo_ptr( new GitRepo(m_fileName, GitMode::Write) )
+  , m_repo_ptr( new GitRepo(m_fileName, GitMode::Write, milliwaysEnabled()) )
   , m_ksm( m_repo_ptr->rootGroup(), WRITE )
   , m_written( false )
 {
@@ -211,6 +211,13 @@ AwImpl::~AwImpl()
     m_repo_ptr.reset();
 
     TRACE(Profile());
+}
+
+bool AwImpl::milliwaysEnabled()
+{
+    if (m_options.has("milliways"))
+        return boost::any_cast<bool>(m_options["milliways"]);
+    return GitRepo::DEFAULT_MILLIWAYS_ENABLED;
 }
 
 std::string AwImpl::relPathname() const

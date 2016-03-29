@@ -97,6 +97,8 @@ public:
     std::string revisionString();
     bool ignoreWrongRevision();
 
+    bool milliwaysEnabled();
+
     bool readFromDisk();
 
     std::string repr(bool extended=false) const;

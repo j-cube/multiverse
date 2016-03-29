@@ -56,23 +56,32 @@ namespace ALEMBIC_VERSION_NS {
 #define GIT_SUCCESS 0
 #endif /* GIT_SUCCESS */
 
+// define MILLIWAYS_ENABLED to enable milliways at run-time
+#define MILLIWAYS_ENABLED
+
 // define only one of these
 // #define USE_SQLITE_BACKEND
 // #define USE_MEMCACHED_BACKEND
-#define USE_MILLIWAYS_BACKEND
+//#define USE_MILLIWAYS_BACKEND
 
 #define GIT_MEMCACHED_BACKEND_HOST "127.0.0.1"
 #define GIT_MEMCACHED_BACKEND_PORT 11211
 
-#if defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND)
-#error "define only one of USE_SQLITE_BACKEND or USE_MEMCACHED_BACKEND or USE_MILLIWAYS_BACKEND"
-#endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
+#if defined(MILLIWAYS_ENABLED)
+    #undef USE_CUSTOM_BACKEND
+    #undef USE_SQLITE_BACKEND
+    #undef USE_MEMCACHED_BACKEND
+    #undef USE_MILLIWAYS_BACKEND
+#else
+    #if defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND)
+    #error "define only one of USE_SQLITE_BACKEND or USE_MEMCACHED_BACKEND or USE_MILLIWAYS_BACKEND"
+    #endif /* defined(USE_SQLITE_BACKEND) && defined(USE_MEMCACHED_BACKEND) */
 
 
-#if defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND)
-#define USE_CUSTOM_BACKEND
-#endif /* defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND) */
-
+    #if defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND)
+    #define USE_CUSTOM_BACKEND
+    #endif /* defined(USE_SQLITE_BACKEND) || defined(USE_MEMCACHED_BACKEND) || defined(USE_MILLIWAYS_BACKEND) */
+#endif
 
 /* --------------------------------------------------------------------
  *   PROTOTYPES
@@ -315,11 +324,12 @@ GitRepo::GitRepo(git_repository* repo, git_config* config, git_signature* signat
 }
 #endif
 
-GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode_) :
+GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode_, bool milliwaysEnable) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
     m_index_dirty(false),
     m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
+    m_milliways_enabled(milliwaysEnable),
     m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
@@ -339,6 +349,12 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     {
         m_ignore_wrong_rev = boost::any_cast<bool>(m_options["ignoreNonexistentRevision"]);
         TRACE("ignoreNonexistentRevision specified: " << m_ignore_wrong_rev);
+    }
+
+    if (m_options.has("milliways"))
+    {
+        m_milliways_enabled = boost::any_cast<bool>(m_options["milliways"]);
+        TRACE("milliways enable/disable flag specified: " << (m_milliways_enabled ? "enabled" : "disabled"));
     }
 
     // if passed the path to the "archive.json.abc" file, use the containing directory instead
@@ -390,6 +406,22 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
         } else
         {
             TRACE("Git repository '" << m_pathname << "' exists, opening (for writing)");
+            if (file_exists(milliwaysPathname))
+            {
+                TRACE("milliways repository detected, force-enabling milliways");
+                m_milliways_enabled = true;
+            }
+        }
+    } else
+    {
+        if (isdir(m_pathname))
+        {
+            TRACE("Git repository '" << m_pathname << "' exists, opening (for reading)");
+            if (file_exists(milliwaysPathname))
+            {
+                TRACE("milliways repository detected, force-enabling milliways");
+                m_milliways_enabled = true;
+            }
         }
     }
 
@@ -421,6 +453,32 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     if (! ok) goto ret;
 
     assert(m_sig);
+
+#ifdef MILLIWAYS_ENABLED
+    if (milliwaysEnabled())
+    {
+        TRACE("milliways enabled, setting custom git odb backend");
+
+        rc = git_odb_new(&m_odb);
+        ok = ok && git_check_ok(rc, "creating new odb without backends");
+        if (!ok) goto ret;
+
+        assert(m_odb);
+
+        TRACE("call git_odb_backend_milliways()");
+        rc = git_odb_backend_milliways(&m_git_backend, milliwaysPathname.c_str());
+        ok = ok && git_check_ok(rc, "connecting to milliways backend");
+        if (!ok) goto ret;
+
+        TRACE("call git_odb_add_backend()");
+        rc = git_odb_add_backend(m_odb, m_git_backend, /* priority */ 1);
+        ok = ok && git_check_ok(rc, "add custom backend to object database");
+        if (!ok) goto ret;
+
+        TRACE("call git_repository_set_odb()");
+        git_repository_set_odb(m_repo, m_odb);
+    }
+#endif
 
 #ifdef USE_CUSTOM_BACKEND
 
@@ -482,6 +540,18 @@ ret:
             git_odb_free(m_odb);
         m_odb = NULL;
 
+#ifdef MILLIWAYS_ENABLED
+    if (milliwaysEnabled())
+    {
+        TRACE("milliways enabled, cleaning up custom git odb backend");
+
+        // if (m_git_backend)
+        //     milliways_backend__free(m_git_backend);
+
+        // m_git_backend = NULL;
+    }
+#endif
+
 #ifdef USE_CUSTOM_BACKEND
 
 #ifdef USE_SQLITE_BACKEND
@@ -510,10 +580,11 @@ ret:
     }
 }
 
-GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
+GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnable) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_index(NULL), m_error(false),
     m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
+    m_milliways_enabled(milliwaysEnable),
     m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
@@ -597,6 +668,32 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_) :
 
     assert(m_sig);
 
+#ifdef MILLIWAYS_ENABLED
+    if (milliwaysEnabled())
+    {
+        TRACE("milliways enabled, setting custom git odb backend");
+
+        rc = git_odb_new(&m_odb);
+        ok = ok && git_check_ok(rc, "creating new odb without backends");
+        if (!ok) goto ret;
+
+        assert(m_odb);
+
+        TRACE("call git_odb_backend_milliways()");
+        rc = git_odb_backend_milliways(&m_git_backend, milliwaysPathname.c_str());
+        ok = ok && git_check_ok(rc, "connecting to milliways backend");
+        if (!ok) goto ret;
+
+        TRACE("call git_odb_add_backend()");
+        rc = git_odb_add_backend(m_odb, m_git_backend, /* priority */ 1);
+        ok = ok && git_check_ok(rc, "add custom backend to object database");
+        if (!ok) goto ret;
+
+        TRACE("call git_repository_set_odb()");
+        git_repository_set_odb(m_repo, m_odb);
+    }
+#endif
+
 #ifdef USE_CUSTOM_BACKEND
 
     rc = git_odb_new(&m_odb);
@@ -657,6 +754,18 @@ ret:
             git_odb_free(m_odb);
         m_odb = NULL;
 
+#ifdef MILLIWAYS_ENABLED
+    if (milliwaysEnabled())
+    {
+        TRACE("milliways enabled, cleaning up custom git odb backend");
+
+        // if (m_git_backend)
+        //     milliways_backend__free(m_git_backend);
+
+        // m_git_backend = NULL;
+    }
+#endif
+
 #ifdef USE_CUSTOM_BACKEND
 
 #ifdef USE_SQLITE_BACKEND
@@ -705,8 +814,23 @@ void GitRepo::cleanup()
         git_index_free(m_index);
     m_index = NULL;
     if (m_odb)
+    {
+        TRACE("calling git_odb_free()");
         git_odb_free(m_odb);
+    }
     m_odb = NULL;
+
+#ifdef MILLIWAYS_ENABLED
+    if (milliwaysEnabled())
+    {
+        TRACE("milliways enabled, cleaning up custom git odb backend");
+
+        if (m_git_backend && (! milliways_backend__cleanedup(m_git_backend)))
+            milliways_backend__free(m_git_backend);
+
+        m_git_backend = NULL;
+    }
+#endif
 
 #ifdef USE_CUSTOM_BACKEND
 

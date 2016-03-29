@@ -89,6 +89,8 @@ public:
     GitRepoPtr repo()           { return m_repo_ptr; }
     GitGroupPtr group()         { return repo()->rootGroup(); }
 
+    bool milliwaysEnabled();
+
     std::string relPathname() const;
     std::string absPathname() const;
 

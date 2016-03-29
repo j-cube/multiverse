@@ -207,6 +207,13 @@ bool ArImpl::ignoreWrongRevision()
     return GitRepo::DEFAULT_IGNORE_WRONG_REV;
 }
 
+bool ArImpl::milliwaysEnabled()
+{
+    if (m_options.has("milliways"))
+        return boost::any_cast<bool>(m_options["milliways"]);
+    return GitRepo::DEFAULT_MILLIWAYS_ENABLED;
+}
+
 bool ArImpl::readFromDisk()
 {
     if (m_read)
