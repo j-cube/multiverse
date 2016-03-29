@@ -82,7 +82,7 @@ public:
 	bool cleaned;
 
 	milliways_backend() :
-		bs(NULL), kv(NULL), init(false), cleaned(false) {}
+		bs(NULL), kv(NULL), init(false), cleaned(false) { memset(&parent, 0, sizeof(git_odb_backend)); }
 	~milliways_backend() { if (init) cleanup(); cleaned = true; }
 
 	bool cleanedup() const { return cleaned; }
