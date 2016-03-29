@@ -759,7 +759,9 @@ inline bool KeyValueStore::header_write()
 	assert(m_blockstorage);
 
 	seriously::Packer<MAX_USER_HEADER> packer;
-	packer << static_cast<uint32_t>(MAJOR_VERSION) << static_cast<uint32_t>(MINOR_VERSION) <<
+	std::string headerPrefix("KEYVALUEDIRECT");
+	packer << headerPrefix <<
+		static_cast<uint32_t>(MAJOR_VERSION) << static_cast<uint32_t>(MINOR_VERSION) <<
 	 	static_cast<uint32_t>(BLOCKSIZE) << static_cast<uint32_t>(B) <<
 	 	static_cast<uint32_t>(KEY_MAX_SIZE);
 
@@ -792,8 +794,10 @@ inline bool KeyValueStore::header_read()
 //	std::cerr << "R userHeader[" << m_kv_header_uid << "]:" << std::endl;
 //	std::cerr << s_hexdump(userHeader.data(), userHeader.size()) << std::endl;
 
+	std::string headerPrefix;
 	uint32_t v_MAJOR, v_MINOR, v_BLOCKSIZE, v_B, v_KEY_MAX_SIZE;
 
+	packer >> headerPrefix;
 	packer >> v_MAJOR >> v_MINOR >> v_BLOCKSIZE >> v_B >> v_KEY_MAX_SIZE;
 
 	// std::cerr << "-> KV READ VER:" << v_MAJOR << "." << v_MINOR << " BLOCKSIZE:" << v_BLOCKSIZE <<

@@ -187,8 +187,10 @@ template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class
 bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::header_write()
 {
 	seriously::Packer<MAX_USER_HEADER> packer;
-	packer << static_cast<uint32_t>(B) << static_cast<uint32_t>(BLOCKSIZE) <<
-			static_cast<uint64_t>(this->size()) << static_cast<uint64_t>(this->rootId());
+	std::string headerPrefix("MWB+TREE");
+	packer << headerPrefix <<
+		static_cast<uint32_t>(B) << static_cast<uint32_t>(BLOCKSIZE) <<
+		static_cast<uint64_t>(this->size()) << static_cast<uint64_t>(this->rootId());
 	// std::cerr << "<- WRITE B:" << B << " BLOCKSIZE:" << BLOCKSIZE << " count:" << this->size() << " rootId:" << this->rootId() << std::endl;
 
 	std::string userHeader(packer.data(), packer.size());
@@ -210,10 +212,11 @@ bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::header_read()
 //	std::cerr << "R userHeader[" << m_btree_header_uid << "]:" << std::endl;
 //	std::cerr << s_hexdump(userHeader.data(), userHeader.size()) << std::endl;
 
+	std::string headerPrefix;
 	uint32_t v_B, v_BLOCKSIZE;
 	uint64_t v_size, v_root_id;
 
-	packer >> v_B >> v_BLOCKSIZE >> v_size >> v_root_id;
+	packer >> headerPrefix >> v_B >> v_BLOCKSIZE >> v_size >> v_root_id;
 
 	// std::cerr << "-> READ B:" << v_B << " BLOCKSIZE:" << v_BLOCKSIZE << " count:" << v_size << " rootId:" << v_root_id << std::endl;
 
