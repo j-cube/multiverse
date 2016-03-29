@@ -23,7 +23,8 @@
 
 extern "C" {
 
-void milliways_backend__free(git_odb_backend *_backend);
+int milliways_backend__cleanedup(git_odb_backend *backend_);
+void milliways_backend__free(git_odb_backend *backend_);
 int git_odb_backend_milliways(git_odb_backend **backend_out, const char *pathname);
 
 } /* extern "C" */

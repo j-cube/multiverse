@@ -79,10 +79,13 @@ public:
 	kv_blockstorage_t* bs;
 	kv_store_t* kv;
 	bool init;
+	bool cleaned;
 
 	milliways_backend() :
-		bs(NULL), kv(NULL), init(false) {}
-	~milliways_backend() { if (init) cleanup(); }
+		bs(NULL), kv(NULL), init(false), cleaned(false) {}
+	~milliways_backend() { if (init) cleanup(); cleaned = true; }
+
+	bool cleanedup() const { return cleaned; }
 
 	bool open(const char *pathname);
 	void cleanup();
@@ -127,6 +130,8 @@ void milliways_backend::cleanup()
 {
 	if (! init)
 		return;
+	if (cleaned)
+		return;
 	std::cerr << "milliways_backend::cleanup()\n";
 	if (kv)
 	{
@@ -142,6 +147,7 @@ void milliways_backend::cleanup()
 		bs = NULL;
 	}
 	init = false;
+	cleaned = true;
 }
 
 #define BUFFER_SIZE 512
@@ -297,9 +303,22 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 	return GIT_SUCCESS;
 }
 
+int milliways_backend__cleanedup(git_odb_backend *backend_)
+{
+	if (! backend_)
+		return 0;
+	milliways_backend* backend = reinterpret_cast<milliways_backend*>(backend_);
+
+	if (! backend)
+		return 0;
+	assert(backend);
+
+	return backend->cleanedup();
+}
+
 void milliways_backend__free(git_odb_backend *backend_)
 {
-	// std::cerr << "CLEANUP MILLIWAYS BACKEND\n";
+	std::cerr << "CLEANUP MILLIWAYS BACKEND\n";
 	assert(backend_);
 
 	milliways_backend* backend = reinterpret_cast<milliways_backend*>(backend_);
@@ -308,7 +327,8 @@ void milliways_backend__free(git_odb_backend *backend_)
 		return;
 	assert(backend);
 
-	backend->cleanup();
+	if (! backend->cleanedup())
+		backend->cleanup();
 
 	delete backend;
 	backend = NULL;
