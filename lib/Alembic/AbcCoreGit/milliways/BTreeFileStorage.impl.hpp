@@ -51,8 +51,9 @@ bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_read(nod
 	assert(m_block_storage);
 	assert(m_block_storage->isOpen());
 
+	// std::cerr << "nFS::node_read(" << node.id() << ")\n";
 	node_id_t node_id = node.id();
-	block_t* block = m_block_storage->get(static_cast<block_id_t>(node_id));
+	shptr<block_t> block( m_block_storage->get(static_cast<block_id_t>(node_id)) );
 	if ((! block) || block->dirty())
 	{
 		node.dirty(true);
@@ -79,6 +80,8 @@ bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_write(no
 	assert(node.valid());
 	assert(! node.dirty());
 
+	// std::cerr << "nFS::node_Write(" << node.id() << ")\n";
+
 	node_id_t node_id = node.id();
 
 	assert(node_id != NODE_ID_INVALID);
@@ -95,7 +98,7 @@ bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_write(no
 }
 
 template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type* BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_alloc(node_id_t node_id)
+shptr<typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type> BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_alloc(node_id_t node_id)
 {
 	// std::cerr << "nFS::node_alloc(" << node_id << ")\n";
 	assert(node_id != NODE_ID_INVALID);
@@ -103,7 +106,7 @@ typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type
 	assert(m_block_storage->isOpen());
 
 	assert (! m_lru.has(node_id));
-	node_type *node_ptr = new node_type(this->tree(), node_id);
+	shptr<node_type> node_ptr( new node_type(this->tree(), node_id) );
 	assert(node_ptr && (node_ptr->id() == node_id));
 	m_lru.set(node_id, node_ptr);
 	assert(! node_ptr->dirty());
@@ -111,7 +114,7 @@ typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type
 }
 
 template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
-void BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_dealloc(node_type* node)
+void BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_dealloc(shptr<node_type>& node)
 {
 	// std::cerr << "nFS::node_dealloc(" << node->id() << ")\n";
 	if (node && (node->id() != NODE_ID_INVALID))
@@ -121,17 +124,19 @@ void BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_dealloc(
 
 		base_type::node_dealloc(node);
 
-		node_type* cached_ptr = NULL;
+		shptr<node_type> cached_ptr;
 		if (m_lru.get(cached_ptr, node_id))
 		{
 			assert(cached_ptr == node);
 			m_lru.del(node_id);
+			// TODO: how to handle deletion? should we reset the ptr?
+			// TODO: cached_ptr.reset() ?
 		}
 	}
 }
 
 template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type* BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_get(node_id_t node_id)
+shptr<typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type> BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_get(node_id_t node_id)
 {
 	// std::cerr << "nFS::node_get(" << node_id << ")\n";
 	// block_t* block = m_block_storage->get(static_cast<block_id_t>(node_id));
@@ -144,7 +149,7 @@ typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type
 }
 
 template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type* BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_put(node_type* node)
+shptr<typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type> BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_put(shptr<node_type>& node)
 {
 	// std::cerr << "nFS::node_put(" << node->id() << ")\n";
 	assert(node);
@@ -160,15 +165,14 @@ typename BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_type
 
 	node_id_t node_id = node->id();
 	assert(node_id != NODE_ID_INVALID);
-	node_type *node_ptr = m_lru[node_id];
+	assert(! node->dirty());
+	shptr<node_type> node_ptr( m_lru[node_id] );
 	if (! node_ptr)
 	{
-		// std::cerr << "no ptr\n";
 		node_ptr = node;
 		m_lru[node_id] = node;
 	} else if (node_ptr != node)
 	{
-		// std::cerr << "has ptr\n";
 		*node_ptr = *node;
 	}
 	assert(! node_ptr->dirty());
@@ -260,10 +264,12 @@ inline int BTreeFileStorage_Compute_Max_B()
 	size_t leaf_B = ((BLOCKSIZE - head_size) / (MAX_SERIALIZED_KEYSIZE + TTraits::SerializedSize) + 1) / 2;
 	size_t internal_B = ((BLOCKSIZE - head_size + MAX_SERIALIZED_KEYSIZE) / (MAX_SERIALIZED_KEYSIZE + sizeof(uint32_t))) / 2;
 
-	// KeyValueStore leaf_B: 73       (MAX_SERIALIZED_KEYSIZE==24 for 20 byte *binary* + 4 length)
+	// with BLOCKSIZE == 4096:
+	//   (TTraits::SerializedSize == 4 + 2 == 6)
+	// KeyValueStore leaf_B: 68       (MAX_SERIALIZED_KEYSIZE==24 for 20 byte *binary* + 4 length)
 	// KeyValueStore internal_B: 73   (MAX_SERIALIZED_KEYSIZE==24 for 20 byte *binary* + 4 length)
 
-	// KeyValueStore leaf_B: 42       (MAX_SERIALIZED_KEYSIZE==44 for 40 byte *ASCII* + 4 length)
+	// KeyValueStore leaf_B: 41       (MAX_SERIALIZED_KEYSIZE==44 for 40 byte *ASCII* + 4 length)
 	// KeyValueStore internal_B: 42   (MAX_SERIALIZED_KEYSIZE==44 for 40 byte *ASCII* + 4 length)
 
 	return (leaf_B < internal_B) ? leaf_B : internal_B;

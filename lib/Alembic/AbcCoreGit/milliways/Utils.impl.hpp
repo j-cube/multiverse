@@ -110,6 +110,76 @@ inline std::string s_hexdump(const void* ptr, int buflen)
 	return ss.str();
 }
 
+inline std::string hexify(const std::string& input)
+{
+    static const char* const lut = "0123456789ABCDEF";
+    size_t len = input.length();
+
+    std::string output(2 * len, '\0');
+    for (size_t i = 0; i < len; ++i)
+    {
+        const unsigned char c = input[i];
+        output[i * 2]     = lut[(c & 0xF0) >> 4];
+        output[i * 2 + 1] = lut[(c & 0x0F)];
+    }
+    return output;
+}
+
+inline static unsigned int hexdigit2value(char hexdigit)
+{
+	if ((hexdigit >= '0') && (hexdigit <= '9'))
+		return (hexdigit - '0');
+	else if ((hexdigit >= 'a') && (hexdigit <= 'f'))
+		return 10 + (hexdigit - 'a');
+	else if ((hexdigit >= 'A') && (hexdigit <= 'F'))
+		return 10 + (hexdigit - 'A');
+	return 10000;
+}
+
+inline std::string dehexify(const std::string& input)
+{
+	size_t hexlen = input.length();
+	bool oddlen = (hexlen % 2) ? true : false;
+	size_t binlen = oddlen ? (hexlen / 2 + 1) : (hexlen / 2);
+
+	std::string output(binlen, '\0');
+
+	size_t b_i = 0, h_i = 0;
+
+	if (oddlen && (h_i < hexlen))
+	{
+        char ch = input[h_i];
+		output[b_i] = static_cast<char>(hexdigit2value(ch));
+
+		++h_i;
+		++b_i;
+	}
+
+	while (h_i < hexlen)
+	{
+        char ch = input[h_i];
+		output[b_i] = static_cast<char>(hexdigit2value(ch) << 4);
+
+		if (++h_i >= hexlen)
+			break;
+        ch = input[h_i];
+		output[b_i] = (output[b_i] & 0xF0) | static_cast<char>(hexdigit2value(ch));
+
+		++b_i;
+		if (++h_i >= hexlen)
+			break;
+	}
+	assert(b_i == binlen);
+	assert(h_i == hexlen);
+	return output;
+}
+
+/* ----------------------------------------------------------------- *
+ *   shptr<T>                                                        *
+ * ----------------------------------------------------------------- */
+
+shptr_manager shptr_manager::s_instance;
+
 } /* end of namespace milliways */
 
 #endif /* MILLIWAYS_UTILS_IMPL_H */

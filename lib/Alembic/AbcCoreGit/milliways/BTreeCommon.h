@@ -35,6 +35,29 @@
 
 #include "BlockStorage.h"
 
+/* ----------------------------------------------------------------- *
+ *   CONFIG                                                          *
+ * ----------------------------------------------------------------- */
+
+#ifndef MILLIWAYS_DEFAULT_BLOCK_SIZE
+#define MILLIWAYS_DEFAULT_BLOCK_SIZE 4096
+#endif /* MILLIWAYS_DEFAULT_BLOCK_SIZE */
+
+#ifndef MILLIWAYS_DEFAULT_B_FACTOR
+#define MILLIWAYS_DEFAULT_B_FACTOR 68
+#endif /* MILLIWAYS_DEFAULT_B_FACTOR */
+
+#ifndef MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE
+#define MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE 8192
+#endif /* MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE */
+
+#ifndef MILLIWAYS_DEFAULT_NODE_CACHE_SIZE
+#define MILLIWAYS_DEFAULT_NODE_CACHE_SIZE 1024
+#endif /* MILLIWAYS_DEFAULT_NODE_CACHE_SIZE */
+
+
+/* ----------------------------------------------------------------- */
+
 #ifndef UNUSED
 #define UNUSED(expr) do { (void)(expr); } while (0)
 #endif

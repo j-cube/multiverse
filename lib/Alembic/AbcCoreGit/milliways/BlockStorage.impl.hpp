@@ -319,7 +319,7 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::dispose(block_id_t block_id, int c
 template <size_t BLOCKSIZE, int CACHE_SIZE>
 bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::read(block_t& dst)
 {
-	// std::cerr << "FBS::read(" << dst.index() << ")" << std::endl;
+	// std::cerr << "bs.read(" << dst.index() << ")" << std::endl;
 	assert(dst.index() != BLOCK_ID_INVALID);
 
 	size_t pos = dst.index() * BlockSize;
@@ -341,6 +341,7 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::read(block_t& dst)
 
 	if (m_stream.fail())
 	{
+		// std::cerr << "can't read block " << dst.index() << "\n";
 		dst.dirty(true);
 		m_stream.clear();
 		// std::cerr << "FBS::read() failure" << std::endl;
@@ -364,7 +365,7 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::read(block_t& dst)
 template <size_t BLOCKSIZE, int CACHE_SIZE>
 bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write(block_t& src)
 {
-	// std::cerr << "FBS::write(" << src.index() << ")" << std::endl;
+	// std::cerr << "bs.write(" << src.index() << ")" << std::endl;
 	assert(src.index() != BLOCK_ID_INVALID);
 
 	size_t pos = src.index() * BlockSize;
@@ -404,19 +405,22 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write(block_t& src)
 /* cached I/O */
 
 template <size_t BLOCKSIZE, int CACHE_SIZE>
-typename FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::block_t* FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::get(block_id_t block_id)
+shptr<typename FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::block_t> FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::get(block_id_t block_id)
 {
+	// std::cerr << "bs.get(" << block_id << ")\n";
 	return m_lru[block_id];
 }
 
 template <size_t BLOCKSIZE, int CACHE_SIZE>
 bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::put(const block_t& src)
 {
-	block_t *cached = m_lru[src.index()];
+	// std::cerr << "bs.put(" << src.index() << ")\n";
+	shptr<block_t> cached( m_lru[src.index()] );
 	if (cached)
 	{
 		assert(cached->index() == src.index());
 		*cached = src;
+		assert(src.dirty() == (*cached).dirty());
 		return true;
 	}
 	return false;

@@ -78,14 +78,14 @@ BTree<B_, KeyTraits, TTraits, Compare>::~BTree()
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTree<B_, KeyTraits, TTraits, Compare>::node_type* BTree<B_, KeyTraits, TTraits, Compare>::insert(const key_type& key_, const mapped_type& value_)
+shptr<typename BTree<B_, KeyTraits, TTraits, Compare>::node_type> BTree<B_, KeyTraits, TTraits, Compare>::insert(const key_type& key_, const mapped_type& value_)
 {
-	node_type* root_ = root();
+	shptr<node_type> root_( root() );
 	assert(root_);
 	if (root_->full())
 	{
-		node_type* old_root = root_;
-		node_type* new_root = node_alloc();
+		shptr<node_type> old_root( root_ );
+		shptr<node_type> new_root( node_alloc() );
 		new_root->leaf(false);
 		assert(new_root->n() == 0);
 		new_root->child(0) = old_root->id();
@@ -98,17 +98,17 @@ typename BTree<B_, KeyTraits, TTraits, Compare>::node_type* BTree<B_, KeyTraits,
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTree<B_, KeyTraits, TTraits, Compare>::node_type* BTree<B_, KeyTraits, TTraits, Compare>::update(const key_type& key_, const mapped_type& value_)
+shptr<typename BTree<B_, KeyTraits, TTraits, Compare>::node_type> BTree<B_, KeyTraits, TTraits, Compare>::update(const key_type& key_, const mapped_type& value_)
 {
 	lookup_type where;
-	node_type* root_ = root();
+	shptr<node_type> root_( root() );
 	assert(root_);
 	if (! root_->search(where, key_))
 		return insert(key_, value_);
 
 	assert(where.found());
 
-	node_type* node_ = where.node();
+	shptr<node_type> node_( where.node() );
 	assert(node_);
 	node_->value(where.pos()) = value_;
 
@@ -118,7 +118,7 @@ typename BTree<B_, KeyTraits, TTraits, Compare>::node_type* BTree<B_, KeyTraits,
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
 bool BTree<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const key_type& key_)
 {
-	node_type* root_ = root();
+	shptr<node_type> root_( root() );
 	assert(root_);
 	return root_->search(res, key_);
 }
@@ -126,7 +126,7 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const key_
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
 bool BTree<B_, KeyTraits, TTraits, Compare>::remove(lookup_type& res, const key_type& key_)
 {
-	node_type* root_ = root();
+	shptr<node_type> root_( root() );
 	assert(root_);
 	return root_->remove(res, key_);
 }
@@ -139,13 +139,13 @@ void BTree<B_, KeyTraits, TTraits, Compare>::iterator::update_current()
 {
 	if (m_end || (! m_current.node()))
 	{
-		m_current.found(false).node(NULL).pos(-1);
+		m_current.found(false).nodeReset().pos(-1);
 		m_end = true;
 	} else
 	{
 		assert(m_current.node());
 		assert(! m_end);
-		node_type* node = m_current.node();
+		shptr<node_type> node( m_current.node() );
 		int pos = m_current.pos();
 		m_current.found(true).key(node->key(pos));
 	}
@@ -156,7 +156,7 @@ typename BTree<B_, KeyTraits, TTraits, Compare>::iterator& BTree<B_, KeyTraits, 
 {
 	if (end_ || m_end || (! m_root))
 	{
-		m_current.found(false).node(NULL).pos(-1);
+		m_current.found(false).nodeReset().pos(-1);
 		m_end = true;
 	} else
 	{
@@ -176,13 +176,14 @@ typename BTree<B_, KeyTraits, TTraits, Compare>::iterator& BTree<B_, KeyTraits, 
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTree<B_, KeyTraits, TTraits, Compare>::node_type* BTree<B_, KeyTraits, TTraits, Compare>::iterator::down(node_type* node, bool right)
+shptr<typename BTree<B_, KeyTraits, TTraits, Compare>::node_type> BTree<B_, KeyTraits, TTraits, Compare>::iterator::down(const shptr<node_type>& node, bool right)
 {
-	while (node && (! node->leaf()) && node_id_valid(node->child((right ? node->n() : 0))))
-		node = node->child_node((right ? node->n() : 0));
-	if (node->leaf())
-		return node;
-	return NULL;
+	shptr<node_type> nodePtr( node );
+	while (nodePtr && (! nodePtr->leaf()) && node_id_valid(nodePtr->child((right ? nodePtr->n() : 0))))
+		nodePtr = nodePtr->child_node((right ? nodePtr->n() : 0));
+	if (nodePtr->leaf())
+		return nodePtr;
+	return shptr<node_type>();
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
@@ -194,7 +195,7 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::next()
 	}
 
 	assert(m_current.node());
-	node_type* node = m_current.node();
+	shptr<node_type> node( m_current.node() );
 	int pos = m_current.pos();
 
 	if (m_forward)
@@ -227,7 +228,7 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::prev()
 	}
 
 	assert(m_current.node());
-	node_type* node = m_current.node();
+	shptr<node_type> node( m_current.node() );
 	int pos = m_current.pos();
 
 	if (m_forward)

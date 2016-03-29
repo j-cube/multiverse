@@ -36,6 +36,7 @@
 #include <assert.h>
 
 #include "LRUCache.h"
+#include "Utils.h"
 
 namespace milliways {
 
@@ -55,8 +56,8 @@ public:
 
 	Block(block_id_t index) :
 			m_index(index), m_dirty(false) { memset(m_data, 0, sizeof(m_data)); }
-	Block(const Block<BLOCKSIZE>& other) { m_index = other.m_index; m_data = other.m_data; }
-	Block& operator= (const Block<BLOCKSIZE>& rhs) { m_index = rhs.index(); memcpy(m_data, rhs.m_data, sizeof(m_data)); return *this; }
+	Block(const Block<BLOCKSIZE>& other) { m_index = other.m_index; m_data = other.m_data; m_dirty = other.m_dirty; }
+	Block& operator= (const Block<BLOCKSIZE>& rhs) { m_index = rhs.index(); memcpy(m_data, rhs.m_data, sizeof(m_data)); m_dirty = rhs.m_dirty; return *this; }
 
 	virtual ~Block() {}
 
@@ -144,16 +145,16 @@ private:
 };
 
 template <size_t BLOCKSIZE, size_t CACHESIZE>
-class LRUBlockCache : public LRUCache< CACHESIZE, block_id_t, Block<BLOCKSIZE>* >
+class LRUBlockCache : public LRUCache< CACHESIZE, block_id_t, shptr< Block<BLOCKSIZE> > >
 {
 public:
 	typedef block_id_t key_type;
 	typedef Block<BLOCKSIZE> block_type;
-	typedef block_type* block_ptr_type;
+	typedef shptr<block_type> block_ptr_type;
 	typedef block_ptr_type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef ordered_map<key_type, mapped_type> ordered_map_type;
-	typedef LRUCache<CACHESIZE, block_id_t, block_ptr_type> base_type;
+	typedef LRUCache< CACHESIZE, block_id_t, shptr<block_type> > base_type;
 	typedef typename base_type::size_type size_type;
 
 	typedef BlockStorage<BLOCKSIZE>* storage_ptr_type;
@@ -177,7 +178,7 @@ public:
 			case base_type::op_get:
 				if (! m_storage->read(*block)) return false;
 				block->dirty(false);
-				value = block;
+				value.reset(block);
 				break;
 			case base_type::op_set:
 				assert(value);
@@ -187,7 +188,7 @@ public:
 				//assert(value);
 				bool rv = m_storage->read(*block);
 				assert(rv || block->dirty());
-				value = block;
+				value.reset(block);
 				return rv;
 				break;
 			}
@@ -200,18 +201,18 @@ public:
 		return true;
 	}
 	//bool on_delete(const key_type& key);
-	bool on_eviction(const key_type& key, const mapped_type& value)
+	bool on_eviction(const key_type& key, mapped_type& value)
 	{
 		/* write back block */
 		/* block_id_t block_id = key; */
-		block_type* block = value;
+		block_type* block = value.get();
 		if (block)
 		{
 			if (block->valid())
 				m_storage->write(*block);
-			block->index(BLOCK_ID_INVALID);
 			block->dirty(true);
-			delete block;
+			block->index(BLOCK_ID_INVALID);
+			value.reset();
 		}
 		return true;
 	}
@@ -272,7 +273,7 @@ public:
 	bool write(block_t& src);
 
 	/* cached I/O */
-	block_t* get(block_id_t block_id);
+	shptr<block_t> get(block_id_t block_id);
 	bool put(const block_t& src);
 
 protected:

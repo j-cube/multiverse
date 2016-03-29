@@ -50,7 +50,7 @@ bool LRUCache<SIZE, Key, T>::on_delete(const key_type& key)
 }
 
 template <size_t SIZE, typename Key, typename T>
-bool LRUCache<SIZE, Key, T>::on_eviction(const key_type& key, const mapped_type& value)
+bool LRUCache<SIZE, Key, T>::on_eviction(const key_type& key, mapped_type& value)
 {
 	return true;
 }

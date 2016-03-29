@@ -42,10 +42,12 @@
 
 namespace milliways {
 
-static const size_t KV_BLOCKSIZE = 4096;
-static const int KV_CACHESIZE = 1024;
-static const int KV_B = 5;
+static const size_t KV_BLOCKSIZE = MILLIWAYS_DEFAULT_BLOCK_SIZE;			/* default: 4096 */
+static const int KV_BLOCK_CACHESIZE = MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE;	/* default: 8192 */
+static const int KV_NODE_CACHESIZE = MILLIWAYS_DEFAULT_NODE_CACHE_SIZE;		/* default: 1024 */
+static const int KV_B = MILLIWAYS_DEFAULT_B_FACTOR;							/* default: 73   */
 
+typedef uint16_t serialized_data_offset_type;
 typedef uint32_t serialized_value_size_type;
 
 /* ----------------------------------------------------------------- *
@@ -55,8 +57,11 @@ typedef uint32_t serialized_value_size_type;
 struct DataLocator
 {
 public:
-	typedef int16_t offset_t;
-	typedef uint16_t uoffset_t;
+	// we use a large type here for offsets, since we could risk overflow when
+	// doing offset math, then when serializing we'll cast it to uint16_t
+	// since the final offset must reach only a whole block and not more
+	typedef ssize_t offset_t;
+	typedef size_t uoffset_t;
 
 	DataLocator() :
 		m_block_id(BLOCK_ID_INVALID), m_offset(0) {}
@@ -176,6 +181,8 @@ public:
 	SizedLocator& shrink(size_type value) { m_size -= value; return *this; }
 	SizedLocator& grow(size_type value) { m_size += value; return *this; }
 
+	SizedLocator& consume(size_type value) { shrink(value); delta(value); return *this; }
+
 	size_type envelope_size() const { return size(); }
 	size_type envelope_size(size_type value) { return size(value); }
 
@@ -211,15 +218,16 @@ struct Traits<milliways::DataLocator>
 {
 	typedef milliways::DataLocator type;
 	typedef type serialized_type;
+	typedef milliways::serialized_data_offset_type serialized_offset_type;	/* uint16_t */
 	enum { Size = sizeof(type) };
-	enum { SerializedSize = (sizeof(int16_t) + sizeof(uint16_t)) };
+	enum { SerializedSize = (sizeof(uint32_t) + sizeof(serialized_offset_type)) };
 
 	static ssize_t serialize(char*& dst, size_t& avail, const type& v);
 	static ssize_t deserialize(const char*& src, size_t& avail, type& v);
 
 	static size_t size(const type& value)    { UNUSED(value); return Size; }
 	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
-	static size_t serializedsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
 
 	static bool valid(const type& value)     { return value.valid(); }
 
@@ -231,16 +239,17 @@ struct Traits<milliways::SizedLocator>
 {
 	typedef milliways::SizedLocator type;
 	typedef type serialized_type;
+	typedef milliways::serialized_data_offset_type serialized_offset_type;	/* uint16_t */
 	typedef milliways::serialized_value_size_type serialized_size_type;	/* uint32_t */
 	enum { Size = sizeof(type) };
-	enum { SerializedSize = (sizeof(int16_t) + sizeof(uint16_t) + sizeof(serialized_size_type)) };
+	enum { SerializedSize = (sizeof(uint32_t) + sizeof(uint16_t) + sizeof(serialized_size_type)) };
 
 	static ssize_t serialize(char*& dst, size_t& avail, const type& v);
 	static ssize_t deserialize(const char*& src, size_t& avail, type& v);
 
 	static size_t size(const type& value)    { UNUSED(value); return Size; }
 	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
-	static size_t serializedsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
 
 	static bool valid(const type& value)     { return value.valid(); }
 
@@ -262,7 +271,8 @@ public:
 	static const int MINOR_VERSION = 1;
 
 	static const size_t BLOCKSIZE = KV_BLOCKSIZE;
-	static const int CACHESIZE = KV_CACHESIZE;
+	static const int NODE_CACHESIZE = KV_NODE_CACHESIZE;
+	static const int BLOCK_CACHESIZE = KV_BLOCK_CACHESIZE;
 	static const int B = KV_B;
 	static const int KEY_HASH_SIZE = 20;
 
@@ -323,7 +333,7 @@ public:
 
 		bool found() const { return m_lookup.found(); }
 		const std::string& key() const { return m_lookup.key(); }
-		kv_tree_node_type* node() const { return m_lookup.node(); }
+		shptr<kv_tree_node_type> node() const { return m_lookup.node(); }
 		int pos() const { return m_lookup.pos(); }
 		node_id_t nodeId() const { return m_lookup.nodeId(); }
 
@@ -483,7 +493,7 @@ protected:
 
 	block_id_t block_alloc_id(int n_blocks = 1) { assert(m_blockstorage); return m_blockstorage->allocId(n_blocks); }
 	bool block_dispose(block_id_t block_id, int count = 1) { assert(m_blockstorage); return m_blockstorage->dispose(block_id, count); }
-	block_type* block_get(block_id_t block_id) { assert(m_blockstorage); return m_blockstorage->get(block_id); }
+	shptr<block_type> block_get(block_id_t block_id) { assert(m_blockstorage); return m_blockstorage->get(block_id); }
 	bool block_put(const block_type& src) { assert(m_blockstorage); return m_blockstorage->put(src); }
 
 	/* -- Tree access ---------------------------------------------- */
@@ -516,10 +526,7 @@ private:
 	 * free space starts.
 	 */
 	block_id_t m_first_block_id;
-	block_id_t m_current_block_id;
-	size_t m_current_block_offset;
-	size_t m_current_block_avail;
-	block_type* m_current_block;
+	SizedLocator m_next_location;
 
 	int m_kv_header_uid;
 };

@@ -59,7 +59,7 @@ public:
 	virtual bool on_miss(op_type op, const key_type& key, mapped_type& value);
 	virtual bool on_set(const key_type& key, const mapped_type& value);
 	virtual bool on_delete(const key_type& key);
-	virtual bool on_eviction(const key_type& key, const mapped_type& value);
+	virtual bool on_eviction(const key_type& key, mapped_type& value);
 
 	bool empty() const { return m_omap.empty(); }
 	size_type size() const { return m_omap.size(); }

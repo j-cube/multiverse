@@ -41,12 +41,12 @@
 namespace milliways {
 
 template < size_t CACHESIZE, size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare = std::less<typename KeyTraits::type> >
-class LRUNodeCache : public LRUCache< CACHESIZE, node_id_t, BTreeNode<B_, KeyTraits, TTraits, Compare>* >
+class LRUNodeCache : public LRUCache< CACHESIZE, node_id_t, shptr< BTreeNode<B_, KeyTraits, TTraits, Compare> > >
 {
 public:
 	typedef node_id_t key_type;
 	typedef BTreeNode<B_, KeyTraits, TTraits, Compare> node_type;
-	typedef node_type* node_ptr_type;
+	typedef shptr<node_type> node_ptr_type;
 	typedef node_ptr_type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef ordered_map<key_type, mapped_type> ordered_map_type;
@@ -68,9 +68,9 @@ public:
 		node_id_t node_id = key;
 		if (m_storage->has_id(node_id)) {
 			/* allocate node object and read node data from disk */
-			node_type* node = new node_type(m_storage->tree(), node_id);
-			assert(node->id() == node_id);
+			shptr<node_type> node( new node_type(m_storage->tree(), node_id) );
 			if (! node) return false;
+			assert(node->id() == node_id);
 			switch (op)
 			{
 			case base_type::op_get:
@@ -80,7 +80,7 @@ public:
 				break;
 			case base_type::op_set:
 				assert(value);
-				*node= *value;
+				*node = *value;
 				break;
 			case base_type::op_sub:
 				//assert(value);
@@ -99,17 +99,17 @@ public:
 		return true;
 	}
 	//bool on_delete(const key_type& key);
-	bool on_eviction(const key_type& key, const mapped_type& value)
+	bool on_eviction(const key_type& key, mapped_type& value)
 	{
 		/* write back block */
 		/* node_id_t node_id = key; */
-		node_type* node = value;
+		node_type* node = value.get();
 		if (node)
 		{
 			if (node->id() != NODE_ID_INVALID)
 				m_storage->node_write(*node);
 			node->id(NODE_ID_INVALID);
-			delete node;
+			value.reset();
 		}
 		return true;
 	}
@@ -126,7 +126,7 @@ class BTreeFileStorage : public BTreeStorage<B_, KeyTraits, TTraits, Compare>
 {
 public:
 	static const size_t BlockSize = BLOCKSIZE;
-	static const int BlockCacheSize = 32;
+	static const int BlockCacheSize = MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE;
 
 	typedef Block<BLOCKSIZE> block_t;
 	typedef FileBlockStorage<BLOCKSIZE, BlockCacheSize> block_storage_t;
@@ -143,7 +143,7 @@ public:
 	typedef BTreeNode<B_, KeyTraits, TTraits, Compare> node_type;
 	typedef BTreeStorage<B_, KeyTraits, TTraits, Compare> base_type;
 
-	typedef LRUNodeCache< 1024, BLOCKSIZE, B_, KeyTraits, TTraits, Compare > cache_type;
+	typedef LRUNodeCache< MILLIWAYS_DEFAULT_NODE_CACHE_SIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare > cache_type;
 
 	static const int B = B_;
 
@@ -199,10 +199,10 @@ public:
 
 	/* -- Node I/O - hight level (cached) -------------------------- */
 
-	node_type* node_alloc(node_id_t node_id);
-	void node_dealloc(node_type* node);
-	node_type* node_get(node_id_t node_id);
-	node_type* node_put(node_type* node);
+	shptr<node_type> node_alloc(node_id_t node_id);
+	void node_dealloc(shptr<node_type>& node);
+	shptr<node_type> node_get(node_id_t node_id);
+	shptr<node_type> node_put(shptr<node_type>& node);
 
 	/* -- Header I/O ----------------------------------------------- */
 

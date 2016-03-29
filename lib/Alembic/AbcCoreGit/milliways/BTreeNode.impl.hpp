@@ -71,20 +71,21 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const 
 {
 	if (leaf())
 	{
+		shptr<node_type> self( this_node() );
 		int i;
 		for (i = 0; i < n(); i++)
 		{
 			if (key_ < key(i))
 			{
-				res.node(this).found(false).pos(i).key(key_);
+				res.node(self).found(false).pos(i).key(key_);
 				return false;
 			} else if (key_ == key(i))
 			{
-				res.node(this).found(true).pos(i).key(key_);
+				res.node(self).found(true).pos(i).key(key_);
 				return true;
 			}
 		}
-		res.node(this).found(false).pos(i).key(key_);
+		res.node(self).found(false).pos(i).key(key_);
 		return false;
 	} else
 	{
@@ -95,12 +96,12 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const 
 		{
 			if (key_ < key(i))
 			{
-				node_type* child = child_node(i);
+				shptr<node_type> child( child_node(i) );
 				assert(child);
 				return child->search(res, key_);
 			}
 		}
-		node_type* child = child_node(n());
+		shptr<node_type> child( child_node(n()) );
 		assert(child);
 		return child->search(res, key_);
 	}
@@ -125,6 +126,7 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::bsearch(lookup_type& res, const
 {
 	int lo = 0;
 	int hi = n() - 1;
+	shptr<node_type> self( this_node() );
 
 	while (hi >= lo)
 	{
@@ -140,15 +142,15 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::bsearch(lookup_type& res, const
 		{
 			// found!
 			if (leaf())
-				res.node(this).found(true).pos(m).key(key_);
+				res.node(self).found(true).pos(m).key(key_);
 			else
-				res.node(this).found(true).pos(m + 1).key(key_);    // internal nodes handled differently
+				res.node(self).found(true).pos(m + 1).key(key_);    // internal nodes handled differently
 			return true;
 		}
 	}
 
 	// not found
-	res.node(this).found(false).pos(lo).key(key_);
+	res.node(self).found(false).pos(lo).key(key_);
 	return false;
 }
 
@@ -159,10 +161,10 @@ void BTreeNode<B_, KeyTraits, TTraits, Compare>::split_child(int i)
 	assert(! full());
 	assert((i >= 0) && (i <= n()));
 
-	node_type* y = child_node(i);
+	shptr<node_type> y( child_node(i) );
 	assert(y && y->full());
 
-	node_type* z = child_alloc();
+	shptr<node_type> z( child_alloc() );
 	assert(z);
 	assert(z->parentId() == id());
 
@@ -172,7 +174,7 @@ void BTreeNode<B_, KeyTraits, TTraits, Compare>::split_child(int i)
 	z->rightId(y->rightId());
 	if (z->hasRight())
 	{
-		node_type* z_right = z->right();
+		shptr<node_type> z_right( z->right() );
 		z_right->leftId(z->id());
 		node_put(z_right);
 	}
@@ -215,11 +217,12 @@ void BTreeNode<B_, KeyTraits, TTraits, Compare>::split_child(int i)
 
 	node_put(y);
 	node_put(z);
-	node_put(this);
+	shptr<node_type> self( this_node() );
+	node_put(self);
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
-typename BTreeNode<B_, KeyTraits, TTraits, Compare>::node_type* BTreeNode<B_, KeyTraits, TTraits, Compare>::insert_non_full(const key_type& key_, const mapped_type& value_)
+shptr<typename BTreeNode<B_, KeyTraits, TTraits, Compare>::node_type> BTreeNode<B_, KeyTraits, TTraits, Compare>::insert_non_full(const key_type& key_, const mapped_type& value_)
 {
 	assert(! full());
 
@@ -240,15 +243,16 @@ typename BTreeNode<B_, KeyTraits, TTraits, Compare>::node_type* BTreeNode<B_, Ke
 		key(where.pos()) = key_;
 		value(where.pos()) = value_;
 		n(n() + 1);
-		node_put(this);
-		return this;
+		shptr<node_type> self( this_node() );
+		node_put(self);
+		return self;
 	} else
 	{
 		assert(! leaf());
 
 		bool do_search = true;
 		lookup_type where;
-		node_type* child_pos = NULL;
+		shptr<node_type> child_pos;
 
 		while (do_search)
 		{
@@ -289,7 +293,8 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::remove(lookup_type& res, const 
 			value(j) = value(j + 1);
 		}
 		n(n() - 1);
-		node_put(this);
+		shptr<node_type> self( this_node() );
+		node_put(self);
 		return true;
 	} else
 	{
@@ -298,7 +303,7 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::remove(lookup_type& res, const 
 		bsearch(res, key_);
 		assert((res.pos() >= 0) && (res.pos() <= n()));
 
-		node_type* child_pos = child_node(res.pos());
+		shptr<node_type> child_pos( child_node(res.pos()) );
 		assert(child_pos);
 		return child_pos->remove(res, key_);
 	}
@@ -311,7 +316,7 @@ inline std::ostream& BTreeNode<B_, KeyTraits, TTraits, Compare>::dotGraph(std::o
 	typedef std::map<int, node_set_type> rankmap_type;
 
 	struct L {
-		static void aggregate_by_rank(node_type* node_ptr, rankmap_type& rankmap, node_set_type& visitedmap)
+		static void aggregate_by_rank(const shptr<node_type>& node_ptr, rankmap_type& rankmap, node_set_type& visitedmap)
 		{
 			assert(node_ptr);
 			node_id_t node_id = node_ptr->id();
@@ -329,7 +334,7 @@ inline std::ostream& BTreeNode<B_, KeyTraits, TTraits, Compare>::dotGraph(std::o
 			{
 				if (node_ptr->hasChild(i))
 				{
-					node_type* child_i = node_ptr->child_node(i);
+					shptr<node_type> child_i( node_ptr->child_node(i) );
 					L::aggregate_by_rank(child_i, rankmap, visitedmap);
 				}
 			}
@@ -338,7 +343,7 @@ inline std::ostream& BTreeNode<B_, KeyTraits, TTraits, Compare>::dotGraph(std::o
 
 	rankmap_type rankmap;
 	node_set_type visitedmap;
-	L::aggregate_by_rank(this, rankmap, visitedmap);
+	L::aggregate_by_rank(this_node(), rankmap, visitedmap);
 
 	out << "digraph btree {" << std::endl;
 	out << "    node [shape=plaintext]" << std::endl;
@@ -476,7 +481,7 @@ inline std::ostream& BTreeNode<B_, KeyTraits, TTraits, Compare>::dotGraph(std::o
 		{
 			if (hasChild(i))
 			{
-				node_type* child_i = child_node(i);
+				shptr<node_type> child_i( child_node(i) );
 				child_i->dotGraph(out, visitedMap, level + 1, indent_ + 1);
 			}
 		}
@@ -488,7 +493,7 @@ inline std::ostream& BTreeNode<B_, KeyTraits, TTraits, Compare>::dotGraph(std::o
 		{
 			if (hasChild(i))
 			{
-				node_type* child_i = child_node(i);
+				shptr<node_type> child_i( child_node(i) );
 
 				out << L::indent(indent_) << L::nodename(*this) << ":" << L::child_portname(*this, i) << " -> " << L::nodename(*child_i) << ":" << "h" << ";" << std::endl;
 			}
