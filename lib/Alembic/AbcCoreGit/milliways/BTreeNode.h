@@ -166,7 +166,7 @@ public:
 	bool leaf(bool value) { bool old = m_leaf; m_leaf = value; return old; }
 
 	int n() const { return m_n; }
-	int n(int value) { assert(value >= 0); assert(value <= (2*B - 1)); int old = m_n; m_n = value; return old; }
+	int n(int value) { int old = m_n; m_n = value; return old; }
 
 	int rank() const { return m_rank; }
 	int rank(int value) { int old = m_rank; m_rank = value; return old; }

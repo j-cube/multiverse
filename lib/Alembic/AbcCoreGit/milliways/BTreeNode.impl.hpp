@@ -70,6 +70,16 @@ template < int B_, typename KeyTraits, typename TTraits, class Compare >
 bool BTreeNode<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const key_type& key_)
 {
 	if (leaf())
+		return bsearch(res, key_);
+	else
+	{
+		/* bool found = */ bsearch(res, key_);
+		shptr<node_type> child( child_node(res.pos()) );
+		assert(child);
+		return child->search(res, key_);
+	}
+#if 0
+	if (leaf())
 	{
 		shptr<node_type> self( this_node() );
 		int i;
@@ -105,6 +115,7 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::search(lookup_type& res, const 
 		assert(child);
 		return child->search(res, key_);
 	}
+#endif
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >

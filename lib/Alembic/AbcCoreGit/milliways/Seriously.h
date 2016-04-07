@@ -28,6 +28,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
+
+#include "config.h"
 
 #ifndef UNUSED
 #define UNUSED(expr) do { (void)(expr); } while (0)
@@ -240,6 +243,8 @@ struct Traits<uint64_t>
 	static int compare(const type& a, const type& b) { return static_cast<int>(a - b); }
 };
 
+#if ALLOWS_TEMPLATED_SIZE_T
+
 template <>
 struct Traits<size_t>
 {
@@ -259,6 +264,8 @@ struct Traits<size_t>
 
 	static int compare(const type& a, const type& b) { return static_cast<int>(static_cast<int64_t>(a) - static_cast<int64_t>(b)); }
 };
+
+#endif /* ALLOWS_TEMPLATED_SIZE_T */
 
 template <>
 struct Traits<std::string>

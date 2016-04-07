@@ -467,6 +467,8 @@ inline ssize_t Traits<uint64_t>::deserialize(const char*& src, size_t& avail, ty
 	return (initial_avail - avail);
 }
 
+#if ALLOWS_TEMPLATED_SIZE_T
+
 /* -- size_t ------------------------------------------------------- */
 
 inline ssize_t Traits<size_t>::serialize(char*& dst, size_t& avail, const type& v)
@@ -512,6 +514,8 @@ inline ssize_t Traits<size_t>::deserialize(const char*& src, size_t& avail, type
 	src = srcp;
 	return (initial_avail - avail);
 }
+
+#endif /* ALLOWS_TEMPLATED_SIZE_T */
 
 /* -- std::string -------------------------------------------------- */
 

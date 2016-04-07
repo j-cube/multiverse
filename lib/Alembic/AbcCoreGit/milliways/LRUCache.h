@@ -35,9 +35,12 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "config.h"
 #include "ordered_map.h"
 
 namespace milliways {
+
+static const int LRUCACHE_L1_CACHE_SIZE = 16;
 
 template <size_t SIZE, typename Key, typename T>
 class LRUCache
@@ -50,10 +53,12 @@ public:
 	typedef typename ordered_map<key_type, mapped_type>::size_type size_type;
 
 	static const size_type Size = SIZE;
+	static const int L1_SIZE = LRUCACHE_L1_CACHE_SIZE;
 
 	typedef enum { op_get, op_set, op_sub } op_type;
 
-	LRUCache() {}
+	// LRUCache();
+	LRUCache(const key_type& invalid);
 	virtual ~LRUCache() { /* call evict_all() in final destructor */ evict_all(); }
 
 	virtual bool on_miss(op_type op, const key_type& key, mapped_type& value);
@@ -65,7 +70,8 @@ public:
 	size_type size() const { return m_omap.size(); }
 	size_type max_size() const { return Size; }
 
-	void clear() { m_omap.clear(); }
+	void clear() { clear_l1(); m_omap.clear(); }
+	void clear_l1();
 
 	bool has(key_type& key) const { return m_omap.has(key); }
 	bool get(mapped_type& dst, key_type& key);
@@ -80,11 +86,35 @@ public:
 
 	value_type pop();                   // pop LRU item and return it
 
+	key_type invalid_key() const { return m_invalid_key; }
+	void invalid_key(const key_type& value) { m_invalid_key = value; }
+	void invalidate_key(key_type& key) const { key = m_invalid_key; }
+
+	void keys(std::vector<key_type>& dst) {
+		dst.clear();
+		typename ordered_map<key_type, mapped_type>::const_iterator it;
+		for (it = m_omap.begin(); it != m_omap.end(); ++it)
+			dst.push_back(it->first);
+	}
+
+	void values(std::vector<value_type>& dst) {
+		dst.clear();
+		typename ordered_map<key_type, mapped_type>::const_iterator it;
+		for (it = m_omap.begin(); it != m_omap.end(); ++it)
+			dst.push_back(*it);
+	}
+
 private:
+	LRUCache();
 	LRUCache(const LRUCache<SIZE, Key, T>& other);
 	LRUCache& operator= (const LRUCache<SIZE, Key, T>& rhs);
 
+	mutable key_type m_l1_key[L1_SIZE];
+	mutable mapped_type* m_l1_mapped[L1_SIZE];
+	mutable int m_l1_last;
+
 	ordered_map<key_type, mapped_type> m_omap;
+	key_type m_invalid_key;
 };
 
 } /* end of namespace milliways */

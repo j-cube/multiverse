@@ -26,7 +26,60 @@
 #define MILLIWAYS_UTILS_H
 
 #include <iostream>
+#include <map>
+#include <unordered_map>
 #include <assert.h>
+
+#include "config.h"
+
+// #define USE_MILLIWAYS_SHPTR
+
+#if !defined(USE_MILLIWAYS_SHPTR)
+	#if defined(HAVE_STD_SHARED_PTR)
+		#include <memory>
+		#define USE_STD_SHARED_PTR
+	#elif defined(HAVE_STD_TR1_SHARED_PTR)
+		#include <tr1/memory>
+		#define USE_TR1_SHARED_PTR
+	#else
+		#define USE_MILLIWAYS_SHPTR
+	#endif
+#endif
+
+#if ! defined(NDEBUG)
+
+#undef TRACE
+#define TRACE( TEXT )                  \
+do                                     \
+{                                      \
+    std::cerr << "[TRACE] " << TEXT << \
+        std::endl;                     \
+    std::cerr.flush();                 \
+}                                      \
+while( 0 )
+
+#undef CTRACE
+#define CTRACE( COND, TEXT )               \
+do                                         \
+{                                          \
+	if ((COND)) {                          \
+        std::cerr << "[TRACE] " << TEXT << \
+            std::endl;                     \
+        std::cerr.flush();                 \
+    }                                      \
+}                                          \
+while( 0 )
+
+#else
+
+#undef TRACE
+#define TRACE( TEXT ) do { } while(0)
+
+#undef CTRACE
+#define CTRACE( COND, TEXT ) do { } while(0)
+
+#endif
+
 
 namespace milliways {
 
@@ -41,29 +94,73 @@ std::string dehexify(const std::string& input);
  *   shptr<T>                                                        *
  * ----------------------------------------------------------------- */
 
+#if defined(USE_STD_SHARED_PTR)
+	template <typename T>
+	class shptr : public std::shared_ptr<T>
+	{
+	public:
+		shptr() : std::shared_ptr<T>() {}
+		explicit shptr(T* naked) : std::shared_ptr<T>(naked) {}
+		shptr(const shptr<T>& other) : std::shared_ptr<T>(other) {}
+		virtual ~shptr() {}
+		shptr<T>& operator=(const shptr<T>& rhs) { std::shared_ptr<T>::operator=(rhs); return *this; }
+
+		bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
+		bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
+		bool operator<(const shptr<T>& rhs) const { return std::shared_ptr<T>::operator<(rhs); }
+
+		operator void*() const 			{ return this->get(); }
+		operator bool() const 			{ return this->get() ? true : false; }
+
+		long count() const { return -1; }
+	};
+#elif defined(USE_STD_TR1_SHARED_PTR)
+	template <typename T>
+	class shptr : public std::tr1::shared_ptr<T>
+	{
+	public:
+		shptr() : std::tr1::shared_ptr<T>() {}
+		explicit shptr(T* naked) : std::tr1::shared_ptr<T>(naked) {}
+		shptr(const shptr<T>& other) : std::tr1::shared_ptr<T>(other) {}
+		virtual ~shptr() {}
+		shptr<T>& operator=(const shptr<T>& rhs) { std::tr1::shared_ptr<T>::operator=(rhs); return *this; }
+
+		bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
+		bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
+		bool operator<(const shptr<T>& rhs) const { return std::tr1::shared_ptr<T>::operator<(rhs); }
+
+		operator void*() const 			{ return this->get(); }
+		operator bool() const 			{ return this->get() ? true : false; }
+
+		long count() const { return -1; }
+	};
+#elif defined(USE_MILLIWAYS_SHPTR)
+
 template <typename T>
 class shptr;
 
 class shptr_manager
 {
+	typedef std::map<void*, long> refcnt_map_t;
+
 public:
 	static shptr_manager& Instance() { return s_instance; }
 
 protected:
-	std::map<void*, long>& refcnt_map() { return m_refcnt_map; }
-	static std::map<void*, long>& RefcntMap() { return Instance().refcnt_map(); }
+	refcnt_map_t& refcnt_map() { return m_refcnt_map; }
+	static refcnt_map_t& RefcntMap() { return Instance().refcnt_map(); }
 
 	template <typename T>
 	friend class shptr;
 
 	static shptr_manager s_instance;
-	std::map<void*, long> m_refcnt_map;
+	refcnt_map_t m_refcnt_map;
 
 private:
 	shptr_manager() {}
 	shptr_manager(const shptr_manager& other) {}
 	virtual ~shptr_manager() {
-		std::map<void*, long>::const_iterator it;
+		refcnt_map_t::const_iterator it;
 		for (it = m_refcnt_map.begin(); it != m_refcnt_map.end(); ++it) {
 			if (it->first && it->second) {
 				std::cerr << "WARNING: pointer " << (void*)it->first << " still has " << it->second << " references at the end of program lifetime." << std::endl;
@@ -75,6 +172,8 @@ private:
 template <typename T>
 class shptr
 {
+	typedef shptr_manager::refcnt_map_t refcnt_map_t;
+
 public:
 	shptr() : m_naked(NULL) {}
 	explicit shptr(T* naked) : m_naked(NULL) { initialize_ptr(naked); }
@@ -134,7 +233,7 @@ public:
 		if (! m_naked) return 0;
 		// WARNING: not thread safe
 		// TODO: implement mutex locking for thread-safety
-		std::map<void*, long>& refcnt_map = shptr_manager::RefcntMap();
+		refcnt_map_t& refcnt_map = shptr_manager::RefcntMap();
 		if (! refcnt_map.count(m_naked))
 			return 0;
 		return refcnt_map[m_naked];
@@ -145,7 +244,7 @@ public:
 		if (! m_naked) return true;
 		// WARNING: not thread safe
 		// TODO: implement mutex locking for thread-safety
-		std::map<void*, long>& refcnt_map = shptr_manager::RefcntMap();
+		refcnt_map_t& refcnt_map = shptr_manager::RefcntMap();
 		if (! refcnt_map.count(m_naked))
 			return false;
 		// return (refcnt_map[m_naked] > 0) ? true : false;
@@ -162,7 +261,7 @@ protected:
 		assert(verify());
 		// WARNING: not thread safe
 		// TODO: implement mutex locking for thread-safety
-		std::map<void*, long>& refcnt_map = shptr_manager::RefcntMap();
+		refcnt_map_t& refcnt_map = shptr_manager::RefcntMap();
 		if (! refcnt_map.count((void*)m_naked)) {
 			throw std::runtime_error("ERROR: raw pointer missing from internal books!");
 			assert(false);
@@ -184,7 +283,7 @@ protected:
 		assert(m_naked);
 		// WARNING: not thread safe
 		// TODO: implement mutex locking for thread-safety
-		std::map<void*, long>& refcnt_map = shptr_manager::RefcntMap();
+		refcnt_map_t& refcnt_map = shptr_manager::RefcntMap();
 		if (! refcnt_map.count((void*)m_naked)) {
 			refcnt_map[(void*)m_naked] = 1;
 		} else {
@@ -207,6 +306,8 @@ inline std::ostream& operator<< ( std::ostream& out, const shptr<T>& value )
 		out << "<shptr null>";
 	return out;
 }
+
+#endif /* defined(USE_MILLIWAYS_SHPTR) */
 
 } /* end of namespace milliways */
 

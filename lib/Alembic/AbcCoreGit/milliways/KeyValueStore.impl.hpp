@@ -37,7 +37,7 @@ namespace seriously {
 
 inline ssize_t Traits<milliways::DataLocator>::serialize(char*& dst, size_t& avail, const type& v)
 {
-	typedef typename type::uoffset_t uoffset_t;
+	typedef XTYPENAME type::uoffset_t uoffset_t;
 
 	char* dstp = dst;
 	size_t initial_avail = avail;
@@ -64,7 +64,7 @@ inline ssize_t Traits<milliways::DataLocator>::serialize(char*& dst, size_t& ava
 
 inline ssize_t Traits<milliways::DataLocator>::deserialize(const char*& src, size_t& avail, type& v)
 {
-	typedef typename type::uoffset_t uoffset_t;
+	typedef XTYPENAME type::uoffset_t uoffset_t;
 
 	if (avail < (sizeof(uint32_t) + sizeof(serialized_offset_type)))
 		return -1;
@@ -81,7 +81,7 @@ inline ssize_t Traits<milliways::DataLocator>::deserialize(const char*& src, siz
 		return -1;
 
 	v.block_id(v_block_id);
-	v.offset(static_cast<typename type::offset_t>(v_offset));
+	v.offset(static_cast<XTYPENAME type::offset_t>(v_offset));
 
 	src = srcp;
 	return (initial_avail - avail);
@@ -89,7 +89,7 @@ inline ssize_t Traits<milliways::DataLocator>::deserialize(const char*& src, siz
 
 inline ssize_t Traits<milliways::SizedLocator>::serialize(char*& dst, size_t& avail, const type& v)
 {
-	typedef typename type::uoffset_t uoffset_t;
+	typedef XTYPENAME type::uoffset_t uoffset_t;
 
 	char* dstp = dst;
 	size_t initial_avail = avail;
@@ -118,7 +118,7 @@ inline ssize_t Traits<milliways::SizedLocator>::serialize(char*& dst, size_t& av
 
 inline ssize_t Traits<milliways::SizedLocator>::deserialize(const char*& src, size_t& avail, type& v)
 {
-	typedef typename type::uoffset_t uoffset_t;
+	typedef XTYPENAME type::uoffset_t uoffset_t;
 
 	if (avail < (sizeof(uint32_t) + sizeof(serialized_offset_type) + sizeof(serialized_size_type)))
 		return -1;
@@ -138,8 +138,8 @@ inline ssize_t Traits<milliways::SizedLocator>::deserialize(const char*& src, si
 		return -1;
 
 	v.block_id(v_block_id);
-	v.offset(static_cast<typename type::offset_t>(v_offset));
-	v.size(static_cast<typename type::size_type>(v_size));
+	v.offset(static_cast<XTYPENAME type::offset_t>(v_offset));
+	v.size(static_cast<XTYPENAME type::size_type>(v_size));
 
 	src = srcp;
 	return (initial_avail - avail);

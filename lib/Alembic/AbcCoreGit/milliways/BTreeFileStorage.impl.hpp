@@ -34,6 +34,33 @@
 
 namespace milliways {
 
+template < size_t CACHESIZE, size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
+const typename LRUNodeCache<CACHESIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::size_type LRUNodeCache<CACHESIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::Size;
+
+template < size_t CACHESIZE, size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
+const typename LRUNodeCache<CACHESIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::size_type LRUNodeCache<CACHESIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::BlockSize;
+
+template < size_t CACHESIZE, size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
+const node_id_t LRUNodeCache<CACHESIZE, BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::InvalidCacheKey;
+
+
+template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
+BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::~BTreeFileStorage()
+{
+	if (isOpen())
+	{
+		std::cerr << std::endl << "WARNING: BTreeFileStorage still open at destruction time. Call close() *BEFORE* destruction!." << std::endl << std::endl;
+		close();
+	}
+	assert(! isOpen());
+	if (m_bs_allocated && m_block_storage)
+	{
+		delete m_block_storage;
+		m_block_storage = NULL;
+		m_bs_allocated = false;
+	}
+}
+
 template < size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare >
 void BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_dispose_id_helper(node_id_t node_id)
 {
@@ -92,6 +119,7 @@ bool BTreeFileStorage<BLOCKSIZE, B_, KeyTraits, TTraits, Compare>::node_write(no
 	bool ok = serialize_node(block, node);
 	m_block_storage->put(block);
 	assert(block.index() == static_cast<block_id_t>(node_id));
+	node.dirty(!ok);
 
 	// std::cerr << "nFS::node_write(" << node.id() << ") <- " << (ok ? "OK" : "NO") << std::endl;
 	return ok;

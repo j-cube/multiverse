@@ -26,6 +26,7 @@
 #define MILLIWAYS_ORDERED_MAP_H
 
 #include <map>
+#include <unordered_map>
 #include <deque>
 
 #include <stdint.h>
@@ -40,7 +41,7 @@ public:
 	typedef Key key_type;
 	typedef T mapped_type;
 	typedef std::pair<Key, T> value_type;
-	typedef std::map<key_type, mapped_type> key_value_map_t;
+	typedef std::unordered_map<key_type, mapped_type> key_value_map_t;
 	typedef std::deque<key_type> key_vector_t;
 	typedef typename key_value_map_t::size_type size_type;
 

@@ -56,8 +56,8 @@ public:
 
 	Block(block_id_t index) :
 			m_index(index), m_dirty(false) { memset(m_data, 0, sizeof(m_data)); }
-	Block(const Block<BLOCKSIZE>& other) { m_index = other.m_index; m_data = other.m_data; m_dirty = other.m_dirty; }
-	Block& operator= (const Block<BLOCKSIZE>& rhs) { m_index = rhs.index(); memcpy(m_data, rhs.m_data, sizeof(m_data)); m_dirty = rhs.m_dirty; return *this; }
+	Block(const Block<BLOCKSIZE>& other) : m_index(other.m_index), m_data(other.m_data), m_dirty(other.m_dirty) { }
+	Block& operator= (const Block<BLOCKSIZE>& rhs) { assert(this != &rhs); m_index = rhs.index(); memcpy(m_data, rhs.m_data, sizeof(m_data)); m_dirty = rhs.m_dirty; return *this; }
 
 	virtual ~Block() {}
 
@@ -96,7 +96,7 @@ public:
 
 	BlockStorage() :
 		m_header_block_id(BLOCK_ID_INVALID) {}
-	virtual ~BlockStorage() { /* cal close() from the most derived class */ }
+	virtual ~BlockStorage() { /* call close() from the most derived class, and BEFORE destruction  */ }
 
 	/* -- General I/O ---------------------------------------------- */
 
@@ -161,9 +161,10 @@ public:
 
 	static const size_type Size = CACHESIZE;
 	static const size_type BlockSize = BLOCKSIZE;
+	static const block_id_t InvalidCacheKey = BLOCK_ID_INVALID;
 
 	LRUBlockCache(storage_ptr_type storage) :
-		base_type(), m_storage(storage) {}
+		base_type(LRUBlockCache::InvalidCacheKey), m_storage(storage) {}
 
 	bool on_miss(typename base_type::op_type op, const key_type& key, mapped_type& value)
 	{
@@ -209,10 +210,14 @@ public:
 		if (block)
 		{
 			if (block->valid())
-				m_storage->write(*block);
-			block->dirty(true);
-			block->index(BLOCK_ID_INVALID);
-			value.reset();
+			{
+				bool ok = m_storage->write(*block);
+				assert(ok);
+				// if (ok) block->dirty(false);
+			}
+			// block->dirty(true);
+			// block->index(BLOCK_ID_INVALID);
+			// value.reset();
 		}
 		return true;
 	}
@@ -238,9 +243,7 @@ public:
 	FileBlockStorage(const std::string& pathname) :
 		BlockStorage<BLOCKSIZE>(),
 		m_pathname(pathname), m_created(false), m_count(-1), m_next_block_id(BLOCK_ID_INVALID), m_lru(this) {}
-	~FileBlockStorage() {
-		close();
-	}
+	~FileBlockStorage(); 	/* call close() before destruction! */
 
 	/* -- General I/O ---------------------------------------------- */
 

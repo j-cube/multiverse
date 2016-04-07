@@ -192,8 +192,33 @@ bool BlockStorage<BLOCKSIZE>::dispose(block_t& block)
 }
 
 /* ----------------------------------------------------------------- *
+ *   LRUBlockCache                                                   *
+ * ----------------------------------------------------------------- */
+
+template < size_t BLOCKSIZE, size_t CACHESIZE >
+const typename LRUBlockCache<BLOCKSIZE, CACHESIZE>::size_type LRUBlockCache<BLOCKSIZE, CACHESIZE>::Size;
+
+template < size_t BLOCKSIZE, size_t CACHESIZE >
+const typename LRUBlockCache<BLOCKSIZE, CACHESIZE>::size_type LRUBlockCache<BLOCKSIZE, CACHESIZE>::BlockSize;
+
+template < size_t BLOCKSIZE, size_t CACHESIZE >
+const block_id_t LRUBlockCache<BLOCKSIZE, CACHESIZE>::InvalidCacheKey;
+
+/* ----------------------------------------------------------------- *
  *   FileBlockStorage                                                *
  * ----------------------------------------------------------------- */
+
+template <size_t BLOCKSIZE, int CACHE_SIZE>
+FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::~FileBlockStorage()
+{
+	/* call close() from the most derived class */
+	if (isOpen())
+	{
+		std::cerr << std::endl << "WARNING: FileBlockStorage still open at destruction time. Call close() *BEFORE* destruction!." << std::endl << std::endl;
+		close();
+	}
+	assert(! isOpen());
+}
 
 template <size_t BLOCKSIZE, int CACHE_SIZE>
 bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::openHelper()
@@ -372,7 +397,9 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write(block_t& src)
 
 	try {
 		m_stream.seekp(static_cast<std::streamoff>(pos));
-	} catch (std::ios::failure) {
+	} catch (std::ios::failure& e) {
+		std::cerr << "error writing (seeking) block " << src.index() << ":" << e.what() << std::endl;
+		src.dirty(true);
 		assert(false);
 		return false;
 	}
@@ -380,7 +407,8 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write(block_t& src)
 	try {
 		m_stream.write(src.data(), BlockSize);
 	} catch (std::ios_base::failure& e) {
-		std::cerr << "error reading block " << src.index() << ":" << e.what() << std::endl;
+		std::cerr << "error writing block " << src.index() << ":" << e.what() << std::endl;
+		src.dirty(true);
 		assert(false);
 		return false;
 	}
@@ -388,9 +416,11 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write(block_t& src)
 	if (m_stream.fail())
 	{
 		std::cerr << "stream fail writing block " << src.index() << ", error: " << strerror(errno) << std::endl;
+		src.dirty(true);
 		assert(false);
 		return false;
-	}
+	} else
+		src.dirty(false);
 
 	assert(! m_stream.fail());
 
@@ -418,11 +448,21 @@ bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::put(const block_t& src)
 	shptr<block_t> cached( m_lru[src.index()] );
 	if (cached)
 	{
-		assert(cached->index() == src.index());
-		*cached = src;
-		assert(src.dirty() == (*cached).dirty());
+		if (cached.get() != &src)
+		{
+			assert(cached->index() == src.index());
+			*cached = src;
+			assert(src.dirty() == (*cached).dirty());
+		}
 		return true;
+	} else
+	{
+		block_id_t bid = src.index();
+		shptr<block_t> src_ptr( new block_t(bid) );
+		*src_ptr = src;
+		return m_lru.set(bid, src_ptr) ? true : false;
 	}
+
 	return false;
 }
 

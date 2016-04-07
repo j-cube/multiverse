@@ -178,7 +178,11 @@ inline std::string dehexify(const std::string& input)
  *   shptr<T>                                                        *
  * ----------------------------------------------------------------- */
 
+#if defined(USE_MILLIWAYS_SHPTR)
+
 shptr_manager shptr_manager::s_instance;
+
+#endif /* defined(USE_MILLIWAYS_SHPTR) */
 
 } /* end of namespace milliways */
 
