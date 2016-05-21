@@ -29,6 +29,7 @@
 #include <fstream>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <deque>
 #include <functional>
 
@@ -36,11 +37,11 @@
 #include <assert.h>
 
 #include "config.h"
-#include "ordered_map.h"
+#include "hashtable.h"
 
 namespace milliways {
 
-static const int LRUCACHE_L1_CACHE_SIZE = 16;
+static const int LRUCACHE_L1_CACHE_SIZE = 12;
 
 template <size_t SIZE, typename Key, typename T>
 class LRUCache
@@ -49,8 +50,12 @@ public:
 	typedef Key key_type;
 	typedef T mapped_type;
 	typedef std::pair<Key, T> value_type;
-	typedef ordered_map<key_type, mapped_type> ordered_map_type;
-	typedef typename ordered_map<key_type, mapped_type>::size_type size_type;
+	typedef size_t size_type;
+
+	typedef long age_t;
+	typedef std::unordered_map<key_type, age_t> key_to_age_t;
+	typedef std::unordered_map<key_type, mapped_type> map_t;
+	typedef typename map_t::iterator map_iter_t;
 
 	static const size_type Size = SIZE;
 	static const int L1_SIZE = LRUCACHE_L1_CACHE_SIZE;
@@ -66,22 +71,22 @@ public:
 	virtual bool on_delete(const key_type& key);
 	virtual bool on_eviction(const key_type& key, mapped_type& value);
 
-	bool empty() const { return m_omap.empty(); }
-	size_type size() const { return m_omap.size(); }
+	bool empty() const { return m_key2age.empty(); }
+	size_type size() const { return m_key2age.size(); }
 	size_type max_size() const { return Size; }
 
-	void clear() { clear_l1(); m_omap.clear(); }
+	void clear() { clear_l1(); }
 	void clear_l1();
 
-	bool has(key_type& key) const { return m_omap.has(key); }
-	bool get(mapped_type& dst, key_type& key);
-	bool set(key_type& key, mapped_type& value);
+	bool has(const key_type& key) const;
+	bool get(mapped_type& dst, const key_type& key);
+	bool set(const key_type& key, mapped_type& value);
 	bool del(key_type& key);
 
-	size_type count(const key_type& key) const { return m_omap.count(key); }
+	size_type count(const key_type& key) const { return has(key) ? 1 : 0; }
 	mapped_type& operator[](const key_type& key);
 
-	void evict(bool force = false);     // evict the LRU item
+	bool evict(bool force = false);     // evict the LRU item
 	void evict_all();
 
 	value_type pop();                   // pop LRU item and return it
@@ -92,16 +97,21 @@ public:
 
 	void keys(std::vector<key_type>& dst) {
 		dst.clear();
-		typename ordered_map<key_type, mapped_type>::const_iterator it;
-		for (it = m_omap.begin(); it != m_omap.end(); ++it)
-			dst.push_back(it->first);
+		typename std::map<age_t, key_type>::const_iterator it;
+		for (it = m_age2key.begin(); it != m_age2key.end(); ++it)
+			dst.push_back(it->second);
 	}
 
 	void values(std::vector<value_type>& dst) {
 		dst.clear();
-		typename ordered_map<key_type, mapped_type>::const_iterator it;
-		for (it = m_omap.begin(); it != m_omap.end(); ++it)
-			dst.push_back(*it);
+		typename std::map<age_t, key_type>::const_iterator it;
+		for (it = m_age2key.begin(); it != m_age2key.end(); ++it)
+		{
+			/* age_t age = it->first; */
+			key_type key = it->second;
+			value_type& value = m_cache[key];
+			dst.push_back(value_type(key, value));
+		}
 	}
 
 private:
@@ -109,11 +119,24 @@ private:
 	LRUCache(const LRUCache<SIZE, Key, T>& other);
 	LRUCache& operator= (const LRUCache<SIZE, Key, T>& rhs);
 
+	bool oldest(age_t& age) {
+		typename std::map<age_t, key_type>::const_iterator it = m_age2key.begin();
+		if (it != m_age2key.end()) {
+			age = it->first;
+			return true;
+		}
+		return false;
+	}
+
 	mutable key_type m_l1_key[L1_SIZE];
-	mutable mapped_type* m_l1_mapped[L1_SIZE];
+	mutable map_iter_t m_l1_mapped[L1_SIZE];
 	mutable int m_l1_last;
 
-	ordered_map<key_type, mapped_type> m_omap;
+	mutable age_t                     m_current_age;
+	mutable key_to_age_t              m_key2age;
+	mutable std::map<age_t, key_type> m_age2key;
+	mutable map_t                     m_cache;
+
 	key_type m_invalid_key;
 };
 

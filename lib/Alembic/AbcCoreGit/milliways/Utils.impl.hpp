@@ -64,12 +64,12 @@ inline std::ostream& hexdump(std::ostream& out, const void* ptr, int buflen)
 	const unsigned char *buf = (const unsigned char*) ptr;
 	int i, j;
 
-	long oldw;
+	int oldw;
 	char oldfill;
 
 	for (i = 0; i < buflen; i += 16)
 	{
-		oldw = out.width();
+		oldw = static_cast<int>(out.width());
 		oldfill = out.fill();
 		out << std::setfill('0') << std::setw(6) << std::hex << i <<
 				std::setfill(oldfill) << std::setw(oldw) << std::dec << ": ";
@@ -118,7 +118,7 @@ inline std::string hexify(const std::string& input)
     std::string output(2 * len, '\0');
     for (size_t i = 0; i < len; ++i)
     {
-        const unsigned char c = input[i];
+        const unsigned char c = static_cast<unsigned char>(input[i]);
         output[i * 2]     = lut[(c & 0xF0) >> 4];
         output[i * 2 + 1] = lut[(c & 0x0F)];
     }
@@ -128,12 +128,12 @@ inline std::string hexify(const std::string& input)
 inline static unsigned int hexdigit2value(char hexdigit)
 {
 	if ((hexdigit >= '0') && (hexdigit <= '9'))
-		return (hexdigit - '0');
+		return static_cast<unsigned int>(hexdigit - '0');
 	else if ((hexdigit >= 'a') && (hexdigit <= 'f'))
-		return 10 + (hexdigit - 'a');
+		return static_cast<unsigned int>(10 + (hexdigit - 'a'));
 	else if ((hexdigit >= 'A') && (hexdigit <= 'F'))
-		return 10 + (hexdigit - 'A');
-	return 10000;
+		return static_cast<unsigned int>(10 + (hexdigit - 'A'));
+	return static_cast<unsigned int>(10000);
 }
 
 inline std::string dehexify(const std::string& input)
@@ -163,7 +163,7 @@ inline std::string dehexify(const std::string& input)
 		if (++h_i >= hexlen)
 			break;
         ch = input[h_i];
-		output[b_i] = (output[b_i] & 0xF0) | static_cast<char>(hexdigit2value(ch));
+		output[b_i] = static_cast<char>((output[b_i] & 0xF0) | static_cast<char>(hexdigit2value(ch)));
 
 		++b_i;
 		if (++h_i >= hexlen)

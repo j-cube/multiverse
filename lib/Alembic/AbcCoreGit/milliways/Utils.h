@@ -95,46 +95,57 @@ std::string dehexify(const std::string& input);
  * ----------------------------------------------------------------- */
 
 #if defined(USE_STD_SHARED_PTR)
-	template <typename T>
-	class shptr : public std::shared_ptr<T>
-	{
-	public:
-		shptr() : std::shared_ptr<T>() {}
-		explicit shptr(T* naked) : std::shared_ptr<T>(naked) {}
-		shptr(const shptr<T>& other) : std::shared_ptr<T>(other) {}
-		virtual ~shptr() {}
-		shptr<T>& operator=(const shptr<T>& rhs) { std::shared_ptr<T>::operator=(rhs); return *this; }
+    #define MW_SHPTR std::shared_ptr
+    #define MILLIWAYS_SHPTR std::shared_ptr
+    // #define shptr std::shared_ptr
+ 	// #define SHPTR std::shared_ptr
+	// template <typename T>
+	// class shptr : public std::shared_ptr<T>
+	// {
+	// public:
+	// 	shptr() : std::shared_ptr<T>() {}
+	// 	explicit shptr(T* naked) : std::shared_ptr<T>(naked) {}
+	// 	shptr(const shptr<T>& other) : std::shared_ptr<T>(other) {}
+	// 	/* ~shptr() {} */
+	// 	shptr<T>& operator=(const shptr<T>& rhs) { std::shared_ptr<T>::operator=(rhs); return *this; }
 
-		bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
-		bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
-		bool operator<(const shptr<T>& rhs) const { return std::shared_ptr<T>::operator<(rhs); }
+	// 	bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
+	// 	bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
+	// 	bool operator<(const shptr<T>& rhs) const { return std::shared_ptr<T>::operator<(rhs); }
 
-		operator void*() const 			{ return this->get(); }
-		operator bool() const 			{ return this->get() ? true : false; }
+	// 	operator void*() const 			{ return this->get(); }
+	// 	operator bool() const 			{ return this->get() ? true : false; }
 
-		long count() const { return -1; }
-	};
+	// 	long count() const { return -1; }
+	// };
 #elif defined(USE_STD_TR1_SHARED_PTR)
-	template <typename T>
-	class shptr : public std::tr1::shared_ptr<T>
-	{
-	public:
-		shptr() : std::tr1::shared_ptr<T>() {}
-		explicit shptr(T* naked) : std::tr1::shared_ptr<T>(naked) {}
-		shptr(const shptr<T>& other) : std::tr1::shared_ptr<T>(other) {}
-		virtual ~shptr() {}
-		shptr<T>& operator=(const shptr<T>& rhs) { std::tr1::shared_ptr<T>::operator=(rhs); return *this; }
+    #define MW_SHPTR std::tr1::shared_ptr
+    #define MILLIWAYS_SHPTR std::tr1::shared_ptr
+    // #define shptr std::tr1::shared_ptr
+ 	// #define SHPTR std::tr1::shared_ptr
+	// template <typename T>
+	// class shptr : public std::tr1::shared_ptr<T>
+	// {
+	// public:
+	// 	shptr() : std::tr1::shared_ptr<T>() {}
+	// 	explicit shptr(T* naked) : std::tr1::shared_ptr<T>(naked) {}
+	// 	shptr(const shptr<T>& other) : std::tr1::shared_ptr<T>(other) {}
+	// 	~shptr() {}
+	// 	shptr<T>& operator=(const shptr<T>& rhs) { std::tr1::shared_ptr<T>::operator=(rhs); return *this; }
 
-		bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
-		bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
-		bool operator<(const shptr<T>& rhs) const { return std::tr1::shared_ptr<T>::operator<(rhs); }
+	// 	bool operator==(const shptr<T>& rhs) { return ((this == &rhs) || (this->get() == rhs.get())); }
+	// 	bool operator!=(const shptr<T>& rhs) { return !(*this == rhs); }
+	// 	bool operator<(const shptr<T>& rhs) const { return std::tr1::shared_ptr<T>::operator<(rhs); }
 
-		operator void*() const 			{ return this->get(); }
-		operator bool() const 			{ return this->get() ? true : false; }
+	// 	operator void*() const 			{ return this->get(); }
+	// 	operator bool() const 			{ return this->get() ? true : false; }
 
-		long count() const { return -1; }
-	};
+	// 	long count() const { return -1; }
+	// };
 #elif defined(USE_MILLIWAYS_SHPTR)
+
+#define MW_SHPTR shptr
+#define MILLIWAYS_SHPTR milliways::shptr
 
 template <typename T>
 class shptr;
@@ -158,8 +169,8 @@ protected:
 
 private:
 	shptr_manager() {}
-	shptr_manager(const shptr_manager& other) {}
-	virtual ~shptr_manager() {
+	shptr_manager(const shptr_manager&) {}
+	~shptr_manager() {
 		refcnt_map_t::const_iterator it;
 		for (it = m_refcnt_map.begin(); it != m_refcnt_map.end(); ++it) {
 			if (it->first && it->second) {
@@ -178,7 +189,7 @@ public:
 	shptr() : m_naked(NULL) {}
 	explicit shptr(T* naked) : m_naked(NULL) { initialize_ptr(naked); }
 	shptr(const shptr<T>& other) : m_naked(NULL) { assert(other.verify()); initialize_ptr(other.m_naked); }
-	virtual ~shptr() { assert(verify()); finalize_ptr(); }
+	~shptr() { assert(verify()); finalize_ptr(); }
 	shptr<T>& operator=(const shptr<T>& rhs) {
 		if ((this == &rhs) || (*this == rhs)) return *this;
 		assert(verify());

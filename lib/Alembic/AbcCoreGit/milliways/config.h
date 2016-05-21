@@ -68,8 +68,14 @@
 /* Define to 1 if an explicit template for size_t is not needed if all the uint*_t types are there */
 /* #undef DOESNT_NEED_TEMPLATED_SIZE_T */
 
+/* Define to 1 if an explicit template for ssize_t is not needed if all the int*_t types are there */
+/* #undef DOESNT_NEED_TEMPLATED_SSIZE_T */
+
 /* Define to 1 if an explicit template for size_t is allowed even if all the uint*_t types are there */
 #define ALLOWS_TEMPLATED_SIZE_T 1
+
+/* Define to 1 if an explicit template for ssize_t is allowed even if all the int*_t types are there */
+#define ALLOWS_TEMPLATED_SSIZE_T 1
 
 /* Define to 1 if "typename" keyword is allowed outside templates (it is not in C++03) */
 #define ALLOWS_TYPENAME_OUTSIDE_TEMPLATES 1
@@ -79,5 +85,41 @@
 #else /* ! ALLOWS_TYPENAME_OUTSIDE_TEMPLATES */
 #define XTYPENAME
 #endif /* ! ALLOWS_TYPENAME_OUTSIDE_TEMPLATES */
+
+/* Define to 1 if uint32_t is same as unsigned long long */
+/* #undef UINT32_IS_ULL */
+
+/* Define to 1 if uint32_t is same as unsigned long */
+/* #undef UINT32_IS_UL */
+
+/* Define to 1 if uint32_t is same as unsigned int */
+#define UINT32_IS_UI 1
+
+/* Define to 1 if uint64_t is same as unsigned long long */
+#define UINT64_IS_ULL 1
+
+/* Define to 1 if uint64_t is same as unsigned long */
+/* #undef UINT64_IS_UL */
+
+/* Define to 1 if uint64_t is same as unsigned int */
+/* #undef UINT64_IS_UI */
+
+/* Define to 1 if size_t is same as unsigned long long */
+/* #undef SIZE_T_IS_ULL */
+
+/* Define to 1 if size_t is same as unsigned long */
+#define SIZE_T_IS_UL 1
+
+/* Define to 1 if size_t is same as unsigned int */
+/* #undef SIZE_T_IS_UI */
+
+/* Define to 1 if ssize_t is same as long long */
+/* #undef SSIZE_T_IS_LL */
+
+/* Define to 1 if ssize_t is same as long */
+#define SSIZE_T_IS_L 1
+
+/* Define to 1 if ssize_t is same as int */
+/* #undef SSIZE_T_IS_I */
 
 #endif /* MILLIWAYS_CONFIG_H */

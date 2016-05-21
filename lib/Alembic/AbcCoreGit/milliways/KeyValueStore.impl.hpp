@@ -26,123 +26,101 @@
 #include "KeyValueStore.h"
 #endif
 
+#include "lz4.h"
+
 #ifndef MILLIWAYS_KEYVALUESTORE_IMPL_H
 //#define MILLIWAYS_KEYVALUESTORE_IMPL_H
 
 /* ----------------------------------------------------------------- *
- *   ::seriously::Traits<milliways::DataLocator>                     *
+ *   ::seriously::Traits<milliways::kv_stream_pos_t>                     *
  * ----------------------------------------------------------------- */
 
 namespace seriously {
 
-inline ssize_t Traits<milliways::DataLocator>::serialize(char*& dst, size_t& avail, const type& v)
+inline ssize_t Traits<milliways::kv_stream_pos_t>::serialize(char*& dst, size_t& avail, const type& v)
 {
-	typedef XTYPENAME type::uoffset_t uoffset_t;
-
 	char* dstp = dst;
 	size_t initial_avail = avail;
 
-	if ((sizeof(uint32_t) + sizeof(serialized_offset_type)) > avail)
+	if (sizeof(serialized_data_pos_type) > avail)
 		return -1;
 
-	assert((sizeof(uint32_t) + sizeof(serialized_offset_type)) <= avail);
+	assert(sizeof(serialized_data_pos_type) <= avail);
 
-	type nv(v);
-	nv.normalize();
-	uint32_t v_block_id = static_cast<uint32_t>(nv.block_id());
-	uint16_t v_offset = static_cast<serialized_offset_type>(nv.uoffset());
+	serialized_data_pos_type v_pos = static_cast<serialized_data_pos_type>(v.pos());
 
-	Traits<uint32_t>::serialize(dstp, avail, v_block_id);
-	Traits<serialized_offset_type>::serialize(dstp, avail, v_offset);
+	Traits<serialized_data_pos_type>::serialize(dstp, avail, v_pos);
 
 	if (avail > 0)
 		*dstp = '\0';
 
 	dst = dstp;
-	return (initial_avail - avail);
+	return static_cast<ssize_t>(initial_avail - avail);
 }
 
-inline ssize_t Traits<milliways::DataLocator>::deserialize(const char*& src, size_t& avail, type& v)
+inline ssize_t Traits<milliways::kv_stream_pos_t>::deserialize(const char*& src, size_t& avail, type& v)
 {
-	typedef XTYPENAME type::uoffset_t uoffset_t;
-
-	if (avail < (sizeof(uint32_t) + sizeof(serialized_offset_type)))
+	if (avail < sizeof(serialized_data_pos_type))
 		return -1;
 
 	const char* srcp = src;
 	size_t initial_avail = avail;
 
-	uint32_t v_block_id = milliways::BLOCK_ID_INVALID;
-	serialized_offset_type v_offset = 0;
+	serialized_data_pos_type v_pos = static_cast<serialized_data_pos_type>(-1);
 
-	if (Traits<uint32_t>::deserialize(srcp, avail, v_block_id) < 0)
-		return -1;
-	if (Traits<serialized_offset_type>::deserialize(srcp, avail, v_offset) < 0)
+	if (Traits<serialized_data_pos_type>::deserialize(srcp, avail, v_pos) < 0)
 		return -1;
 
-	v.block_id(v_block_id);
-	v.offset(static_cast<XTYPENAME type::offset_t>(v_offset));
+	v.pos(static_cast<XTYPENAME type::offset_t>(v_pos));
 
 	src = srcp;
-	return (initial_avail - avail);
+	return static_cast<ssize_t>(initial_avail - avail);
 }
 
-inline ssize_t Traits<milliways::SizedLocator>::serialize(char*& dst, size_t& avail, const type& v)
+inline ssize_t Traits<milliways::kv_stream_sized_pos_t>::serialize(char*& dst, size_t& avail, const type& v)
 {
-	typedef XTYPENAME type::uoffset_t uoffset_t;
-
 	char* dstp = dst;
 	size_t initial_avail = avail;
 
-	if ((sizeof(uint32_t) + sizeof(serialized_offset_type) + sizeof(serialized_size_type)) > avail)
+	if ((sizeof(serialized_data_pos_type) + sizeof(serialized_size_type)) > avail)
 		return -1;
 
-	assert((sizeof(uint32_t) + sizeof(serialized_offset_type) + sizeof(serialized_size_type)) <= avail);
+	assert((sizeof(serialized_data_pos_type) + sizeof(serialized_size_type)) <= avail);
 
-	type nv(v);
-	nv.normalize();
-	uint32_t v_block_id = static_cast<uint32_t>(nv.block_id());
-	serialized_offset_type v_offset = static_cast<serialized_offset_type>(nv.uoffset());
-	serialized_size_type v_size = static_cast<serialized_size_type>(nv.size());
+	serialized_data_pos_type v_pos = static_cast<serialized_data_pos_type>(v.pos());
+	serialized_size_type v_size = static_cast<serialized_size_type>(v.size());
 
-	Traits<uint32_t>::serialize(dstp, avail, v_block_id);
-	Traits<serialized_offset_type>::serialize(dstp, avail, v_offset);
+	Traits<serialized_data_pos_type>::serialize(dstp, avail, v_pos);
 	Traits<serialized_size_type>::serialize(dstp, avail, v_size);
 
 	if (avail > 0)
 		*dstp = '\0';
 
 	dst = dstp;
-	return (initial_avail - avail);
+	return static_cast<ssize_t>(initial_avail - avail);
 }
 
-inline ssize_t Traits<milliways::SizedLocator>::deserialize(const char*& src, size_t& avail, type& v)
+inline ssize_t Traits<milliways::kv_stream_sized_pos_t>::deserialize(const char*& src, size_t& avail, type& v)
 {
-	typedef XTYPENAME type::uoffset_t uoffset_t;
-
-	if (avail < (sizeof(uint32_t) + sizeof(serialized_offset_type) + sizeof(serialized_size_type)))
+	if (avail < (sizeof(serialized_data_pos_type) + sizeof(serialized_size_type)))
 		return -1;
 
 	const char* srcp = src;
 	size_t initial_avail = avail;
 
-	uint32_t v_block_id = milliways::BLOCK_ID_INVALID;
-	serialized_offset_type v_offset = 0;
+	serialized_data_pos_type v_pos = static_cast<serialized_data_pos_type>(-1);
 	serialized_size_type v_size = 0;
 
-	if (Traits<uint32_t>::deserialize(srcp, avail, v_block_id) < 0)
-		return -1;
-	if (Traits<serialized_offset_type>::deserialize(srcp, avail, v_offset) < 0)
+	if (Traits<serialized_data_pos_type>::deserialize(srcp, avail, v_pos) < 0)
 		return -1;
 	if (Traits<serialized_size_type>::deserialize(srcp, avail, v_size) < 0)
 		return -1;
 
-	v.block_id(v_block_id);
-	v.offset(static_cast<XTYPENAME type::offset_t>(v_offset));
+	v.pos(static_cast<XTYPENAME type::offset_t>(v_pos));
 	v.size(static_cast<XTYPENAME type::size_type>(v_size));
 
 	src = srcp;
-	return (initial_avail - avail);
+	return static_cast<ssize_t>(initial_avail - avail);
 }
 
 } /* end of namespace seriously */
@@ -150,18 +128,27 @@ inline ssize_t Traits<milliways::SizedLocator>::deserialize(const char*& src, si
 
 namespace milliways {
 
+
+static const size_t KV_COMPRESSION_MIN_LENGTH = KV_BLOCKSIZE;
+
+static const size_t LZ4_BLOCK_BYTES = 1024 * 8;
+static const int N_LZ4_BUFFERS = 2;
+static const int LZ4_ACCELERATION = 1;
+
 /* ----------------------------------------------------------------- *
  *   KeyValueStore                                                   *
  * ----------------------------------------------------------------- */
 
 inline KeyValueStore::KeyValueStore(block_storage_type* blockstorage) :
 	m_blockstorage(blockstorage), m_storage(NULL), m_kv_tree(NULL),
-	m_first_block_id(BLOCK_ID_INVALID),
+	m_first_block_id(BLOCK_ID_INVALID), m_next_location(),
 	m_kv_header_uid(-1)
 {
+#ifdef NDEBUG
+#else
 	int max_B = BTreeFileStorage_Compute_Max_B< BLOCKSIZE, KEY_MAX_SIZE + 4, mapped_traits >();
-
 	assert(B <= max_B);
+#endif
 
 	m_storage = new kv_tree_storage_type(m_blockstorage);
 	m_kv_tree = new kv_tree_type(m_storage);
@@ -223,7 +210,7 @@ inline bool KeyValueStore::close()
 
 inline bool KeyValueStore::has(const std::string& key)
 {
-	DataLocator head_pos;
+	kv_stream_pos_t head_pos;
 	return find(key, head_pos);
 }
 
@@ -245,11 +232,14 @@ inline bool KeyValueStore::find(const std::string& key, Search& result)
 	{
 		assert(where.found());
 
-		shptr<kv_tree_node_type> node( where.node() );
+		MW_SHPTR<kv_tree_node_type> node( where.node() );
 		assert(node);
 
+		// we store only the position inside the btree
+		// so we need to read the size separately
 		result.dataLocator(node->value(where.pos()));
-		result.envelope_size(0);
+
+		result.full_size(0);
 		assert(result.locator().valid());
 		assert(result.valid());
 	} else
@@ -259,9 +249,6 @@ inline bool KeyValueStore::find(const std::string& key, Search& result)
 	}
 
 	assert(result.valid());
-
-	shptr<block_type> block(block_get(result.block_id()));
-	assert(block);
 
 	/*
 	 * Key-Value Storage
@@ -279,34 +266,32 @@ inline bool KeyValueStore::find(const std::string& key, Search& result)
 	 * Step 1 - Read key-length and value-length
 	 */
 
-	assert((result.offset() >= 0) && (result.offset() < static_cast<SizedLocator::offset_t>(BLOCKSIZE)));
-	const char* block_data = block->data();
-	const char* srcp = block_data + result.offset();
-	size_t avail = BLOCKSIZE - result.offset();
+	// we store only the position inside the btree
+	// so we need to read the size separately
+	// To do that, preliminarily set the size to the "envelope"/header
+	// size only, to be able to use the various reading
+	// methods
+	// NOTE: the envelope is the FullLocator one!
+	result.full_size(FullLocator::ENVELOPE_SIZE);
 
-#if 0
-	uint32_t v_key_length = 0;
-	uint32_t v_value_length = 0;
-
-	assert(avail >= (2 * sizeof(uint32_t)));
-	if (seriously::Traits<uint32_t>::deserialize(srcp, avail, v_key_length) < 0)
-		return false;
-	if (seriously::Traits<uint32_t>::deserialize(srcp, avail, v_value_length) < 0)
-		return false;
-#endif
-
-#if 1
+	// ok, now we can use the various read stream methods...
 	serialized_value_size_type v_value_length = 0;
+	serialized_value_size_type v_compressed_length = 0;
 
-	assert(avail >= sizeof(serialized_value_size_type));
-	if (seriously::Traits<serialized_value_size_type>::deserialize(srcp, avail, v_value_length) < 0)
-	{
-		result.invalidate();
-		return false;
+	read_stream_t rs(m_blockstorage, result.locator().sizedLocator());
+	rs >> v_value_length >> v_compressed_length;
+	assert(! rs.fail());
+	assert(rs.nread() == FullLocator::ENVELOPE_SIZE);
+
+	if (v_compressed_length == 0) {
+		result.set_uncompressed(static_cast<kv_stream_sized_pos_t::size_type>(v_value_length));
+		assert(! result.isCompressed());
+	} else {
+
+		result.set_compressed(static_cast<kv_stream_sized_pos_t::size_type>(v_compressed_length), static_cast<kv_stream_sized_pos_t::size_type>(v_value_length));
+		assert(result.isCompressed());
 	}
-#endif
 
-	result.contents_size(static_cast<SizedLocator::size_type>(v_value_length));
 	return true;
 }
 
@@ -330,11 +315,26 @@ inline bool KeyValueStore::get(const std::string& key, std::string& value)
 	/*
      * Step 3 - Read value (contents)
      */
-    SizedLocator contents_loc(result.contentsLocator());
-    size_t initial = contents_loc.size();
-	bool ok = read(value, contents_loc);
-	size_t consumed = initial - contents_loc.size();
-	result.locator().consume(consumed);		// move and shrink
+    kv_stream_sized_pos_t payload_loc(result.payloadLocator());
+    size_t payload_size = payload_loc.size();
+	size_t compressed_size = 0;
+	bool ok;
+
+	read_stream_t rs(m_blockstorage, payload_loc);
+	if (result.isCompressed()) {
+		ok = read_lz4(rs, value, result.contents_size(), compressed_size);
+	} else {
+		IOExtString dst(value, result.contents_size());
+		rs >> dst;
+		ok = !rs.fail();
+	}
+	assert(! rs.fail());
+#ifdef NDEBUG
+	UNUSED(payload_size);
+#else
+	assert(rs.nread() == payload_size);
+#endif
+	result.locator().consume(rs.nread());		// move and shrink
 	return ok;
 }
 
@@ -352,13 +352,55 @@ inline bool KeyValueStore::get(Search& result, std::string& value, ssize_t parti
 		return false;
 	}
 
-	SizedLocator contents_loc(result.contentsLocator());
-	if (partial > 0)
-		contents_loc.size(static_cast<SizedLocator::size_type>(partial));
-	size_t initial = contents_loc.size();
-	bool ok = read(value, contents_loc);
-	size_t consumed = initial - contents_loc.size();
-	result.locator().consume(consumed);		// move and shrink
+    kv_stream_sized_pos_t payload_loc(result.payloadLocator());
+    size_t payload_size = payload_loc.size();
+	bool ok;
+
+	// if (partial > 0)
+	// 	payload_loc.size(static_cast<FullLocator::size_type>(partial));
+	// else
+	// 	partial = (ssize_t) payload_size;
+
+	read_stream_t rs(m_blockstorage, payload_loc);
+	if (result.isCompressed())
+	{
+		ssize_t compressed_size   = (ssize_t) result.compressed_size();
+		ssize_t uncompressed_size = (ssize_t) result.uncompressed_size();
+		size_t r_compressed_size = 0;
+
+		if (partial > 0)
+			payload_loc.size(static_cast<FullLocator::size_type>(partial));
+		else
+			partial = (ssize_t) uncompressed_size;
+
+		// std::cerr << "payload_loc: " << payload_loc << " payload_size:" << payload_size << " partial:" << partial << "\n";
+		ok = read_lz4(rs, value, (size_t) partial, r_compressed_size);
+		// std::cerr << "read_lz4 ok: " << (ok ? "OK" : "NO") << " r-compressed_size:" << r_compressed_size << "\n";
+
+		if (! ok) return false;
+
+		assert(! rs.fail());
+		// if ((ssize_t) rs.nread() != compressed_size) {
+		// 	std::cerr << "(ssize_t) rs.nread():" << (rs.nread()) << " != compressed_size:" << compressed_size << "  payload_size:" << payload_size << "\n";
+		// }
+		assert((ssize_t) rs.nread() == compressed_size);
+	} else {
+		if (partial > 0)
+			payload_loc.size(static_cast<FullLocator::size_type>(partial));
+		else
+			partial = (ssize_t) payload_size;
+
+		IOExtString dst(value, (size_t) partial);
+		rs >> dst;
+		ok = !rs.fail();
+
+		assert(! rs.fail());
+		// if ((ssize_t) rs.nread() != partial) {
+		// 	std::cerr << "(ssize_t) rs.nread():" << (rs.nread()) << " != partial:" << partial << "  payload_size:" << payload_size << "\n";
+		// }
+		assert((ssize_t) rs.nread() == partial);
+	}
+	result.locator().consume(rs.nread());		// move and shrink
 	return ok;
 }
 
@@ -374,7 +416,7 @@ inline bool KeyValueStore::rename(const std::string& old_key, const std::string&
 	if ((old_key.length() > KEY_MAX_SIZE) || (new_key.length() > KEY_MAX_SIZE))
 		return false;
 
-	DataLocator head_pos;
+	kv_stream_pos_t head_pos;
 	if (! find(old_key, head_pos))
 		return false;
 
@@ -401,8 +443,12 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	Search result;
 	bool present = find(key, result);
 
-	shptr<block_type> head_block;
 	bool do_allocate = true;
+
+	FullLocator locator;
+
+	bool do_compress = (value.length() >= KV_COMPRESSION_MIN_LENGTH);
+	// do_compress = false;
 
 	if (present)
 	{
@@ -413,7 +459,16 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 		if (! overwrite)
 			return false;
 
-		do_allocate = (value.length() > result.contents_size()) ? true : false;
+		// TODO: handle allocation decision when using compression
+		if (do_compress)
+			do_allocate = true;
+		else
+		{
+			if (result.isCompressed())
+				do_allocate = (value.length() > result.payload_size()) ? true : false;
+			else
+				do_allocate = (value.length() > result.contents_size()) ? true : false;
+		}
 	} else
 	{
 		/* not present */
@@ -425,31 +480,102 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	if (do_allocate)
 	{
 		// -- allocate a new place --
-		head_block.reset();
-		result.contents_size(value.length());
-		assert(result.envelope_size() == value.length() + sizeof(serialized_value_size_type));
-		alloc_value_envelope(result.locator());
-		if (! result.locator().valid())
+		// result.contents_size(value.length());
+		// allocate for uncompressed size, then later we'll mark
+		// residual space as free (TODO)
+		kv_stream_sized_pos_t fresh;
+		size_t amount = value.length() + FullLocator::ENVELOPE_SIZE;
+		if (do_compress) {
+			size_t n_lz4_blocks = (amount + LZ4_BLOCK_BYTES - 1) / LZ4_BLOCK_BYTES;
+			size_t lz4_amount = n_lz4_blocks * (sizeof(uint16_t) + LZ4_COMPRESSBOUND(LZ4_BLOCK_BYTES));
+			amount = lz4_amount;
+		}
+		if (! alloc_space(fresh, amount))
 			return false;
-		assert(result.contents_size() == value.length());
+
+		// locator.set_uncompressed(value.length());
+		locator = fresh;
+		assert(locator.valid());
+		assert(locator.payload_size() >= value.length());
+		assert(locator.contents_size() >= value.length());
+		assert(! locator.isCompressed());
+		assert(locator.full_size() >= value.length() + FullLocator::ENVELOPE_SIZE);
+
+		// result.locator() = fresh;
+		// assert(result.locator().valid());
+		// assert(result.payload_size() >= value.length());
+		// assert(result.contents_size() == value.length());
+		// assert(! result.isCompressed());
+		// assert(result.full_size() == value.length() + (2 * sizeof(serialized_value_size_type)));
+		// std::cerr << "allocated " << result.locator() << "\n";
+	} else
+	{
+		locator = result.locator();
 	}
 
 	// --  write value length and data --
 
-	// DataLocator dst_pos(head_pos);
+	// kv_stream_pos_t dst_pos(head_pos);
 
-	// serialize value length
-	if (! head_block)
-		head_block = block_get(result.block_id());
-	assert(head_block);
-	char *dstp = head_block->data() + result.offset();
-	size_t avail = static_cast<size_t>(BLOCKSIZE - result.offset());
+	// FullLocator head_loc(result.headLocator());
+	kv_stream_sized_pos_t head_loc(locator.headLocator());
+	write_stream_t ws(m_blockstorage, head_loc);
+
+	// write uncompressed value length and
+	// preliminary compressed value length (to be rewritten later)
 	serialized_value_size_type v_value_length = static_cast<serialized_value_size_type>(value.length());
-	seriously::Traits<serialized_value_size_type>::serialize(dstp, avail, v_value_length);
+	serialized_value_size_type v_compressed_length = 0;
+	ws << v_value_length << v_compressed_length;
 
 	// write value string
-	SizedLocator contents_loc(result.contentsLocator());
-	bool ok = write(value, contents_loc);
+	bool ok = false;
+
+	if (do_compress) {
+		size_t compressed_size = 0;
+		ok = write_lz4(ws, value, compressed_size);
+
+		if (ok) {
+			// update head block with compressed size information
+			result.locator() = locator;
+			result.set_compressed(compressed_size, value.length());
+			assert(result.isCompressed());
+
+			v_compressed_length = static_cast<serialized_value_size_type>(compressed_size);
+			bool s_ok = ws.seek(0, seek_start);
+#ifdef NDEBUG
+			UNUSED(s_ok);
+#else
+			assert(s_ok);
+#endif
+			ws << v_value_length << v_compressed_length;
+			// std::cerr << "value length:" << v_value_length << " compressed length: " << v_compressed_length << "\n";
+		} else {
+			/* compression failed, retry without compression */
+			ws.seek(0, seek_start);
+			ws << v_value_length << v_compressed_length;
+		}
+	}
+
+	if (! ok) {
+		// no compression or compression failed (retry without compression)
+		ws << value;
+		ok = !ws.fail();
+
+		result.locator() = locator;
+		result.set_uncompressed(value.length());
+	}
+
+	ws.flush();
+	ok = !ws.fail();
+
+	if (! ok) {
+		// everything failed!
+		std::cerr << "WARNING: write FAILED" << std::endl;
+		assert(false);
+		return false;
+	}
+
+	assert(do_compress || (ws.nwritten() == static_cast<size_t>(head_loc.size())));
 
 	// -- update the key-value map --
 
@@ -466,12 +592,14 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 			if (! m_kv_tree->insert(key, result.headDataLocator()))
 				return false;
 		}
+
+		// TODO: if allocated more space than used, release excess space here
 	}
 
 	return ok;
 }
 
-inline bool KeyValueStore::find(const std::string& key, DataLocator& data_pos)
+inline bool KeyValueStore::find(const std::string& key, kv_stream_pos_t& data_pos)
 {
 	assert(m_kv_tree);
 	assert(m_kv_tree->isOpen());
@@ -489,7 +617,7 @@ inline bool KeyValueStore::find(const std::string& key, DataLocator& data_pos)
 	{
 		assert(where.found());
 
-		shptr<kv_tree_node_type> node( where.node() );
+		MW_SHPTR<kv_tree_node_type> node( where.node() );
 		assert(node);
 
 		data_pos = node->value(where.pos());
@@ -501,222 +629,29 @@ inline bool KeyValueStore::find(const std::string& key, DataLocator& data_pos)
 	return false;
 }
 
-inline bool KeyValueStore::find(const std::string& key, SizedLocator& sized_pos)
+inline bool KeyValueStore::extend_allocated_space(kv_stream_sized_pos_t& dst, size_t amount)
 {
-	if (key.length() > KEY_MAX_SIZE)
-	{
-		sized_pos.invalidate();
+	if (! m_next_location.follows(dst))
 		return false;
-	}
-	assert(key.size() <= KEY_MAX_SIZE);
 
-	assert(m_kv_tree);
-	assert(m_kv_tree->isOpen());
-
-	// do we have this key?
-	kv_tree_lookup_type where;
-	if (m_kv_tree->search(where, key))
-	{
-		assert(where.found());
-
-		shptr<kv_tree_node_type> node( where.node() );
-		assert(node);
-
-		sized_pos.dataLocator(node->value(where.pos()));
-		sized_pos.envelope_size(0);
-		assert(sized_pos.valid());
-	} else
-	{
-		sized_pos.invalidate();
+	FullLocator extra;
+	if (! alloc_space(extra, amount))
 		return false;
-	}
 
-	assert(sized_pos.valid());
-
-	shptr<block_type> block(block_get(sized_pos.block_id()));
-	assert(block);
-
-	/*
-	 * Key-Value Storage
-	 * -----------------
-	 *
-	 * [ key-length | value-length | key | value ]
-	 *
-	 * key-length: (4 bytes) key length in bytes (serialized)
-	 * value-length: (4 bytes) value length in bytes (serialized)
-	 * key: key data (key-length bytes)
-	 * value: value data (value-length bytes)
-	 */
-
-	/*
-	 * Step 1 - Read key-length and value-length
-	 */
-
-	assert((sized_pos.offset() >= 0) && (sized_pos.offset() < static_cast<SizedLocator::offset_t>(BLOCKSIZE)));
-	const char* block_data = block->data();
-	const char* srcp = block_data + sized_pos.offset();
-	size_t avail = BLOCKSIZE - sized_pos.offset();
-
-#if 0
-	uint32_t v_key_length = 0;
-	uint32_t v_value_length = 0;
-
-	assert(avail >= (2 * sizeof(uint32_t)));
-	if (seriously::Traits<uint32_t>::deserialize(srcp, avail, v_key_length) < 0)
-		return false;
-	if (seriously::Traits<uint32_t>::deserialize(srcp, avail, v_value_length) < 0)
-		return false;
-#endif
-
-#if 1
-	serialized_value_size_type v_value_length = 0;
-
-	assert(avail >= sizeof(serialized_value_size_type));
-	if (seriously::Traits<serialized_value_size_type>::deserialize(srcp, avail, v_value_length) < 0)
-	{
-		sized_pos.invalidate();
-		return false;
-	}
-#endif
-
-	sized_pos.contents_size(static_cast<SizedLocator::size_type>(v_value_length));
-	return true;
+	return dst.merge(extra);
 }
 
-#define KV_FAST_BUFFER_SIZE    8192
-
-inline bool KeyValueStore::read(std::string& dst, SizedLocator& location)
+inline bool KeyValueStore::alloc_space(kv_stream_sized_pos_t& dst, size_t amount)
 {
-	assert(m_blockstorage);
-	assert(isOpen());
-
-	dst.clear();
-
-	size_t length = location.envelope_size();
-
-	char fast_data[KV_FAST_BUFFER_SIZE];
-	char *dst_data;
-	if ((length + 1) < sizeof(fast_data))
-		dst_data = fast_data;
-	else
-		dst_data = new char[length + 1];
-	char *dstp = dst_data;
-
-	location.normalize();
-	block_id_t  src_block_id = location.block_id();
-	uint32_t    src_offset   = static_cast<uint32_t>(location.uoffset());
-	size_t      src_rem      = length;
-	shptr<block_type> src_block;
-	//uint32_t    dst_offset   = 0;
-	size_t      nread        = 0;
-
-	while (src_rem > 0)
-	{
-		assert(src_rem > 0);
-		if ((! src_block) || (src_block->index() != src_block_id))
-			src_block = block_get(src_block_id);
-		assert(src_block);
-		assert(src_block->index() == src_block_id);
-		size_t src_block_avail = min(static_cast<size_t>(BLOCKSIZE - src_offset), src_rem);
-		assert(src_block_avail <= src_rem);
-		size_t amount = min(src_block_avail, src_rem);
-		memcpy(dstp, src_block->data() + src_offset, amount);
-		dstp       += amount;
-		src_rem    -= amount;
-		src_offset += amount;
-		nread      += amount;
-		if (src_offset >= BLOCKSIZE)
-		{
-			src_block_id++;
-			src_block.reset();
-			src_offset = 0;
-		}
-	}
-	*dstp = '\0';
-	assert(src_rem == 0);
-
-	assert(nread >= length);
-
-	dst.reserve(nread);
-	dst.resize(nread);
-	dst.assign(dst_data, nread);
-	if (dst_data != fast_data)
-	{
-		delete[] dst_data;
-		dst_data = NULL;
-	}
-
-	location.consume(nread);				// move and shrink
-	return (nread == length) ? true : false;
-}
-
-inline bool KeyValueStore::write(const std::string& src, SizedLocator& location)
-{
-	assert(m_blockstorage);
-	assert(isOpen());
-
-	size_t dst_avail = location.envelope_size();
-
-	if (dst_avail < src.length())
-		return false;
-
-	assert(dst_avail >= src.length());
-
-	location.normalize();
-	block_id_t  dst_block_id = location.block_id();
-	uint32_t    dst_offset   = static_cast<uint32_t>(location.uoffset());
-	shptr<block_type> dst_block;
-	const char *srcp         = src.data();
-	size_t      src_rem      = src.length();
-	size_t      nwritten     = 0;
-
-	while ((src_rem > 0) && (dst_avail > 0))
-	{
-		assert(src_rem > 0);
-		assert(dst_avail > 0);
-
-		if ((! dst_block) || (dst_block->index() != dst_block_id))
-			dst_block = block_get(dst_block_id);
-		assert(dst_block);
-		assert(dst_block->index() == dst_block_id);
-
-		size_t dst_block_avail = min(static_cast<size_t>(BLOCKSIZE - dst_offset), dst_avail);
-		assert(dst_block_avail <= dst_avail);
-
-		size_t amount = min(dst_block_avail, src_rem);
-		assert(dst_offset + amount <= BLOCKSIZE);
-		memcpy(dst_block->data() + dst_offset, srcp, amount);
-		block_put(*dst_block);
-		srcp       += amount;
-		src_rem    -= amount;
-		dst_offset += amount;
-		dst_avail  -= amount;
-		nwritten   += amount;
-		if (dst_offset >= BLOCKSIZE)
-		{
-			dst_block_id++;
-			dst_block.reset();
-			dst_offset = 0;
-		}
-	}
-	assert(src_rem == 0);
-	assert(dst_avail >= 0);
-
-	location.consume(nwritten);				// move and shrink
-	return (nwritten == src.length()) ? true : false;
-}
-
-inline bool KeyValueStore::alloc_value_envelope(SizedLocator& dst)
-{
-	size_t amount = dst.envelope_size();
+	// size_t amount = dst.size();
 	if ((! m_next_location.valid()) || (m_next_location.size() < amount))
 	{
 		size_t n_blocks = size_in_blocks(amount);
 		assert((n_blocks * BLOCKSIZE) >= amount);
-		m_next_location.block_id(block_alloc_id(n_blocks));
-		if (! block_id_valid(m_next_location.block_id()))
+		block_id_t first_block_id = block_alloc_id(static_cast<int>(n_blocks));
+		if (! block_id_valid(first_block_id))
 			return false;
-		m_next_location.offset(0);
+		m_next_location.from_block_offset(first_block_id, 0);
 		m_next_location.size(n_blocks * BLOCKSIZE);
 		if (! block_id_valid(m_first_block_id))
 			m_first_block_id = m_next_location.block_id();
@@ -732,13 +667,13 @@ inline bool KeyValueStore::alloc_value_envelope(SizedLocator& dst)
 		assert(static_cast<ssize_t>(m_next_location.offset()) <= static_cast<ssize_t>((BLOCKSIZE - amount)));
 	}
 
-	// set dst SizedLocator to allocated space
-	dst.block_id(m_next_location.block_id());
-	dst.offset(m_next_location.offset());
+	// set dst kv_stream_sized_pos_t to allocated space
+	dst.size(amount);
+	dst.pos(m_next_location.pos());
 
 	// compute next block id / avail
 	m_next_location.consume(amount);		// move and shrink
-	assert(m_next_location.size() >= 0);
+	/* assert(m_next_location.full_size() >= 0); */
 	return true;
 }
 
@@ -765,8 +700,9 @@ inline bool KeyValueStore::header_write()
 	 	static_cast<uint32_t>(BLOCKSIZE) << static_cast<uint32_t>(B) <<
 	 	static_cast<uint32_t>(KEY_MAX_SIZE);
 
-	packer << m_first_block_id << m_next_location.block_id() <<
-		static_cast<size_t>(m_next_location.offset()) << static_cast<size_t>(m_next_location.size());
+	packer << m_first_block_id <<
+		static_cast<kv_stream_pos_t::offset_t>(m_next_location.pos()) <<
+		static_cast<size_t>(m_next_location.size());
 
 	std::string userHeader(packer.data(), packer.size());
 	m_blockstorage->setUserHeader(m_kv_header_uid, userHeader);
@@ -811,25 +747,25 @@ inline bool KeyValueStore::header_read()
 		return false;
 	}
 
-	if ((v_B != B) || (v_BLOCKSIZE != BLOCKSIZE))
+	if ((static_cast<int>(v_B) != B) || (static_cast<size_t>(v_BLOCKSIZE) != BLOCKSIZE))
 	{
 		std::cerr << "ERROR: '" << m_blockstorage->pathname() << "' doesn't match with kv btree properties (B/BLOCKSIZE)" << std::endl;
 		return false;
 	}
 
-	assert(v_B == B);
-	assert(v_BLOCKSIZE == BLOCKSIZE);
+	assert(static_cast<int>(v_B) == B);
+	assert(static_cast<size_t>(v_BLOCKSIZE) == BLOCKSIZE);
 	assert(v_MAJOR <= MAJOR_VERSION);
 
-	block_id_t v_next_block_id;
-	size_t v_offset, v_avail;
-	packer >> m_first_block_id >> v_next_block_id >> v_offset >> v_avail;
-	m_next_location.block_id(v_next_block_id);
-	m_next_location.offset(v_offset);
-	m_next_location.size(v_avail);
+	kv_stream_pos_t::offset_t v_next_pos;
+	size_t v_next_avail;
+	packer >> m_first_block_id >> v_next_pos >> v_next_avail;
+	m_next_location.pos(v_next_pos);
+	m_next_location.size(v_next_avail);
 
 	return true;
 }
+
 
 } /* end of namespace milliways */
 

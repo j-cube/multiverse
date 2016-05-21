@@ -44,7 +44,7 @@
 #endif /* MILLIWAYS_DEFAULT_BLOCK_SIZE */
 
 #ifndef MILLIWAYS_DEFAULT_B_FACTOR
-#define MILLIWAYS_DEFAULT_B_FACTOR 68
+#define MILLIWAYS_DEFAULT_B_FACTOR 64
 #endif /* MILLIWAYS_DEFAULT_B_FACTOR */
 
 #ifndef MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE
@@ -75,6 +75,9 @@ class BTreeNode;
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
 class BTree;
+
+template < int B_, typename KeyTraits, typename TTraits, class Compare >
+class BTreeNodeManager;
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
 class BTreeStorage;

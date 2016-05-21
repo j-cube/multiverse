@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <unistd.h>
 #include <string.h>
 
 #include "config.h"
@@ -266,6 +267,118 @@ struct Traits<size_t>
 };
 
 #endif /* ALLOWS_TEMPLATED_SIZE_T */
+
+#if ALLOWS_TEMPLATED_SSIZE_T
+
+template <>
+struct Traits<ssize_t>
+{
+	typedef ssize_t type;
+	typedef int64_t serialized_type;
+	enum { Size = sizeof(type) };
+	enum { SerializedSize = sizeof(serialized_type) };
+
+	static ssize_t serialize(char*& dst, size_t& avail, const type& v);
+	static ssize_t deserialize(const char*& src, size_t& avail, type& v);
+
+	static size_t size(const type& value)    { UNUSED(value); return Size; }
+	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
+
+	static bool valid(const type& value)     { UNUSED(value); return true; }
+
+	static int compare(const type& a, const type& b) { return static_cast<int>(static_cast<int64_t>(a) - static_cast<int64_t>(b)); }
+};
+
+#endif /* ALLOWS_TEMPLATED_SSIZE_T */
+
+#if ! (defined(UINT32_IS_ULL) || defined(UINT64_IS_ULL) || defined(SIZE_T_IS_ULL))
+template <>
+struct Traits<unsigned long long>
+{
+	typedef unsigned long long type;
+	typedef uint64_t serialized_type;
+	enum { Size = sizeof(type) };
+	enum { SerializedSize = sizeof(serialized_type) };
+
+	static ssize_t serialize(char*& dst, size_t& avail, const type& v)    { serialized_type t(static_cast<serialized_type>(v)); return Traits<serialized_type>::serialize(dst, aval, t); }
+	static ssize_t deserialize(const char*& src, size_t& avail, type& v)  { serialized_type t = 0; ssize_t rv = Traits<serialized_type>::deserialize(src, aval, t); v = static_cast<type>(t); return rv; }
+
+	static size_t size(const type& value)    { UNUSED(value); return Size; }
+	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
+
+	static bool valid(const type& value)     { UNUSED(value); return true; }
+
+	static int compare(const type& a, const type& b) { return static_cast<int>(a - b); }
+};
+#endif
+
+#if ! (defined(UINT32_IS_UL) || defined(UINT64_IS_UL) || defined(SIZE_T_IS_UL))
+template <>
+struct Traits<unsigned long>
+{
+	typedef unsigned long type;
+	typedef uint64_t serialized_type;
+	enum { Size = sizeof(type) };
+	enum { SerializedSize = sizeof(serialized_type) };
+
+	static ssize_t serialize(char*& dst, size_t& avail, const type& v)    { serialized_type t(static_cast<serialized_type>(v)); return Traits<serialized_type>::serialize(dst, aval, t); }
+	static ssize_t deserialize(const char*& src, size_t& avail, type& v)  { serialized_type t = 0; ssize_t rv = Traits<serialized_type>::deserialize(src, aval, t); v = static_cast<type>(t); return rv; }
+
+	static size_t size(const type& value)    { UNUSED(value); return Size; }
+	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
+
+	static bool valid(const type& value)     { UNUSED(value); return true; }
+
+	static int compare(const type& a, const type& b) { return static_cast<int>(a - b); }
+};
+#endif
+
+#if ! (defined(UINT32_IS_ULL) || defined(UINT64_IS_ULL) || defined(SSIZE_T_IS_LL))
+template <>
+struct Traits<long long>
+{
+	typedef long long type;
+	typedef int64_t serialized_type;
+	enum { Size = sizeof(type) };
+	enum { SerializedSize = sizeof(serialized_type) };
+
+	static ssize_t serialize(char*& dst, size_t& avail, const type& v)    { serialized_type t(static_cast<serialized_type>(v)); return Traits<serialized_type>::serialize(dst, aval, t); }
+	static ssize_t deserialize(const char*& src, size_t& avail, type& v)  { serialized_type t = 0; ssize_t rv = Traits<serialized_type>::deserialize(src, aval, t); v = static_cast<type>(t); return rv; }
+
+	static size_t size(const type& value)    { UNUSED(value); return Size; }
+	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
+
+	static bool valid(const type& value)     { UNUSED(value); return true; }
+
+	static int compare(const type& a, const type& b) { return static_cast<int>(a - b); }
+};
+#endif
+
+#if ! (defined(UINT32_IS_UL) || defined(UINT64_IS_UL) || defined(SSIZE_T_IS_L))
+template <>
+struct Traits<long>
+{
+	typedef long type;
+	typedef int64_t serialized_type;
+	enum { Size = sizeof(type) };
+	enum { SerializedSize = sizeof(serialized_type) };
+
+	static ssize_t serialize(char*& dst, size_t& avail, const type& v)    { serialized_type t(static_cast<serialized_type>(v)); return Traits<serialized_type>::serialize(dst, aval, t); }
+	static ssize_t deserialize(const char*& src, size_t& avail, type& v)  { serialized_type t = 0; ssize_t rv = Traits<serialized_type>::deserialize(src, aval, t); v = static_cast<type>(t); return rv; }
+
+	static size_t size(const type& value)    { UNUSED(value); return Size; }
+	static size_t maxsize(const type& value) { UNUSED(value); return Size; }
+	static size_t serializedsize(const type& value) { UNUSED(value); return SerializedSize; }
+
+	static bool valid(const type& value)     { UNUSED(value); return true; }
+
+	static int compare(const type& a, const type& b) { return static_cast<int>(a - b); }
+};
+#endif
 
 template <>
 struct Traits<std::string>

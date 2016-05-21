@@ -39,6 +39,9 @@
 #include "milliways/Seriously.h"
 #include "milliways/KeyValueStore.h"
 
+#include "milliways/Utils.h"
+#include <algorithm>
+
 #ifndef GIT_SUCCESS
 #define GIT_SUCCESS 0
 #endif /* GIT_SUCCESS */
@@ -68,6 +71,7 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 /*   CODE                                                            */
 /* ----------------------------------------------------------------- */
 
+static int notified_first_write = 0;
 typedef milliways::KeyValueStore kv_store_t;
 typedef typename kv_store_t::block_storage_type kv_blockstorage_t;
 typedef typename kv_store_t::Search kv_search_t;
@@ -161,6 +165,7 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 	assert(backend);
 
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
+	// std::cerr << "milliways_backend__read_header('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
     if (! backend->kv->find(s_oid, search)) {
 		return GIT_ENOTFOUND;
@@ -205,17 +210,43 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	assert(backend);
 
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
+	// std::cerr << "milliways_backend__read('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
     if (! backend->kv->find(s_oid, search)) {
+		// std::cerr << "  not found '" << milliways::hexify(s_oid) << "'" << std::endl;
 		return GIT_ENOTFOUND;
 	}
 
 	assert(search.found());
+	// std::cerr << "  found '" << milliways::hexify(s_oid) << "'" << std::endl;
 
-	std::string s_type, s_size;
-	uint32_t v_type, v_size;
+	std::string blob;
+	bool ok = backend->kv->get(search, blob);
+	if (! ok) {
+		// std::cerr << "  ERR: not found '" << milliways::hexify(s_oid) << "' at later stage!" << std::endl;
+		return GIT_ENOTFOUND;
+	}
 
+	const char *blob_ptr   = blob.data();
+	size_t      blob_avail = blob.size();
+
+	uint32_t v_type = (uint32_t)-1, v_size = (uint32_t)-1;
+	std::string s_data;
+
+	seriously::Traits<uint32_t>::deserialize(blob_ptr, blob_avail, v_type);
+	seriously::Traits<uint32_t>::deserialize(blob_ptr, blob_avail, v_size);
+	assert(blob.size() == (sizeof(uint32_t) * 2 + v_size));
+	assert((size_t)v_size == blob_avail);
+	s_data.reserve(v_size);
+	s_data.resize(v_size);
+	s_data.assign(blob_ptr, std::min((size_t)v_size, blob_avail));
+	// std::cerr << "  type:" << v_type << " size:" << v_size << " data-len:" << s_data.size() << " data:" << milliways::s_hexdump(s_data.data(), std::min(s_data.size(), (unsigned long)32)) << std::endl;
+	*type_p = static_cast<git_otype>(v_type);
+	*len_p = static_cast<size_t>(v_size);
+
+#if 0
 	seriously::Packer<LEN_BUFFER_SIZE> packer;
+	std::string s_type, s_size;
 
 	/* extract type (int) */
 	bool ok = backend->kv->get(search, s_type, sizeof(uint32_t));
@@ -235,6 +266,7 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	}
 	packer.data(s_size.data(), s_size.size());
 	packer >> v_size;
+	std::cerr << "  type:" << v_type << " size:" << v_size << std::endl;
 
 	*len_p = static_cast<size_t>(v_size);
 
@@ -244,7 +276,7 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	if (! ok) {
 		return GIT_ENOTFOUND;
 	}
-
+#endif
 	char* databuf = (char *)malloc(static_cast<size_t>(v_size) + 1);
 	if (! databuf)
 		return GIT_ENOMEM;
@@ -263,6 +295,7 @@ static int milliways_backend__exists(git_odb_backend *backend_, const git_oid *o
 	assert(backend);
 
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
+	// std::cerr << "milliways_backend__exists('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
     return backend->kv->has(s_oid) ? 1 : 0;
 }
@@ -286,6 +319,10 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
 	assert(backend);
 
+	if (! notified_first_write) {
+		std::cerr << "FIRST MILLIWAYS WRITE" << std::endl;
+		notified_first_write = 1;
+	}
 	uint32_t v_type = static_cast<uint32_t>(type);
 	uint32_t v_size = static_cast<uint32_t>(len);
 
@@ -296,6 +333,7 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 	whole.append(reinterpret_cast<const char*>(data), len);
 
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
+	// std::cerr << "milliways_backend__write('" << milliways::hexify(s_oid) << "', len:" << len << ", type:" << v_type << ")" << std::endl;
     if (! backend->kv->put(s_oid, whole)) {
 		return GIT_ERROR;
 	}

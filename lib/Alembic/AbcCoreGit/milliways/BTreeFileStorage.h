@@ -41,15 +41,14 @@
 namespace milliways {
 
 template < size_t CACHESIZE, size_t BLOCKSIZE, int B_, typename KeyTraits, typename TTraits, class Compare = std::less<typename KeyTraits::type> >
-class LRUNodeCache : public LRUCache< CACHESIZE, node_id_t, shptr< BTreeNode<B_, KeyTraits, TTraits, Compare> > >
+class LRUNodeCache : public LRUCache< CACHESIZE, node_id_t, MW_SHPTR< BTreeNode<B_, KeyTraits, TTraits, Compare> > >
 {
 public:
 	typedef node_id_t key_type;
 	typedef BTreeNode<B_, KeyTraits, TTraits, Compare> node_type;
-	typedef shptr<node_type> node_ptr_type;
+	typedef MW_SHPTR<node_type> node_ptr_type;
 	typedef node_ptr_type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
-	typedef ordered_map<key_type, mapped_type> ordered_map_type;
 	typedef LRUCache<CACHESIZE, node_id_t, node_ptr_type> base_type;
 	typedef typename base_type::size_type size_type;
 
@@ -69,56 +68,79 @@ public:
 		node_id_t node_id = key;
 		if (m_storage->has_id(node_id)) {
 			/* allocate node object and read node data from disk */
-			shptr<node_type> node( new node_type(m_storage->tree(), node_id) );
-			if (! node) return false;
-			assert(node->id() == node_id);
+			// MW_SHPTR<node_type> node( new node_type(m_storage->tree(), node_id) );
+			MW_SHPTR<node_type> node_ptr( m_storage->manager().get_object(node_id) );
+			assert(node_ptr && (node_ptr->id() == node_id));
+			if (! node_ptr) return false;
+			bool rv = false;
+			assert(node_ptr->id() == node_id);
 			switch (op)
 			{
 			case base_type::op_get:
-				if (! m_storage->node_read(*node)) return false;
-				node->dirty(false);
-				value = node;
+				rv = m_storage->ll_node_read(*node_ptr);
+				assert(rv || node_ptr->dirty());
+				if (rv) {
+					node_ptr->dirty(false);
+					value = node_ptr;
+				}
+				// std::cerr << "op GET rv:" << (rv ? "OK" : "NO") << "  ptr:" << node_ptr <<  " value:" << value << "\n";
+				return rv;
 				break;
 			case base_type::op_set:
 				assert(value);
-				*node = *value;
+				*node_ptr = *value;
+				// std::cerr << "op SET rv:" << (true ? "OK" : "NO") << "  ptr:" << node_ptr <<  " value:" << value << "\n";
 				break;
 			case base_type::op_sub:
 				//assert(value);
-				bool rv = m_storage->node_read(*node);
-				assert(rv || node->dirty());
-				value = node;
+				rv = m_storage->ll_node_read(*node_ptr);
+				assert(rv || node_ptr->dirty());
+				value = node_ptr;
+				// std::cerr << "op [] rv:" << (rv ? "OK" : "NO") << "  ptr:" << node_ptr <<  " value:" << value << "\n";
 				return rv;
+				break;
+			default:
+				assert(false);
+				return false;
 				break;
 			}
 			return true;
 		}
 		return false;
 	}
-	bool on_set(const key_type& key, const mapped_type& value)
+	bool on_set(const key_type& /* key */, const mapped_type& /* value */)
 	{
 		return true;
 	}
 	//bool on_delete(const key_type& key);
-	bool on_eviction(const key_type& key, mapped_type& value)
+	bool on_eviction(const key_type& /* key */, mapped_type& value)
 	{
 		/* write back block */
 		/* node_id_t node_id = key; */
-		node_type* node = value.get();
-		if (node)
-		{
-			if (node->id() != NODE_ID_INVALID)
+		if (value) {
+			node_type* node = value.get();
+			if (node)
 			{
-				bool ok = m_storage->node_write(*node);
-				assert(ok);
+				if (node->id() != NODE_ID_INVALID)
+				{
+#ifdef NDEBUG
+					m_storage->ll_node_write(*node);
+#else
+					bool ok = m_storage->ll_node_write(*node);
+					assert(ok);
+#endif
+				}
+				// node->id(NODE_ID_INVALID);
+				// value.reset();
 			}
-			// node->id(NODE_ID_INVALID);
-			// value.reset();
 		}
 		return true;
 	}
 
 private:
+	LRUNodeCache(const LRUNodeCache&) {}
+	LRUNodeCache& operator= (const LRUNodeCache&) {}
+
 	storage_ptr_type m_storage;
 };
 
@@ -191,15 +213,15 @@ public:
 	node_id_t node_alloc_id() { assert(m_block_storage); assert(m_block_storage->isOpen()); return static_cast<node_id_t>(m_block_storage->allocId()); }
 	void node_dispose_id_helper(node_id_t node_id);
 
-	bool node_read(node_type& node);
-	bool node_write(node_type& node);
+	bool ll_node_read(node_type& node);
+	bool ll_node_write(node_type& node);
 
 	/* -- Node I/O - hight level (cached) -------------------------- */
 
-	shptr<node_type> node_alloc(node_id_t node_id);
-	void node_dealloc(shptr<node_type>& node);
-	shptr<node_type> node_get(node_id_t node_id);
-	shptr<node_type> node_put(shptr<node_type>& node);
+	MW_SHPTR<node_type> node_alloc(node_id_t node_id);
+	void node_dealloc(MW_SHPTR<node_type>& node);
+	MW_SHPTR<node_type> node_read(node_id_t node_id);
+	MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node);
 
 	/* -- Header I/O ----------------------------------------------- */
 

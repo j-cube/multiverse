@@ -47,158 +47,105 @@ static const int KV_BLOCK_CACHESIZE = MILLIWAYS_DEFAULT_BLOCK_CACHE_SIZE;	/* def
 static const int KV_NODE_CACHESIZE = MILLIWAYS_DEFAULT_NODE_CACHE_SIZE;		/* default: 1024 */
 static const int KV_B = MILLIWAYS_DEFAULT_B_FACTOR;							/* default: 73   */
 
+typedef uint64_t serialized_data_pos_type;
 typedef uint16_t serialized_data_offset_type;
 typedef uint32_t serialized_value_size_type;
 
 /* ----------------------------------------------------------------- *
- *   DataLocator                                                     *
+ *   FullLocator                                                     *
+ *     full size + compressed size + payload                         *
  * ----------------------------------------------------------------- */
 
-struct DataLocator
+typedef StreamPos<KV_BLOCKSIZE> kv_stream_pos_t;
+typedef StreamSizedPos<KV_BLOCKSIZE> kv_stream_sized_pos_t;
+
+struct FullLocator : public kv_stream_sized_pos_t
 {
 public:
-	// we use a large type here for offsets, since we could risk overflow when
-	// doing offset math, then when serializing we'll cast it to uint16_t
-	// since the final offset must reach only a whole block and not more
-	typedef ssize_t offset_t;
-	typedef size_t uoffset_t;
+	static const size_type ENVELOPE_SIZE = (2 * sizeof(serialized_value_size_type));
 
-	DataLocator() :
-		m_block_id(BLOCK_ID_INVALID), m_offset(0) {}
-	DataLocator(block_id_t block_id, offset_t offset) :
-		m_block_id(block_id), m_offset(offset) {}
-	DataLocator(const DataLocator& other) :
-		m_block_id(other.m_block_id), m_offset(other.m_offset) {}
-	DataLocator(const DataLocator& other, offset_t delta_) :
-			m_block_id(other.m_block_id), m_offset(other.m_offset) { delta(delta_); }
-	DataLocator& operator= (const DataLocator& other) { m_block_id = other.m_block_id; m_offset = other.m_offset; return *this; }
+	FullLocator() : kv_stream_sized_pos_t(), m_uncompressed(0) {}
+	FullLocator(size_t linear_pos_, size_t size_) :
+		kv_stream_sized_pos_t(linear_pos_, size_), m_uncompressed(0) {}
+	FullLocator(const FullLocator& other) :
+		kv_stream_sized_pos_t(other.pos(), other.full_size()), m_uncompressed(other.m_uncompressed) {}
+	FullLocator(const kv_stream_sized_pos_t& sizedLocator_, size_t uncompressed_) :
+		kv_stream_sized_pos_t(sizedLocator_), m_uncompressed(uncompressed_) {}
+	FullLocator(const FullLocator& other, offset_t delta_) :
+		kv_stream_sized_pos_t(other.pos(), other.full_size()), m_uncompressed(other.m_uncompressed) { delta(delta_); }
+	FullLocator& operator=(const FullLocator& other) { m_pos = other.m_pos; m_full_size = other.m_full_size; m_uncompressed = other.m_uncompressed; return *this; }
+	FullLocator& operator=(const kv_stream_sized_pos_t& sl) { m_pos = sl.pos(); m_full_size = sl.size(); return *this; }
+	FullLocator& operator=(const kv_stream_pos_t& dl) { m_pos = dl.pos(); return *this; }
 
-	bool operator== (const DataLocator& rhs) const { return (((! block_id_valid(m_block_id)) && (! block_id_valid(rhs.m_block_id))) || ((m_block_id == rhs.m_block_id) && (m_offset == rhs.m_offset))); }
-	bool operator!= (const DataLocator& rhs) const { return (! (*this == rhs)); }
-	bool operator< (const DataLocator& rhs) const {
-		if ((! block_id_valid(m_block_id)) && (! block_id_valid(rhs.m_block_id)))
-			return false;
-		if (m_block_id < rhs.m_block_id)
-			return true;
-		else if (m_block_id == rhs.m_block_id)
-			return (m_offset < rhs.m_offset);
-		return false;
-	}
-	operator bool() const { return valid(); }
-
-	bool valid() const { return block_id_valid(m_block_id) && (m_offset < static_cast<offset_t>(KV_BLOCKSIZE)); }
-
-	DataLocator& invalidate() { m_block_id = BLOCK_ID_INVALID; return *this; }
-
-	block_id_t block_id() const { return m_block_id; }
-	block_id_t block_id(block_id_t value) { block_id_t old = m_block_id; m_block_id = value; return old; }
-
-	offset_t offset() const { return m_offset; }
-	offset_t offset(offset_t value) { offset_t old = m_offset; m_offset = value; return old; }
-
-	uoffset_t uoffset() { normalize(); return static_cast<uoffset_t>(m_offset); }
-
-	DataLocator& delta(offset_t delta_) { m_offset += delta_; return normalize(); }
-
-	DataLocator& normalize()
+	bool operator==(const FullLocator& rhs) const
 	{
-		if (! block_id_valid(m_block_id))
-			return *this;
-		assert(block_id_valid(m_block_id));
-		while (m_offset >= static_cast<offset_t>(KV_BLOCKSIZE)) {
-			m_block_id++;
-			m_offset -= static_cast<offset_t>(KV_BLOCKSIZE);
-		}
-		while (m_offset < 0) {
-			assert(m_block_id > 0);
-			m_block_id--;
-			m_offset += static_cast<offset_t>(KV_BLOCKSIZE);
-		}
-		assert(block_id_valid(m_block_id));
-		assert((m_offset >= 0) && (m_offset < static_cast<offset_t>(KV_BLOCKSIZE)));
-		return *this;
+		return (((m_pos < 0) && (rhs.m_pos < 0)) ||
+		        ((m_pos == rhs.m_pos) && (m_full_size == rhs.m_full_size) && (m_uncompressed == rhs.m_uncompressed)));
 	}
-
-protected:
-	block_id_t m_block_id;
-	offset_t m_offset;
-};
-
-inline std::ostream& operator<< (std::ostream& out, const DataLocator& value)
-{
-	if (value.valid())
-		out << "<KVDataLocator block:" << value.block_id() << " offset:" << (int)value.offset() << ">";
-	else
-		out << "<KVDataLocator invalid>";
-	return out;
-}
-
-/* ----------------------------------------------------------------- *
- *   SizedLocator                                                    *
- * ----------------------------------------------------------------- */
-
-struct SizedLocator : public DataLocator
-{
-public:
-	typedef size_t size_type;
-
-	SizedLocator() : DataLocator(), m_size(0) {}
-	SizedLocator(block_id_t block_id_, offset_t offset_, size_t size_) :
-		DataLocator(block_id_, offset_), m_size(size_) {}
-	SizedLocator(const SizedLocator& other) :
-		DataLocator(other.block_id(), other.offset()), m_size(other.m_size) {}
-	SizedLocator(const DataLocator& dataLocator, size_t size_) :
-		DataLocator(dataLocator), m_size(size_) {}
-	SizedLocator(const SizedLocator& other, offset_t delta_) :
-		DataLocator(other.block_id(), other.offset()), m_size(other.m_size) { delta(delta_); }
-	SizedLocator& operator=(const SizedLocator& other) { m_block_id = other.m_block_id; m_offset = other.m_offset; m_size = other.m_size; return *this; }
-	SizedLocator& operator=(const DataLocator& dl) { m_block_id = dl.block_id(); m_offset = dl.offset(); return *this; }
-
-	bool operator==(const SizedLocator& rhs) const
-	{
-		return (((!block_id_valid(m_block_id)) && (!block_id_valid(rhs.m_block_id))) ||
-		        ((m_block_id == rhs.m_block_id) && (m_offset == rhs.m_offset) && (m_size == rhs.m_size)));
-	}
-	bool operator!=(const SizedLocator& rhs) const { return (!(*this == rhs)); }
-	bool operator<(const SizedLocator& rhs) const {
-		if ((!block_id_valid(m_block_id)) && (!block_id_valid(rhs.m_block_id)))
+	bool operator!=(const FullLocator& rhs) const { return (!(*this == rhs)); }
+	bool operator<(const FullLocator& rhs) const {
+		if ((m_pos < 0) && (rhs.m_pos < 0))
 			return false;
-		if (m_block_id < rhs.m_block_id)
+		if (m_pos < rhs.m_pos)
 			return true;
-		else if ((m_block_id == rhs.m_block_id) && (m_offset == rhs.m_offset))
-			return (m_size < rhs.m_size);
-		else if (m_block_id == rhs.m_block_id)
-			return (m_offset < rhs.m_offset);
+		else if (m_pos == rhs.m_pos)
+		{
+			if (m_full_size < rhs.m_full_size)
+				return true;
+			else
+				return (m_uncompressed < rhs.m_uncompressed);
+		}
 		return false;
 	}
 
-	DataLocator dataLocator() const { return DataLocator(m_block_id, m_offset); }
-	SizedLocator& dataLocator(const DataLocator& value) { block_id(value.block_id()); offset(value.offset()); return *this; }
+	kv_stream_sized_pos_t sizedLocator() const { return kv_stream_sized_pos_t(m_pos, m_full_size); }
 
-	size_type size() const { return m_size; }
-	size_type size(size_type value) { size_type old = m_size; m_size = value; return old; }
+	// kv_stream_sized_pos_t sizedLocator() const { return kv_stream_sized_pos_t(m_block_id, m_offset); }
+	// FullLocator& dataLocator(const kv_stream_pos_t& value) { block_id(value.block_id()); offset(value.offset()); return *this; }
 
-	SizedLocator& shrink(size_type value) { m_size -= value; return *this; }
-	SizedLocator& grow(size_type value) { m_size += value; return *this; }
+	size_type size() const { assert(false); return (size_type) -1; }
+	size_type size(size_type /* value */) { assert(false); return (size_type) -1; }
 
-	SizedLocator& consume(size_type value) { shrink(value); delta(value); return *this; }
+	size_type full_size() const { return m_full_size; }
+	size_type full_size(size_type value) { size_type old = m_full_size; m_full_size = value; return old; }
 
-	size_type envelope_size() const { return size(); }
-	size_type envelope_size(size_type value) { return size(value); }
+	size_type header_size() const { return FullLocator::ENVELOPE_SIZE; }
 
-	size_type contents_size() const { return (envelope_size() - sizeof(serialized_value_size_type)); }
-	size_type contents_size(size_type value) { return envelope_size(value + sizeof(serialized_value_size_type)); }
+	/* compressed _payload_ (only) size */
+	size_type compressed_size() const { return (enveloped_size() - ENVELOPE_SIZE); }
+
+	/* uncompressed data (only) size */
+	size_type uncompressed_size() const { return (m_uncompressed == 0) ? compressed_size() : m_uncompressed; }
+
+	/* compressed payload size (same as compressed_size) */
+	size_type payload_size() const { return compressed_size(); }
+
+	/* same as uncompressed data (only) */
+	size_type contents_size() const { return uncompressed_size(); }
+
+	FullLocator& set_uncompressed(size_type contents_) { m_uncompressed = 0; payload_size(contents_); return *this; }
+	FullLocator& set_compressed(size_type compressed_, size_type contents_) { payload_size(compressed_); m_uncompressed = contents_; return *this; }
+
+	bool isCompressed() const { return (m_uncompressed != 0); }
+
+	kv_stream_sized_pos_t headLocator() const { return sizedLocator(); }
+	kv_stream_sized_pos_t payloadLocator() const { size_t off = FullLocator::ENVELOPE_SIZE; kv_stream_sized_pos_t pl = sizedLocator(); pl.delta(static_cast<offset_t>(off)); pl.shrink(off); return pl; }
 
 protected:
-	size_type m_size;
+	size_type enveloped_size() const { return full_size(); }
+	size_type enveloped_size(size_type value) { return full_size(value); }
+	size_type compressed_size(size_type value) { return enveloped_size(value + ENVELOPE_SIZE); }
+	size_type payload_size(size_type value) { return compressed_size(value); }
+
+	size_type m_uncompressed;		// uncompressed size (w/o header)
 };
 
-inline std::ostream& operator<< (std::ostream& out, const SizedLocator& value)
+inline std::ostream& operator<< (std::ostream& out, const FullLocator& value)
 {
 	if (value.valid())
-		out << "<KVSizedLocator block:" << value.block_id() << " offset:" << (int)value.offset() << " envelope-size:" << value.envelope_size() << " contents-size:" << value.contents_size() << ">";
+		out << "<KVFullLocator block:" << value.block_id() << " offset:" << (int)value.offset() << " enveloped-size:" << value.full_size() << " compressed-size:" << value.compressed_size() << " contents-size:" << value.contents_size() << ">";
 	else
-		out << "<KVSizedLocator invalid>";
+		out << "<KVFullLocator invalid>";
 	return out;
 }
 
@@ -207,20 +154,20 @@ inline std::ostream& operator<< (std::ostream& out, const SizedLocator& value)
 namespace seriously {
 
 /* ----------------------------------------------------------------- *
- *   ::seriously::Traits<milliways::DataLocator>                     *
+ *   ::seriously::Traits<milliways::kv_stream_pos_t>                     *
  * ----------------------------------------------------------------- */
 
 //template <typename T>
 //struct KVTraits;
 
 template <>
-struct Traits<milliways::DataLocator>
+struct Traits<milliways::kv_stream_pos_t>
 {
-	typedef milliways::DataLocator type;
-	typedef type serialized_type;
-	typedef milliways::serialized_data_offset_type serialized_offset_type;	/* uint16_t */
+	typedef milliways::kv_stream_pos_t type;
+	typedef milliways::serialized_data_pos_type serialized_type;
+	typedef milliways::serialized_data_pos_type serialized_data_pos_type;
 	enum { Size = sizeof(type) };
-	enum { SerializedSize = (sizeof(uint32_t) + sizeof(serialized_offset_type)) };
+	enum { SerializedSize = (sizeof(serialized_type)) };
 
 	static ssize_t serialize(char*& dst, size_t& avail, const type& v);
 	static ssize_t deserialize(const char*& src, size_t& avail, type& v);
@@ -235,14 +182,14 @@ struct Traits<milliways::DataLocator>
 };
 
 template <>
-struct Traits<milliways::SizedLocator>
+struct Traits<milliways::kv_stream_sized_pos_t>
 {
-	typedef milliways::SizedLocator type;
+	typedef milliways::kv_stream_sized_pos_t type;
 	typedef type serialized_type;
-	typedef milliways::serialized_data_offset_type serialized_offset_type;	/* uint16_t */
+	typedef milliways::serialized_data_pos_type serialized_data_pos_type;
 	typedef milliways::serialized_value_size_type serialized_size_type;	/* uint32_t */
 	enum { Size = sizeof(type) };
-	enum { SerializedSize = (sizeof(uint32_t) + sizeof(uint16_t) + sizeof(serialized_size_type)) };
+	enum { SerializedSize = (sizeof(serialized_data_pos_type) + sizeof(serialized_size_type)) };
 
 	static ssize_t serialize(char*& dst, size_t& avail, const type& v);
 	static ssize_t deserialize(const char*& src, size_t& avail, type& v);
@@ -267,20 +214,24 @@ namespace milliways {
 class KeyValueStore
 {
 public:
-	static const int MAJOR_VERSION = 0;
-	static const int MINOR_VERSION = 1;
+	static const uint32_t MAJOR_VERSION = 0;
+	static const uint32_t MINOR_VERSION = 1;
+
 
 	static const size_t BLOCKSIZE = KV_BLOCKSIZE;
-	static const int NODE_CACHESIZE = KV_NODE_CACHESIZE;
-	static const int BLOCK_CACHESIZE = KV_BLOCK_CACHESIZE;
-	static const int B = KV_B;
-	static const int KEY_HASH_SIZE = 20;
+	static const size_t NODE_CACHESIZE = KV_NODE_CACHESIZE;
+	static const size_t BLOCK_CACHESIZE = KV_BLOCK_CACHESIZE;
+	static const int    B = KV_B;
+	static const size_t KEY_HASH_SIZE = 20;
 
-	static const int KEY_MAX_SIZE = 20;
+	static const size_t KEY_MAX_SIZE = 20;
+
+	class kv_write_stream;
+	class kv_read_stream;
 
 	/*
 	 * we use our B+Tree to map a hash of the original key to a value-locator
-	 * (DataLocator struct above). So from the BTree point of view, its key is
+	 * (kv_stream_pos_t struct above). So from the BTree point of view, its key is
 	 * the hash of the user key.
 	 * The hash is assembled this way:
 	 *   4 bytes uid + 128-bit MurmurHash3 (16 bytes) == 20 bytes
@@ -289,7 +240,7 @@ public:
 	 *   1st 2 bytes + 4-bytes length + 128-bit MurmurHash3 (16 bytes) + last 2 bytes == 24 bytes
 	 */
 	typedef seriously::Traits<std::string> key_traits;
-	typedef seriously::Traits<DataLocator> mapped_traits;
+	typedef seriously::Traits<kv_stream_pos_t> mapped_traits;
 	typedef BTree< B, key_traits, mapped_traits > kv_tree_type;
 	typedef BTreeFileStorage< BLOCKSIZE, B, key_traits, mapped_traits > kv_tree_storage_type;
 	typedef XTYPENAME kv_tree_type::node_type kv_tree_node_type;
@@ -302,8 +253,14 @@ public:
 
 	typedef int32_t key_index_type;
 	typedef seriously::Traits<key_index_type> index_key_traits;
-	typedef seriously::Traits<DataLocator> index_mapped_traits;
+	typedef seriously::Traits<kv_stream_pos_t> index_mapped_traits;
 	typedef BTree< B, index_key_traits, index_mapped_traits > kv_index_tree_type;
+
+	typedef XTYPENAME block_storage_type::stream_pos_t       stream_pos_t;
+	typedef XTYPENAME block_storage_type::stream_sized_pos_t stream_sized_pos_t;
+	typedef XTYPENAME 
+	block_storage_type::write_stream_t write_stream_t;
+	typedef XTYPENAME block_storage_type::read_stream_t read_stream_t;
 
 	class iterator;
 	class const_iterator;
@@ -311,15 +268,15 @@ public:
 	struct Search
 	{
 	public:
-		typedef XTYPENAME SizedLocator::offset_t offset_t;
-		typedef XTYPENAME SizedLocator::uoffset_t uoffset_t;
-		typedef XTYPENAME SizedLocator::size_type size_type;
+		typedef XTYPENAME FullLocator::offset_t offset_t;
+		typedef XTYPENAME FullLocator::block_offset_t block_offset_t;
+		typedef XTYPENAME FullLocator::size_type size_type;
 
-		Search() {}
-		Search(const Search& other) : m_lookup(other.m_lookup), m_value_loc(SizedLocator(other.m_value_loc)) {}
-		Search& operator= (const Search& other) { m_lookup = other.m_lookup; m_value_loc = other.m_value_loc; return *this; }
+		Search() : m_lookup(), m_full_loc() {}
+		Search(const Search& other) : m_lookup(other.m_lookup), m_full_loc(FullLocator(other.m_full_loc)) {}
+		Search& operator= (const Search& other) { m_lookup = other.m_lookup; m_full_loc = other.m_full_loc; return *this; }
 
-		bool operator== (const Search& rhs) const { return (m_lookup == rhs.m_lookup) && (m_value_loc == rhs.m_value_loc); }
+		bool operator== (const Search& rhs) const { return (m_lookup == rhs.m_lookup) && (m_full_loc == rhs.m_full_loc); }
 		bool operator!= (const Search& rhs) const { return (! (*this == rhs)); }
 
 		operator bool() const { return valid() && found(); }
@@ -327,49 +284,58 @@ public:
 		const kv_tree_lookup_type& lookup() const { return m_lookup; }
 		kv_tree_lookup_type& lookup() { return m_lookup; }
 
-		const SizedLocator& locator() const { return m_value_loc; }
-		SizedLocator& locator() { return m_value_loc; }
-		Search& locator(const SizedLocator& locator) { m_value_loc = locator; return *this; }
+		const FullLocator& locator() const { return m_full_loc; }
+		FullLocator& locator() { return m_full_loc; }
+		Search& locator(const FullLocator& locator_) { m_full_loc = locator_; return *this; }
 
 		bool found() const { return m_lookup.found(); }
 		const std::string& key() const { return m_lookup.key(); }
-		shptr<kv_tree_node_type> node() const { return m_lookup.node(); }
+		MW_SHPTR<kv_tree_node_type> node() const { return m_lookup.node(); }
 		int pos() const { return m_lookup.pos(); }
 		node_id_t nodeId() const { return m_lookup.nodeId(); }
 
-		bool valid() const { return m_value_loc.valid(); }
-		Search& invalidate() { m_value_loc.invalidate(); return *this; }
-		block_id_t block_id() const { return m_value_loc.block_id(); }
-		block_id_t block_id(block_id_t value) { return m_value_loc.block_id(value); }
-		offset_t offset() const { return m_value_loc.offset(); }
-		offset_t offset(offset_t value) { return m_value_loc.offset(value); }
-		uoffset_t uoffset() { return m_value_loc.uoffset(); }
+		bool valid() const { return m_full_loc.valid(); }
+		Search& invalidate() { m_full_loc.invalidate(); return *this; }
 
-		DataLocator dataLocator() const { return m_value_loc.dataLocator(); }
-		Search& dataLocator(const DataLocator& value) { m_value_loc.dataLocator(value); return *this; }
+		offset_t position() const { return m_full_loc.pos(); }
+		offset_t position(offset_t value) { return m_full_loc.pos(value); }
 
-		const SizedLocator& headLocator() const { return locator(); }
-		SizedLocator& headLocator() { return locator(); }
-		SizedLocator contentsLocator() const { size_t off = sizeof(serialized_value_size_type); SizedLocator cl = SizedLocator(locator()); cl.delta(off); cl.shrink(off); return cl; }
+		block_id_t block_id() const { return m_full_loc.block_id(); }
+		block_offset_t offset() const { return m_full_loc.offset(); }
 
-		DataLocator headDataLocator() const { return headLocator().dataLocator(); }
-		DataLocator contentsDataLocator() const { return contentsLocator().dataLocator(); }
+		kv_stream_pos_t dataLocator() const { return m_full_loc.dataLocator(); }
+		Search& dataLocator(const kv_stream_pos_t& value) { m_full_loc.dataLocator(value); return *this; }
 
-		size_type size() const { return m_value_loc.size(); }
-		size_type size(size_type value) { return m_value_loc.size(value); }
+		const FullLocator& headLocator() const { return locator(); }
+		FullLocator& headLocator() { return locator(); }
+		kv_stream_sized_pos_t payloadLocator() const { size_t off = FullLocator::ENVELOPE_SIZE; kv_stream_sized_pos_t pl = locator().sizedLocator(); pl.delta(static_cast<offset_t>(off)); pl.shrink(off); return pl; }
 
-		size_type envelope_size() const { return m_value_loc.envelope_size(); }
-		size_type envelope_size(size_type value) { return m_value_loc.envelope_size(value); }
+		kv_stream_pos_t headDataLocator() const { return headLocator().dataLocator(); }
+		kv_stream_pos_t payloadDataLocator() const { return payloadLocator().dataLocator(); }
 
-		size_type contents_size() const { return m_value_loc.contents_size(); }
-		size_type contents_size(size_type value) { return m_value_loc.contents_size(value); }
+		size_type full_size() const { return m_full_loc.full_size(); }
+		size_type full_size(size_type value) { return m_full_loc.full_size(value); }
+
+		size_type compressed_size() const { return m_full_loc.compressed_size(); }
+		size_type uncompressed_size() const { return m_full_loc.uncompressed_size(); }
+
+		/* compressed payload size (same as compressed_size) */
+		size_type payload_size() const { return m_full_loc.payload_size(); }
+
+		/* same as uncompressed data (only) */
+		size_type contents_size() const { return m_full_loc.contents_size(); }
+
+		FullLocator& set_uncompressed(size_type contents_) { return m_full_loc.set_uncompressed(contents_); }
+		FullLocator& set_compressed(size_type compressed_, size_type contents_) { return m_full_loc.set_compressed(compressed_, contents_); }
+
+		bool isCompressed() const { return m_full_loc.isCompressed(); }
 
 	private:
-		Search(const kv_tree_lookup_type& lookup_, const SizedLocator& vl) :
-			m_lookup(lookup_), m_value_loc(SizedLocator(vl)) {}
+		Search(const kv_tree_lookup_type& lookup_, const FullLocator& vl) :
+			m_lookup(lookup_), m_full_loc(FullLocator(vl)) {}
 
 		kv_tree_lookup_type m_lookup;
-		SizedLocator m_value_loc;
+		FullLocator m_full_loc;
 	};
 
 	KeyValueStore(block_storage_type* blockstorage);
@@ -413,15 +379,16 @@ public:
 		typedef std::forward_iterator_tag iterator_category;
 		typedef int difference_type;
 
-		base_iterator() : m_kv(NULL), m_tree(NULL), m_forward(true), m_end(true) {}
-		base_iterator(kv_type* kv, bool forward_ = true, bool end_ = false) : m_kv(kv), m_tree(NULL), m_forward(forward_), m_end(end_) { m_tree = m_kv->kv_tree(); kv_tree_iterator_type it(m_tree, m_tree->root(), forward_, end_); m_tree_it = it; rewind(end_); }
+		base_iterator() : m_kv(NULL), m_tree(NULL), m_tree_it(), m_forward(true), m_end(true), m_current_key() {}
+		base_iterator(kv_type* kv_, bool forward_ = true, bool end_ = false) : m_kv(kv_), m_tree(NULL), m_tree_it(), m_forward(forward_), m_end(end_), m_current_key() { m_tree = m_kv->kv_tree(); kv_tree_iterator_type it(m_tree, m_tree->root(), forward_, end_); m_tree_it = it; rewind(end_); }
 		base_iterator(const base_iterator& other) : m_kv(other.m_kv), m_tree(other.m_tree), m_tree_it(other.m_tree_it), m_forward(other.m_forward), m_end(other.m_end), m_current_key(other.m_current_key) { }
 		base_iterator& operator= (const base_iterator& other) { m_kv = other.m_kv; m_tree = other.m_tree; m_tree_it = other.m_tree_it; m_forward = other.m_forward; m_end = other.m_end; m_current_key = other.m_current_key; return *this; }
+		~base_iterator() { m_kv = NULL; m_tree = NULL; m_end = true; }
 
-		self_type& operator++() { next(); return *this; }
-		self_type& operator++(int junk) { next(); return *this; }
+		self_type& operator++() { next(); return *this; }									/* prefix  */
+		self_type operator++(int) { self_type i = *this; next(); return i; }				/* postfix */
 		self_type& operator--() { prev(); return *this; }
-		self_type& operator--(int junk) { prev(); return *this; }
+		self_type operator--(int) { self_type i = *this; prev(); return i; }
 		// reference operator*() { m_current_key = (*m_tree_it).key(); return m_current_key; }
 		const_reference operator*() const { m_current_key = (*m_tree_it).key(); return m_current_key; }
 		// pointer operator->() { m_current_key = (*m_tree_it).key(); return &m_current_key; }
@@ -456,7 +423,7 @@ public:
 	class iterator : public base_iterator
 	{
 	public:
-		iterator(kv_type* kv, bool forward_ = true, bool end_ = false) : base_iterator(kv, forward_, end_) {}
+		iterator(kv_type* kv_, bool forward_ = true, bool end_ = false) : base_iterator(kv_, forward_, end_) {}
 		iterator(const iterator& other) : base_iterator(other) {}
 
 		reference operator*() { m_current_key = (*m_tree_it).key(); return m_current_key; }
@@ -466,7 +433,7 @@ public:
 	class const_iterator : public base_iterator
 	{
 	public:
-		const_iterator(kv_type* kv, bool forward_ = true, bool end_ = false) : base_iterator(kv, forward_, end_) {}
+		const_iterator(kv_type* kv_, bool forward_ = true, bool end_ = false) : base_iterator(kv_, forward_, end_) {}
 		const_iterator(const const_iterator& other) : base_iterator(other) {}
 	};
 
@@ -474,14 +441,23 @@ public:
 	friend class iterator;
 	friend class const_iterator;
 
+	/* -- Streaming ------------------------------------------------ */
+
 protected:
-	bool find(const std::string& key, DataLocator& data_pos);
-	bool find(const std::string& key, SizedLocator& sized_pos);
+	bool find(const std::string& key, kv_stream_pos_t& data_pos);
+	// bool find(const std::string& key, kv_stream_sized_pos_t& sized_pos);
+	// bool find(const std::string& key, FullLocator& full_pos);
 
-	bool read(std::string& dst, SizedLocator& location);
-	bool write(const std::string& src, SizedLocator& location);
+	/* streaming read */
+	bool read_lz4(read_stream_t& rs, char*& dstp, size_t nbytes, size_t& compressed_size) { return m_blockstorage->read_lz4(rs, dstp, nbytes, compressed_size); }
+	bool read_lz4(read_stream_t& rs, std::string& dst, size_t nbytes, size_t& compressed_size) { return m_blockstorage->read_lz4(rs, dst, nbytes, compressed_size); }
 
-	bool alloc_value_envelope(SizedLocator& dst);
+	/* streaming write */
+	bool write_lz4(write_stream_t& ws, const char*& srcp, size_t nbytes, size_t& compressed_size) { return m_blockstorage->write_lz4(ws, srcp, nbytes, compressed_size); }
+	bool write_lz4(write_stream_t& ws, const std::string& src, size_t& compressed_size) { const char *srcp = src.data(); return write_lz4(ws, srcp, src.length(), compressed_size); }
+
+	bool alloc_space(kv_stream_sized_pos_t& dst, size_t amount);
+	bool extend_allocated_space(kv_stream_sized_pos_t& dst, size_t amount);
 	size_t size_in_blocks(size_t size);
 
 	/* -- Header I/O ----------------------------------------------- */
@@ -493,7 +469,7 @@ protected:
 
 	block_id_t block_alloc_id(int n_blocks = 1) { assert(m_blockstorage); return m_blockstorage->allocId(n_blocks); }
 	bool block_dispose(block_id_t block_id, int count = 1) { assert(m_blockstorage); return m_blockstorage->dispose(block_id, count); }
-	shptr<block_type> block_get(block_id_t block_id) { assert(m_blockstorage); return m_blockstorage->get(block_id); }
+	MW_SHPTR<block_type> block_get(block_id_t block_id) { assert(m_blockstorage); return m_blockstorage->get(block_id); }
 	bool block_put(const block_type& src) { assert(m_blockstorage); return m_blockstorage->put(src); }
 
 	/* -- Tree access ---------------------------------------------- */
@@ -526,7 +502,7 @@ private:
 	 * free space starts.
 	 */
 	block_id_t m_first_block_id;
-	SizedLocator m_next_location;
+	kv_stream_sized_pos_t m_next_location;
 
 	int m_kv_header_uid;
 };

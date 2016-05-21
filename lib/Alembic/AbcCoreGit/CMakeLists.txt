@@ -54,6 +54,7 @@ SET( CXX_FILES
   msgpack_support.cpp
   JSON.cpp
   git-milliways.cpp
+  milliways/lz4.c
 )
 
 SET( C_FILES
