@@ -250,7 +250,7 @@ hashtable<Key, T, KeyCompare>::hashtable() :
 
 template < typename Key, typename T, class KeyCompare >
 hashtable<Key, T, KeyCompare>::hashtable(size_type for_size) :
-	m_buckets(NULL), m_capacity(0), m_size(0)
+	m_buckets(NULL), m_capacity(0), m_size(0), m_prime_lt_capacity(0)
 {
 	size_type initial_capacity = capacity_for(for_size);
 

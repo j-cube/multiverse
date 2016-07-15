@@ -25,11 +25,19 @@
 #ifndef MILLIWAYS_BTREEFILESTORAGE_H
 #define MILLIWAYS_BTREEFILESTORAGE_H
 
+#include "config.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <functional>
+#if defined(USE_STD_ARRAY)
 #include <array>
+#elif defined(USE_TR1_ARRAY)
+#include <tr1/array>
+#elif defined(USE_BOOST_ARRAY)
+#include <boost/array.hpp>
+#endif
 
 #include <stdint.h>
 #include <assert.h>
@@ -50,7 +58,7 @@ public:
 	typedef node_ptr_type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef LRUCache<CACHESIZE, node_id_t, node_ptr_type> base_type;
-	typedef typename base_type::size_type size_type;
+	typedef ITYPENAME base_type::size_type size_type;
 
 	typedef BTreeStorage<B_, KeyTraits, TTraits, Compare>* storage_ptr_type;
 
@@ -159,8 +167,8 @@ public:
 
 	typedef KeyTraits key_traits_type;
 	typedef TTraits mapped_traits_type;
-	typedef typename KeyTraits::type key_type;
-	typedef typename TTraits::type mapped_type;
+	typedef ITYPENAME KeyTraits::type key_type;
+	typedef ITYPENAME TTraits::type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef Compare key_compare;
 	typedef size_t size_type;

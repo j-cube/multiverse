@@ -29,6 +29,10 @@
 #include "Seriously.h"
 #include "Utils.h"
 
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
 #include "lz4.h"
 
 #ifndef MILLIWAYS_BLOCKSTORAGE_IMPL_H
@@ -708,6 +712,10 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 			new_avail -= off;
 		}
 		break;
+
+	default:
+		assert(false);
+		break;
 	}
 
 	if (new_avail < 0) {
@@ -739,7 +747,7 @@ inline ssize_t WriteStream<BLOCKSIZE, CACHE_SIZE>::write(const char *srcp, size_
 	assert(m_location.size() >= src_length);
 
 	size_t  src_rem  = src_length;
-	ssize_t nwritten = 0;
+	ssize_t nwritten_ = 0;
 
 	while ((src_rem > 0) && (m_location.size() > 0))
 	{
@@ -762,15 +770,15 @@ inline ssize_t WriteStream<BLOCKSIZE, CACHE_SIZE>::write(const char *srcp, size_
 		srcp         += amount;
 		src_rem      -= amount;
 		m_location.consume(amount);		// move and shrink
-		nwritten     += static_cast<ssize_t>(amount);
+		nwritten_    += static_cast<ssize_t>(amount);
 	}
 	assert(src_rem == 0);
 	/* assert(dst_avail >= 0); */
 
-	m_nwritten += static_cast<size_t>(nwritten);
-	if (nwritten != static_cast<ssize_t>(src_length))
+	m_nwritten += static_cast<size_t>(nwritten_);
+	if (nwritten_ != static_cast<ssize_t>(src_length))
 		fail(true);
-	return nwritten;
+	return nwritten_;
 }
 
 template <size_t BLOCKSIZE, int CACHE_SIZE>
@@ -783,17 +791,17 @@ inline ssize_t ReadStream<BLOCKSIZE, CACHE_SIZE>::read(std::string& dst, size_t 
 		dst_data = new char[dst_length + 1];
 	char *dstp = dst_data;
 
-	ssize_t nread = read(dstp, dst_length);
+	ssize_t nread_ = read(dstp, dst_length);
 	dstp[dst_length] = '\0';
 
-	if (nread >= 0)
+	if (nread_ >= 0)
 	{
-		assert(nread >= static_cast<ssize_t>(dst_length));
+		assert(nread_ >= static_cast<ssize_t>(dst_length));
 
 		dst.clear();
-		dst.reserve(static_cast<size_t>(nread));
-		dst.resize(static_cast<size_t>(nread));
-		dst.assign(dst_data, static_cast<size_t>(nread));
+		dst.reserve(static_cast<size_t>(nread_));
+		dst.resize(static_cast<size_t>(nread_));
+		dst.assign(dst_data, static_cast<size_t>(nread_));
 		if (dst_data != m_fast_data)
 		{
 			delete[] dst_data;
@@ -801,9 +809,9 @@ inline ssize_t ReadStream<BLOCKSIZE, CACHE_SIZE>::read(std::string& dst, size_t 
 		}
 	}
 
-	if (nread != static_cast<ssize_t>(dst_length))
+	if (nread_ != static_cast<ssize_t>(dst_length))
 		fail(true);
-	return nread;
+	return nread_;
 }
 
 template <size_t BLOCKSIZE, int CACHE_SIZE>
@@ -821,7 +829,7 @@ inline ssize_t ReadStream<BLOCKSIZE, CACHE_SIZE>::read(char *dstp, size_t dst_le
 	assert(m_location.size() >= dst_length);
 
 	size_t  length = dst_length;
-	ssize_t nread  = 0;
+	ssize_t nread_  = 0;
 	assert(length <= m_location.size());
 
 	while (length > 0)
@@ -845,15 +853,15 @@ inline ssize_t ReadStream<BLOCKSIZE, CACHE_SIZE>::read(char *dstp, size_t dst_le
 		length       -= amount;
 		m_srcp       += amount;
 		m_location.consume(amount);		// move and shrink
-		nread        += static_cast<ssize_t>(amount);
+		nread_        += static_cast<ssize_t>(amount);
 	}
 	assert(length == 0);
 	/* assert(src_avail >= 0); */
 
-	m_nread += static_cast<size_t>(nread);
-	if (nread != static_cast<ssize_t>(dst_length))
+	m_nread += static_cast<size_t>(nread_);
+	if (nread_ != static_cast<ssize_t>(dst_length))
 		fail(true);
-	return nread;
+	return nread_;
 }
 
 } /* end of namespace milliways */

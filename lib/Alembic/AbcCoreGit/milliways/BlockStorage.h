@@ -25,16 +25,37 @@
 #ifndef MILLIWAYS_BLOCKSTORAGE_H
 #define MILLIWAYS_BLOCKSTORAGE_H
 
+#include "config.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <array>
 #include <vector>
 #include <functional>
 
 #include <map>
+#if defined(USE_STD_ARRAY)
+#include <array>
+#elif defined(USE_TR1_ARRAY)
+#include <tr1/array>
+#elif defined(USE_BOOST_ARRAY)
+#include <boost/array.hpp>
+#endif
+#if defined(USE_STD_UNORDERED_MAP)
 #include <unordered_map>
+#elif defined(USE_TR1_UNORDERED_MAP)
+#include <tr1/unordered_map>
+#elif defined(USE_BOOST_UNORDERED_MAP)
+#include <boost/unordered_map.hpp>
+#endif
+#if defined(USE_STD_MEMORY)
 #include <memory>
+#elif defined(USE_TR1_MEMORY)
+#include <tr1/memory>
+#elif defined(USE_BOOST_MEMORY)
+#include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
+#endif
 
 #include <stdint.h>
 #include <assert.h>
@@ -51,7 +72,14 @@ static const block_id_t BLOCK_ID_INVALID = static_cast<block_id_t>(-1);
 inline bool block_id_valid(block_id_t block_id) { return (block_id != BLOCK_ID_INVALID); }
 
 template <size_t BLOCKSIZE>
+class Block;
+
+template <size_t BLOCKSIZE>
 class BlockManager;
+
+/* ----------------------------------------------------------------- *
+ *   Block                                                           *
+ * ----------------------------------------------------------------- */
 
 template <size_t BLOCKSIZE>
 class Block
@@ -82,16 +110,28 @@ public:
 	bool dirty() const { return m_dirty; }
 	bool dirty(bool value) { bool old = m_dirty; m_dirty = value; return old; }
 
+#if defined(COMPILER_SUPPORTS_CXX11)
+	/* lifetime managed by BlockStorage (and we are on C++11) */
+private:
+	Block() {}
+	~Block() {}
+#else
+	/* lifetime managed by BlockStorage but we are on C++03... */
+public:
+	Block() {}
+	~Block() {}
+#endif
+
 private:
 	/* lifetime managed by BlockManager */
-	Block() {}
+	// Block() {}
 	Block(block_id_t index_) :
 			m_index(index_), m_dirty(false) { memset(m_data, 0, sizeof(m_data)); }
 	Block(const Block<BLOCKSIZE>& other) : m_index(other.m_index), m_data(other.m_data), m_dirty(other.m_dirty) { }
-	~Block() {}
+	// ~Block() {}
 
 	friend class BlockManager<BLOCKSIZE>;
-	friend class BlockManager<BLOCKSIZE>::block_deleter;
+	// friend class BlockManager<BLOCKSIZE>::block_deleter;
 	template < size_t BLOCKSIZE_, int B_, typename KeyTraits, typename TTraits, class Compare >
 		friend class BTreeFileStorage;
 
@@ -114,15 +154,15 @@ class BlockManager
 public:
 	typedef Block<BLOCKSIZE> block_type;
 	typedef BlockManager<BLOCKSIZE> handler_type;
-	typedef std::unordered_map< block_id_t, std::weak_ptr<block_type> > weak_map_t;
-	typedef typename weak_map_t::iterator weak_map_iter;
-	typedef typename weak_map_t::const_iterator weak_map_citer;
+	typedef cxx_um::unordered_map< block_id_t, cxx_mem::weak_ptr<block_type> > weak_map_t;
+	typedef ITYPENAME weak_map_t::iterator weak_map_iter;
+	typedef ITYPENAME weak_map_t::const_iterator weak_map_citer;
 
 	BlockManager() : m_objects() {}
 	~BlockManager() {
 		weak_map_iter it;
 		for (it = m_objects.begin(); it != m_objects.end(); ++it) {
-			std::weak_ptr<block_type> wp = it->second;
+			cxx_mem::weak_ptr<block_type> wp = it->second;
 			if ((wp.use_count() > 0) && wp.expired()) {
 				std::cerr << "WARNING: block weak pointer expired BUT use count not zero for managed block! (in use:" << wp.use_count() << ")" << std::endl;
 			} else if (wp.use_count() > 0) {
@@ -132,7 +172,7 @@ public:
 		m_objects.clear();
 	}
 
-	std::shared_ptr<block_type> get_object(block_id_t id, bool createIfNotFound = true)
+	cxx_mem::shared_ptr<block_type> get_object(block_id_t id, bool createIfNotFound = true)
 	{
 		weak_map_citer it = m_objects.find(id);
 		if (it != m_objects.end()) {
@@ -141,7 +181,7 @@ public:
 		} else if (createIfNotFound) {
 			return make_object(id);
 		} else
-			return std::shared_ptr<block_type>();
+			return cxx_mem::shared_ptr<block_type>();
 	}
 
 	bool has(block_type id) {
@@ -153,19 +193,6 @@ public:
 
 private:
 	friend class Block<BLOCKSIZE>;
-
-	class block_deleter;
-	friend class block_deleter;
-
-	std::shared_ptr<block_type> make_object(block_id_t id)
-	{
-		assert(m_objects.count(id) == 0);
-		std::shared_ptr<block_type> sp(new block_type(id), block_deleter(this, id));
-
-		m_objects[id] = sp;
-
-		return sp;
-	}
 
 	/* custom block deleter */
 	class block_deleter
@@ -185,6 +212,18 @@ private:
 		handler_type* m_handler;
 		block_id_t m_id;
 	};
+
+	friend class block_deleter;
+
+	cxx_mem::shared_ptr<block_type> make_object(block_id_t id)
+	{
+		assert(m_objects.count(id) == 0);
+		cxx_mem::shared_ptr<block_type> sp(new block_type(id), block_deleter(this, id));
+
+		m_objects[id] = sp;
+
+		return sp;
+	}
 
 	weak_map_t m_objects;
 };
@@ -267,7 +306,7 @@ public:
 	typedef block_ptr_type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef LRUCache< CACHESIZE, block_id_t, MW_SHPTR<block_type> > base_type;
-	typedef typename base_type::size_type size_type;
+	typedef ITYPENAME base_type::size_type size_type;
 
 	typedef BlockStorage<BLOCKSIZE>* storage_ptr_type;
 
@@ -543,7 +582,7 @@ struct StreamSizedPos : public StreamPos<BLOCKSIZE>
 public:
 	typedef StreamPos<BLOCKSIZE> base_type;
 	typedef StreamPos<BLOCKSIZE> data_locator_t;
-	typedef XTYPENAME StreamPos<BLOCKSIZE>::offset_t offset_t;
+	typedef ITYPENAME StreamPos<BLOCKSIZE>::offset_t offset_t;
 	typedef size_t size_type;
 
 	StreamSizedPos() : base_type(), m_full_size(0) {}
@@ -639,6 +678,7 @@ public:
 private:
 	IOBuffer();
 	IOBuffer(const IOBuffer& other);
+	IOBuffer& operator=(const IOBuffer& other);
 
 	char   *m_bufp;
 	size_t  m_len;
@@ -669,10 +709,10 @@ class WriteStream
 public:
 	typedef StreamPos<BLOCKSIZE> data_locator_t;
 	typedef StreamSizedPos<BLOCKSIZE> sized_locator_t;
-	typedef XTYPENAME sized_locator_t::offset_t offset_t;
-	typedef XTYPENAME StreamPos<BLOCKSIZE>::block_offset_t block_offset_t;
+	typedef ITYPENAME sized_locator_t::offset_t offset_t;
+	typedef ITYPENAME StreamPos<BLOCKSIZE>::block_offset_t block_offset_t;
 	typedef FileBlockStorage<BLOCKSIZE, CACHE_SIZE> block_storage_t;
-	typedef XTYPENAME block_storage_t::block_t block_type;
+	typedef ITYPENAME block_storage_t::block_t block_type;
 
 	WriteStream(block_storage_t* bs, const sized_locator_t& location_) :
 		m_bs(bs), m_location_start(location_), m_location(location_),
@@ -826,10 +866,10 @@ private:
 public:
 	typedef StreamPos<BLOCKSIZE> data_locator_t;
 	typedef StreamSizedPos<BLOCKSIZE> sized_locator_t;
-	typedef XTYPENAME sized_locator_t::offset_t offset_t;
-	typedef XTYPENAME StreamPos<BLOCKSIZE>::block_offset_t block_offset_t;
+	typedef ITYPENAME sized_locator_t::offset_t offset_t;
+	typedef ITYPENAME StreamPos<BLOCKSIZE>::block_offset_t block_offset_t;
 	typedef FileBlockStorage<BLOCKSIZE, CACHE_SIZE> block_storage_t;
-	typedef XTYPENAME block_storage_t::block_t block_type;
+	typedef ITYPENAME block_storage_t::block_t block_type;
 
 	ReadStream(block_storage_t* bs, const sized_locator_t& location_) :
 		m_bs(bs), m_location_start(location_), m_location(location_),

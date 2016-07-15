@@ -26,8 +26,14 @@
 #define MILLIWAYS_ORDERED_MAP_H
 
 #include <map>
-#include <unordered_map>
-#include <deque>
+// #if defined(USE_STD_UNORDERED_MAP)
+// #include <unordered_map>
+// #elif defined(USE_TR1_UNORDERED_MAP)
+// #include <tr1/unordered_map>
+// #elif defined(USE_BOOST_UNORDERED_MAP)
+// #include <boost/unordered_map.hpp>
+// #endif
+// #include <deque>
 
 #include <stdint.h>
 #include <assert.h>
@@ -47,7 +53,7 @@ public:
 	typedef hashtable<key_type, mapped_type> key_value_map_t;
 	typedef hashtable<key_type, order_type> key_to_order_t;
 	typedef hashtable<order_type, key_type> order_to_key_t;
-	typedef typename key_value_map_t::size_type size_type;
+	typedef ITYPENAME key_value_map_t::size_type size_type;
 
 	class iterator;
 	class const_iterator;
@@ -96,10 +102,10 @@ public:
 		typedef std::forward_iterator_tag iterator_category;
 		typedef int difference_type;
 
-		iterator() : m_pos(static_cast<order_type>(-1)), m_has_value(false) { }
-		iterator(ordered_map* parent, order_type pos) : m_parent(parent), m_pos(pos), m_has_value(false) { }
-		iterator(const iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_has_value(false) { }
-		iterator(const const_iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_has_value(false) { }
+		iterator() : m_parent(NULL), m_pos(static_cast<order_type>(-1)), m_value(), m_has_value(false) { }
+		iterator(ordered_map* parent, order_type pos) : m_parent(parent), m_pos(pos), m_value(), m_has_value(false) { }
+		iterator(const iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_value(), m_has_value(false) { }
+		iterator(const const_iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_value(), m_has_value(false) { }
 		iterator& operator= (const iterator& other) { m_parent = other.m_parent; m_pos = other.m_pos; m_has_value = false; return *this; }
 
 		self_type& operator++() { next_(); m_has_value = false; return *this; }									/* prefix  */
@@ -148,10 +154,10 @@ public:
 		typedef std::forward_iterator_tag iterator_category;
 		typedef int difference_type;
 
-		const_iterator() : m_pos(static_cast<order_type>(-1)), m_has_value(false) { }
-		const_iterator(ordered_map* parent, order_type pos) : m_parent(parent), m_pos(pos), m_has_value(false) { }
-		const_iterator(const const_iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_has_value(false) { }
-		const_iterator(const iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_has_value(false) { }
+		const_iterator() : m_parent(NULL), m_pos(static_cast<order_type>(-1)), m_value(), m_has_value(false) { }
+		const_iterator(ordered_map* parent, order_type pos) : m_parent(parent), m_pos(pos), m_value(), m_has_value(false) { }
+		const_iterator(const const_iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_value(), m_has_value(false) { }
+		const_iterator(const iterator& other) : m_parent(other.m_parent), m_pos(other.m_pos), m_value(), m_has_value(false) { }
 		const_iterator& operator= (const const_iterator& other) { m_parent = other.m_parent; m_pos = other.m_pos; m_has_value = false; return *this; }
 
 		self_type& operator++() { next_(); m_has_value = false; return *this; }									/* prefix  */

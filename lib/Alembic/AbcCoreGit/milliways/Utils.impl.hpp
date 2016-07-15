@@ -35,7 +35,9 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif /* HAVE_ARPA_INET_H */
 
 namespace milliways {
 

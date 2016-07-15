@@ -30,7 +30,7 @@
 #define MILLIWAYS_ORDERED_MAP_IMPL_H
 
 #include <map>
-#include <deque>
+// #include <deque>
 #include <algorithm>
 
 #include <stdint.h>

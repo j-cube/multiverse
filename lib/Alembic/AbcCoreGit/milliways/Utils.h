@@ -25,22 +25,32 @@
 #ifndef MILLIWAYS_UTILS_H
 #define MILLIWAYS_UTILS_H
 
+#include "config.h"
+
 #include <iostream>
 #include <map>
+#if defined(USE_STD_UNORDERED_MAP)
 #include <unordered_map>
+#elif defined(USE_TR1_UNORDERED_MAP)
+#include <tr1/unordered_map>
+#elif defined(USE_BOOST_UNORDERED_MAP)
+#include <boost/unordered_map.hpp>
+#endif
 #include <assert.h>
-
-#include "config.h"
 
 // #define USE_MILLIWAYS_SHPTR
 
 #if !defined(USE_MILLIWAYS_SHPTR)
-	#if defined(HAVE_STD_SHARED_PTR)
+	#if defined(USE_STD_MEMORY)
 		#include <memory>
 		#define USE_STD_SHARED_PTR
-	#elif defined(HAVE_STD_TR1_SHARED_PTR)
+	#elif defined(USE_TR1_MEMORY)
 		#include <tr1/memory>
 		#define USE_TR1_SHARED_PTR
+	#elif defined(USE_BOOST_MEMORY)
+		#include <boost/shared_ptr.hpp>
+		#include <boost/weak_ptr.hpp>
+		#define USE_BOOST_SHARED_PTR
 	#else
 		#define USE_MILLIWAYS_SHPTR
 	#endif
@@ -118,7 +128,7 @@ std::string dehexify(const std::string& input);
 
 	// 	long count() const { return -1; }
 	// };
-#elif defined(USE_STD_TR1_SHARED_PTR)
+#elif defined(USE_TR1_SHARED_PTR)
     #define MW_SHPTR std::tr1::shared_ptr
     #define MILLIWAYS_SHPTR std::tr1::shared_ptr
     // #define shptr std::tr1::shared_ptr
@@ -142,6 +152,9 @@ std::string dehexify(const std::string& input);
 
 	// 	long count() const { return -1; }
 	// };
+#elif defined(USE_BOOST_SHARED_PTR)
+    #define MW_SHPTR boost::shared_ptr
+    #define MILLIWAYS_SHPTR boost::shared_ptr
 #elif defined(USE_MILLIWAYS_SHPTR)
 
 #define MW_SHPTR shptr

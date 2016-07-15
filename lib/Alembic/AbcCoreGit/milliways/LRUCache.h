@@ -25,18 +25,25 @@
 #ifndef MILLIWAYS_LRUCACHE_H
 #define MILLIWAYS_LRUCACHE_H
 
+#include "config.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <map>
+#if defined(USE_STD_UNORDERED_MAP)
 #include <unordered_map>
-#include <deque>
+#elif defined(USE_TR1_UNORDERED_MAP)
+#include <tr1/unordered_map>
+#elif defined(USE_BOOST_UNORDERED_MAP)
+#include <boost/unordered_map.hpp>
+#endif
+// #include <deque>
 #include <functional>
 
 #include <stdint.h>
 #include <assert.h>
 
-#include "config.h"
 #include "hashtable.h"
 
 namespace milliways {
@@ -53,9 +60,9 @@ public:
 	typedef size_t size_type;
 
 	typedef long age_t;
-	typedef std::unordered_map<key_type, age_t> key_to_age_t;
-	typedef std::unordered_map<key_type, mapped_type> map_t;
-	typedef typename map_t::iterator map_iter_t;
+	typedef cxx_um::unordered_map<key_type, age_t> key_to_age_t;
+	typedef cxx_um::unordered_map<key_type, mapped_type> map_t;
+	typedef ITYPENAME map_t::iterator map_iter_t;
 
 	static const size_type Size = SIZE;
 	static const int L1_SIZE = LRUCACHE_L1_CACHE_SIZE;

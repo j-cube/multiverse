@@ -49,8 +49,8 @@ class BTree
 public:
 	typedef KeyTraits key_traits_type;
 	typedef TTraits mapped_traits_type;
-	typedef typename KeyTraits::type key_type;
-	typedef typename TTraits::type mapped_type;
+	typedef ITYPENAME KeyTraits::type key_type;
+	typedef ITYPENAME TTraits::type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef Compare key_compare;
 	typedef size_t size_type;
@@ -128,10 +128,10 @@ public:
 
 	MW_SHPTR<node_type> node_alloc() { assert(m_io); return m_io->node_alloc(); }
 	MW_SHPTR<node_type> node_child_alloc(MW_SHPTR<node_type> parent) { assert(m_io); return m_io->node_child_alloc(parent); }
-	void node_dispose(MW_SHPTR<node_type>& node) { assert(m_io); return m_io->node_dispose(node); }
+	void node_dispose(MW_SHPTR<node_type>& node_) { assert(m_io); return m_io->node_dispose(node_); }
 	MW_SHPTR<node_type> node_read(node_id_t node_id) { assert(m_io); return m_io->node_read(node_id); }
-	MW_SHPTR<node_type> node_read(MW_SHPTR<node_type>& node) { assert(m_io); return m_io->node_read(node); }
-	MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node) { assert(m_io); return m_io->node_write(node); }
+	MW_SHPTR<node_type> node_read(MW_SHPTR<node_type>& node_) { assert(m_io); return m_io->node_read(node_); }
+	MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node_) { assert(m_io); return m_io->node_write(node_); }
 
 	/* -- Output --------------------------------------------------- */
 
@@ -150,7 +150,7 @@ public:
 	{
 	public:
 		typedef iterator self_type;
-		typedef typename tree_type::lookup_type value_type;
+		typedef ITYPENAME tree_type::lookup_type value_type;
 		typedef value_type& reference;
 		typedef value_type* pointer;
 		typedef std::forward_iterator_tag iterator_category;
@@ -226,8 +226,8 @@ class BTreeStorage
 public:
 	typedef KeyTraits key_traits_type;
 	typedef TTraits mapped_traits_type;
-	typedef typename KeyTraits::type key_type;
-	typedef typename TTraits::type mapped_type;
+	typedef ITYPENAME KeyTraits::type key_type;
+	typedef ITYPENAME TTraits::type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef Compare key_compare;
 	typedef size_t size_type;
@@ -357,38 +357,38 @@ public:
 		return child;
 	}
 
-	virtual void node_dispose(MW_SHPTR<node_type>& node)
+	virtual void node_dispose(MW_SHPTR<node_type>& node_)
 	{
-		assert(node);
-		node_dispose_id(node->id());
-		node_dealloc(node);
+		assert(node_);
+		node_dispose_id(node_->id());
+		node_dealloc(node_);
 	}
 
 	virtual MW_SHPTR<node_type> node_alloc(node_id_t node_id) = 0;		// this must also perform a node_write() (put into cache)
-	virtual void node_dealloc(MW_SHPTR<node_type>& node)
+	virtual void node_dealloc(MW_SHPTR<node_type>& node_)
 	{
-		if (node) {
-			if (this->rootId() == node->id())
+		if (node_) {
+			if (this->rootId() == node_->id())
 				this->rootId(NODE_ID_INVALID);
-			node->id(NODE_ID_INVALID);
-			// delete node;
+			node_->id(NODE_ID_INVALID);
+			// delete node_;
 		}
 	}
 	virtual MW_SHPTR<node_type> node_read(node_id_t node_id) = 0;
-	virtual MW_SHPTR<node_type> node_read(MW_SHPTR<node_type>& node)
+	virtual MW_SHPTR<node_type> node_read(MW_SHPTR<node_type>& node_)
 	{
-		assert(node);
-		assert(node->id() != NODE_ID_INVALID);
-		MW_SHPTR<node_type> src( node_read(node->id()) );
+		assert(node_);
+		assert(node_->id() != NODE_ID_INVALID);
+		MW_SHPTR<node_type> src( node_read(node_->id()) );
 		if (src)
 		{
-			assert(src->id() == node->id());
-			*node = *src;
-			return node;
+			assert(src->id() == node_->id());
+			*node_ = *src;
+			return node_;
 		}
 		return MW_SHPTR<node_type>();
 	}
-	virtual MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node) = 0;
+	virtual MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node_) = 0;
 
 	/* -- Header I/O ----------------------------------------------- */
 
@@ -399,6 +399,7 @@ public:
 
 	manager_type& manager() { return m_manager; }
 	MW_SHPTR<node_type> node(node_id_t node_id) { return manager().get_object(node_id); }
+	MW_SHPTR<node_type> null_node() { return manager().null_object(); }
 
 protected:
 	tree_type* m_tree;
@@ -420,8 +421,8 @@ class BTreeMemoryStorage : public BTreeStorage<B_, KeyTraits, TTraits, Compare>
 public:
 	typedef KeyTraits key_traits_type;
 	typedef TTraits mapped_traits_type;
-	typedef typename KeyTraits::type key_type;
-	typedef typename TTraits::type mapped_type;
+	typedef ITYPENAME KeyTraits::type key_type;
+	typedef ITYPENAME TTraits::type mapped_type;
 	typedef std::pair<key_type, mapped_type> value_type;
 	typedef Compare key_compare;
 	typedef size_t size_type;
@@ -466,35 +467,35 @@ public:
 			this->rootId(NODE_ID_INVALID);
 	}
 
-	bool ll_node_read(node_type& node)
+	bool ll_node_read(node_type& node_)
 	{
-		assert(node.id() != NODE_ID_INVALID);
-		if (m_nodes.count(node.id()) > 0) {
-			MW_SHPTR<node_type> node_ptr( m_nodes[node.id()] );
+		assert(node_.id() != NODE_ID_INVALID);
+		if (m_nodes.count(node_.id()) > 0) {
+			MW_SHPTR<node_type> node_ptr( m_nodes[node_.id()] );
 			assert(node_ptr);
-			if (node_ptr.get() != &node)
-				node = *node_ptr;
+			if (node_ptr.get() != &node_)
+				node_ = *node_ptr;
 			return true;
 		}
-		node.dirty(true);
+		node_.dirty(true);
 		return false;
 	}
-	bool ll_node_write(node_type& node)
+	bool ll_node_write(node_type& node_)
 	{
-		assert(node.id() != NODE_ID_INVALID);
-		if (m_nodes.count(node.id()) > 0)
+		assert(node_.id() != NODE_ID_INVALID);
+		if (m_nodes.count(node_.id()) > 0)
 		{
-			MW_SHPTR<node_type> node_ptr( m_nodes[node.id()] );
+			MW_SHPTR<node_type> node_ptr( m_nodes[node_.id()] );
 			assert(node_ptr);
-			if (node_ptr.get() != &node)
-				*node_ptr = node;
+			if (node_ptr.get() != &node_)
+				*node_ptr = node_;
 		} else
 		{
-			// node_ptr.reset( new node_type(this->tree(), node.id()) );
-			MW_SHPTR<node_type> node_ptr( this->manager().get_object(node.id()) );
-			assert(node_ptr && (node_ptr->id() == node.id()));
-			*node_ptr = node;
-			m_nodes[node.id()] = node_ptr;
+			// node_ptr.reset( new node_type(this->tree(), node_.id()) );
+			MW_SHPTR<node_type> node_ptr( this->manager().get_object(node_.id()) );
+			assert(node_ptr && (node_ptr->id() == node_.id()));
+			*node_ptr = node_;
+			m_nodes[node_.id()] = node_ptr;
 		}
 		return true;
 	}
@@ -513,11 +514,11 @@ public:
 		return node_ptr;
 	}
 
-	void node_dealloc(MW_SHPTR<node_type>& node)
+	void node_dealloc(MW_SHPTR<node_type>& node_)
 	{
-		if (node && (node->id() != NODE_ID_INVALID))
-			m_nodes.erase(node->id());
-		base_type::node_dealloc(node);
+		if (node_ && (node_->id() != NODE_ID_INVALID))
+			m_nodes.erase(node_->id());
+		base_type::node_dealloc(node_);
 	}
 
 	MW_SHPTR<node_type> node_read(node_id_t node_id)
@@ -531,17 +532,17 @@ public:
 		return MW_SHPTR<node_type>();
 	}
 
-	MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node)
+	MW_SHPTR<node_type> node_write(MW_SHPTR<node_type>& node_)
 	{
-		assert(node);
-		assert(node->id() != NODE_ID_INVALID);
-		MW_SHPTR<node_type> node_ptr( m_nodes[node->id()] );
+		assert(node_);
+		assert(node_->id() != NODE_ID_INVALID);
+		MW_SHPTR<node_type> node_ptr( m_nodes[node_->id()] );
 		if (! node_ptr)
 		{
-			m_nodes[node->id()] = node;
-			node_ptr = node;
-		} else if (node_ptr != node)
-			*node_ptr = *node;
+			m_nodes[node_->id()] = node_;
+			node_ptr = node_;
+		} else if (node_ptr != node_)
+			*node_ptr = *node_;
 		return node_ptr;
 	}
 

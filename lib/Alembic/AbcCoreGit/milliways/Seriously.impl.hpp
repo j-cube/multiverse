@@ -31,7 +31,9 @@
 #include <functional>
 
 #include <string.h>
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif /* HAVE_ARPA_INET_H */
 #include <assert.h>
 
 namespace seriously {
@@ -40,6 +42,108 @@ namespace seriously {
  *   Helpers                                                         *
  * ----------------------------------------------------------------- */
 
+#if !defined(HAVE_ARPA_INET_H)
+
+#ifdef bswap16
+#undef bswap16
+#endif
+
+#ifdef bswap32
+#undef bswap32
+#endif
+
+static uint16_t bswap16(uint16_t x)
+{
+	return ((x << 8) & 0xff00) | ((x >> 8) & 0x00ff);
+}
+
+static inline uint32_t bswap32(uint32_t x)
+{
+	return	((x << 24) & 0xff000000 ) |
+		((x <<  8) & 0x00ff0000 ) |
+		((x >>  8) & 0x0000ff00 ) |
+		((x >> 24) & 0x000000ff );
+}
+
+#ifndef HAVE_HTONS
+#ifdef htons
+#undef htons
+#endif
+
+static inline uint16_t htons(uint16_t v)
+{
+#if IS_BIG_ENDIAN
+	return v;
+#elif IS_LITTLE_ENDIAN
+	return bswap16(v);
+#else
+	#error "Unkown endianness"
+#endif
+}
+
+static inline uint16_t htons(int16_t v) { return htons(static_cast<uint16_t>(v)); }
+#endif /* !defined(HAVE_HTONS) */
+
+#ifndef HAVE_NTOHS
+#ifdef ntohs
+#undef ntohs
+#endif
+
+static inline uint16_t ntohs(uint16_t v)
+{
+#if IS_BIG_ENDIAN
+	return v;
+#elif IS_LITTLE_ENDIAN
+	return bswap16(v);
+#else
+	#error "Unkown endianness"
+#endif
+}
+
+static inline uint16_t ntohs(int16_t v) { return ntohs(static_cast<uint16_t>(v)); }
+#endif /* !defined(HAVE_NTOHS) */
+
+#ifndef HAVE_HTONL
+#ifdef htonl
+#undef htonl
+#endif
+
+static inline uint32_t htonl(uint32_t v)
+{
+#if IS_BIG_ENDIAN
+	return v;
+#elif IS_LITTLE_ENDIAN
+	return bswap32(v);
+#else
+	#error "Unkown endianness"
+#endif
+}
+
+static inline uint32_t htonl(int32_t v) { return htonl(static_cast<uint32_t>(v)); }
+#endif /* !defined(HAVE_HTONL) */
+
+#ifndef HAVE_NTOHL
+#ifdef ntohl
+#undef ntohl
+#endif
+
+static inline uint32_t ntohl(uint32_t v)
+{
+#if IS_BIG_ENDIAN
+	return v;
+#elif IS_LITTLE_ENDIAN
+	return bswap32(v);
+#else
+	#error "Unkown endianness"
+#endif
+}
+
+static inline uint32_t ntohl(int32_t v) { return ntohl(static_cast<uint32_t>(v)); }
+#endif /* !defined(HAVE_NTOHL) */
+
+#endif /* !defined(HAVE_ARPA_INET_H) */
+
+#ifndef HAVE_HTONLL
 // based on:
 //   http://stackoverflow.com/questions/3022552/is-there-any-standard-htonl-like-function-for-64-bits-integers-in-c
 //   http://stackoverflow.com/q/3022552
@@ -62,7 +166,9 @@ static inline uint64_t htonll(uint64_t value)
 		return value;
 	}
 }
+#endif /* !defined(HAVE_HTONLL) */
 
+#ifndef HAVE_NTOHLL
 static inline uint64_t ntohll(uint64_t value)
 {
 	// The answer is 42
@@ -81,6 +187,7 @@ static inline uint64_t ntohll(uint64_t value)
 		return value;
 	}
 }
+#endif /* !defined(HAVE_NTOHLL) */
 
 //#define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
 //#define ntohll(x) ((1==ntohl(1)) ? (x) : ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
