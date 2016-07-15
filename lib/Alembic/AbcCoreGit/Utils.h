@@ -32,7 +32,9 @@ namespace Alembic {
 namespace AbcCoreGit {
 namespace ALEMBIC_VERSION_NS {
 
+#ifndef GLOBAL_TRACE_ENABLE
 #define GLOBAL_TRACE_ENABLE 1
+#endif /* GLOBAL_TRACE_ENABLE */
 
 extern bool trace_enable;
 
