@@ -426,6 +426,82 @@ struct MsgPackTraits<Stream, std::vector<W> >
     }
 };
 
+template <typename Stream>
+struct MsgPackTraits<Stream, std::vector<float> >
+{
+    typedef float W;
+    inline static bool Pack(msgpack::packer<Stream>& pk, const std::vector<W>& value)
+    {
+        pk.pack(value);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, std::vector<W>& value)
+    {
+        value.clear();
+        pko.convert(&value);
+
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, std::vector<double> >
+{
+    typedef double W;
+    inline static bool Pack(msgpack::packer<Stream>& pk, const std::vector<W>& value)
+    {
+        pk.pack(value);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, std::vector<W>& value)
+    {
+        value.clear();
+        pko.convert(&value);
+
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, std::vector<unsigned int> >
+{
+    typedef unsigned int W;
+    inline static bool Pack(msgpack::packer<Stream>& pk, const std::vector<W>& value)
+    {
+        pk.pack(value);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, std::vector<W>& value)
+    {
+        value.clear();
+        pko.convert(&value);
+
+        return true;
+    }
+};
+
+template <typename Stream>
+struct MsgPackTraits<Stream, std::vector<int> >
+{
+    typedef int W;
+    inline static bool Pack(msgpack::packer<Stream>& pk, const std::vector<W>& value)
+    {
+        pk.pack(value);
+        return true;
+    }
+
+    inline static bool Unpack(const msgpack::object& pko, std::vector<W>& value)
+    {
+        value.clear();
+        pko.convert(&value);
+
+        return true;
+    }
+};
+
 
 // packing
 

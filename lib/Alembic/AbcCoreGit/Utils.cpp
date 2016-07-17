@@ -379,8 +379,10 @@ template <>
 struct PodPrinter<Util::kBooleanPOD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::bool_t *ptr = (Util::bool_t*)buffer;
         TRACE(msg << " kBooleanPOD: " << *ptr);
+#endif
     }
 };
 
@@ -388,8 +390,10 @@ template <>
 struct PodPrinter<Util::kUint8POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::uint8_t *ptr = (Util::uint8_t*)buffer;
         TRACE(msg << " kUint8POD: " << ((int)(*ptr)));
+#endif
     }
 };
 
@@ -397,8 +401,10 @@ template <>
 struct PodPrinter<Util::kInt8POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::int8_t *ptr = (Util::int8_t*)buffer;
         TRACE(msg << " kInt8POD: " << ((int)(*ptr)));
+#endif
     }
 };
 
@@ -406,8 +412,10 @@ template <>
 struct PodPrinter<Util::kUint16POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::uint16_t *ptr = (Util::uint16_t*)buffer;
         TRACE(msg << " kUint16POD: " << *ptr);
+#endif
     }
 };
 
@@ -415,8 +423,10 @@ template <>
 struct PodPrinter<Util::kInt16POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::int16_t *ptr = (Util::int16_t*)buffer;
         TRACE(msg << " kInt16POD: " << *ptr);
+#endif
     }
 };
 
@@ -424,8 +434,10 @@ template <>
 struct PodPrinter<Util::kUint32POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::uint32_t *ptr = (Util::uint32_t*)buffer;
         TRACE(msg << " kUint32POD: " << *ptr);
+#endif
     }
 };
 
@@ -433,8 +445,10 @@ template <>
 struct PodPrinter<Util::kInt32POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::int32_t *ptr = (Util::int32_t*)buffer;
         TRACE(msg << " kInt32POD: " << *ptr);
+#endif
     }
 };
 
@@ -442,8 +456,10 @@ template <>
 struct PodPrinter<Util::kUint64POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::uint64_t *ptr = (Util::uint64_t*)buffer;
         TRACE(msg << " kUint64POD: " << *ptr);
+#endif
     }
 };
 
@@ -451,8 +467,10 @@ template <>
 struct PodPrinter<Util::kInt64POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::int64_t *ptr = (Util::int64_t*)buffer;
         TRACE(msg << " kInt64POD: " << *ptr);
+#endif
     }
 };
 
@@ -460,8 +478,10 @@ template <>
 struct PodPrinter<Util::kFloat16POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::float16_t *ptr = (Util::float16_t*)buffer;
         TRACE(msg << " kFloat16POD: " << *ptr);
+#endif
     }
 };
 
@@ -469,8 +489,10 @@ template <>
 struct PodPrinter<Util::kFloat32POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::float32_t *ptr = (Util::float32_t*)buffer;
         TRACE(msg << " kFloat32POD: " << *ptr);
+#endif
     }
 };
 
@@ -478,8 +500,10 @@ template <>
 struct PodPrinter<Util::kFloat64POD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::float64_t *ptr = (Util::float64_t*)buffer;
         TRACE(msg << " kFloat64POD: " << *ptr);
+#endif
     }
 };
 
@@ -487,9 +511,11 @@ template <>
 struct PodPrinter<Util::kStringPOD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::string *ptr = (Util::string*)buffer;
         Util::string& s = *ptr;
         TRACE(msg << " kStringPOD: '" << s << "' (size:" << s.size() << ")");
+#endif
     }
 };
 
@@ -497,10 +523,12 @@ template <>
 struct PodPrinter<Util::kWstringPOD>
 {
     static void Print(const std::string& msg, void *buffer) {
+#if GLOBAL_TRACE_ENABLE
         Util::wstring *ptr = (Util::wstring*)buffer;
         Util::wstring& ws = *ptr;
         Util::string ws_s(ws.begin(), ws.end());
         TRACE(msg << " kWstringPOD: '" << ws_s << "' (wsize:" << ws.size() << "  size:" << ws_s.size() << ")");
+#endif
     }
 };
 
@@ -559,6 +587,7 @@ void printPodValue(const std::string& msg, Alembic::Util::PlainOldDataType pod, 
 
 void printPodArray(const std::string& msg, Alembic::Util::PlainOldDataType pod, size_t count, void* buffer)
 {
+#if GLOBAL_TRACE_ENABLE
     for (size_t i = 0; i < count; i++)
     {
         std::ostringstream ss;
@@ -566,6 +595,7 @@ void printPodArray(const std::string& msg, Alembic::Util::PlainOldDataType pod, 
         char *ptr = ((char *)buffer) + (i * PODNumBytes(pod));
         printPodValue(msg + ss.str(), pod, (void*)ptr);
     }
+#endif
 }
 
 } // End namespace ALEMBIC_VERSION_NS

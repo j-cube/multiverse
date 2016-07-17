@@ -159,11 +159,14 @@ class GitRepo : public Alembic::Util::enable_shared_from_this<GitRepo>
 {
 public:
     static const bool DEFAULT_IGNORE_WRONG_REV = false;
+    static const bool DEFAULT_MILLIWAYS_ENABLED = false;
 
-    GitRepo(const std::string& pathname, GitMode mode = GitMode::ReadWrite);
-    GitRepo(const std::string& pathname, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode = GitMode::Read);
+    GitRepo(const std::string& pathname, GitMode mode = GitMode::ReadWrite, bool milliwaysEnable = DEFAULT_MILLIWAYS_ENABLED);
+    GitRepo(const std::string& pathname, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode = GitMode::Read, bool milliwaysEnable = DEFAULT_MILLIWAYS_ENABLED);
     // GitRepo(const std::string& pathname);
     virtual ~GitRepo();
+
+    virtual void cleanup();
 
     static GitRepoPtr Create(const std::string& dotGitPathname) { return GitRepoPtr(new GitRepo(dotGitPathname)); }
 
@@ -204,6 +207,8 @@ public:
     bool hasRevisionSpec() const { return (! m_revision.empty()); }
     std::string revisionString() const { return m_revision; }
     bool ignoreWrongRevision() const { return m_ignore_wrong_rev; }
+
+    bool milliwaysEnabled() const { return m_milliways_enabled; }
 
     std::string relpath(const std::string& pathname_) const;
 
@@ -263,6 +268,9 @@ private:
     Alembic::AbcCoreFactory::IOptions m_options;
     std::string m_revision;
     bool m_ignore_wrong_rev;
+    bool m_milliways_enabled;
+
+    bool m_cleaned_up;
 };
 
 std::ostream& operator<< (std::ostream& out, const GitRepo& repo);

@@ -145,7 +145,7 @@ void copyObject(Alembic::Abc::IObject & iIn,
 
 static void usage()
 {
-    printf ("Usage: abcconvert [-force] [-r | --revision REVISION] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
+    printf ("Usage: abcconvert [-force] [-r | --revision REVISION] [--milliways ON|OFF] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
     printf ("Used to convert an Alembic file from one type to another.\n\n");
     printf ("If -force is not provided and inFile happens to be the same\n");
     printf ("type as OPTION no conversion will be done and a message will\n");
@@ -164,6 +164,7 @@ int main(int argc, char *argv[])
     std::string inFile;
     std::string outFile;
     std::string revision;
+    bool milliways = false;
     bool forceOpt = false;
 
     std::string commitMessage;
@@ -199,6 +200,20 @@ int main(int argc, char *argv[])
             {
                 revision = argv[++arg_i];
             }
+        } else if ((arg == "--mw") || (arg == "--milliways") || boost::starts_with(arg, "--milliways="))
+        {
+            std::string opt_value;
+            if (boost::starts_with(arg, "--milliways="))
+            {
+                opt_value = arg.substr(12, std::string::npos);
+            } else
+            {
+                opt_value = argv[++arg_i];
+            }
+            if ((opt_value == "ON") || (opt_value == "on") || (opt_value == "true"))
+                milliways = true;
+            else
+                milliways = false;
         }
 
         ++arg_i;
@@ -233,6 +248,9 @@ int main(int argc, char *argv[])
         rOptions["revision"] = revision;
         // rOptions["ignoreNonexistentRevision"] = true;
     }
+
+    // if (toType == "-toGit")
+    //     rOptions["milliways"] = milliways ? true : false;
 
     Alembic::AbcCoreFactory::IFactory factory;
     Alembic::AbcCoreFactory::IFactory::CoreType coreType;
@@ -280,6 +298,9 @@ int main(int argc, char *argv[])
 
         if (! commitMessage.empty())
             wOptions.setCommitMessage(commitMessage);
+
+        std::cout << "milliways is " << (milliways ? "enabled" : "disabled") << std::endl;
+        wOptions["milliways"] = (milliways ? true : false);
 
         outArchive = Alembic::Abc::OArchive(
             Alembic::AbcCoreGit::WriteArchive(wOptions),

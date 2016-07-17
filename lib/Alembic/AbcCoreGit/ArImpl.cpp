@@ -146,6 +146,11 @@ ArImpl::getMaxNumSamplesForTimeSamplingIndex( Util::uint32_t iIndex )
 //-*****************************************************************************
 ArImpl::~ArImpl()
 {
+    TRACE("AR CALLING CLEANUP on m_repo_ptr");
+    if (m_repo_ptr)
+        m_repo_ptr->cleanup();
+    TRACE("AR CALLING RESET on m_repo_ptr");
+    m_repo_ptr.reset();
 }
 
 //-*****************************************************************************
@@ -200,6 +205,13 @@ bool ArImpl::ignoreWrongRevision()
     if (m_options.has("ignoreNonexistentRevision"))
         return boost::any_cast<bool>(m_options["ignoreNonexistentRevision"]);
     return GitRepo::DEFAULT_IGNORE_WRONG_REV;
+}
+
+bool ArImpl::milliwaysEnabled()
+{
+    if (m_options.has("milliways"))
+        return boost::any_cast<bool>(m_options["milliways"]);
+    return GitRepo::DEFAULT_MILLIWAYS_ENABLED;
 }
 
 bool ArImpl::readFromDisk()
