@@ -72,6 +72,7 @@ SET( THIS_LIBS
      AlembicAbc
      AlembicAbcCoreHDF5
      AlembicAbcCoreOgawa
+     AlembicAbcCoreGit
      AlembicAbcCoreAbstract
      AlembicOgawa
      AlembicUtil
@@ -80,7 +81,7 @@ SET( THIS_LIBS
      ${ALEMBIC_MSGPACK_LIBS}
      ${ALEMBIC_GL_LIBS}
      ${ALEMBIC_ILMBASE_LIBS}
-     ${CMAKE_THREAD_LIBS_INIT}
+     ${CMAKE_THREAD_LIBS_INIT} ${Boost_SYSTEM_LIBRARY} ${Boost_FILESYSTEM_LIBRARY}
      ${ZLIB_LIBRARIES} ${EXTERNAL_MATH_LIBS} )
 
 ADD_LIBRARY( AlembicAbcOpenGL ${SOURCE_FILES} )
