@@ -5,8 +5,7 @@ Next generation data storage back-end for the widely used Alembic file format
 
 The original upstream Alembic code resides in the [master](https://github.com/j-cube/multiverse) branch.
 
-The `multiverse` code, for `1.5.8` release, resides in its own [1.5.8/multiverse](https://github.com/j-cube/multiverse/tree/1.5.8/multiverse) branch
-(this branch could be merged and even fast-forwarded on the upstream `1.5.8` tag).
+The `multiverse` code for `2.0.0` release, resides in its own [2.0.0/multiverse](https://github.com/j-cube/multiverse/tree/2.0.0/multiverse) branch.
 
 To use `multiverse`, just checkout its branch:
 
@@ -14,14 +13,16 @@ To use `multiverse`, just checkout its branch:
 $ git clone https://github.com/j-cube/multiverse.git
 ...
 
-$ git checkout 1.5.8/multiverse
+$ git checkout 2.0.0/multiverse
 ```
+
+Note that `multiverse` code for `1.5.8` and `2.0.0` releases match Alembic 1.5.8 and these branch could be merged and even fast-forwarded on the upstream `1.5.8` tag.
 
 ## multiverse dependencies
 
 In addition to the original Alembic dependencies, `multiverse` needs:
 
-* [libgit2 v0.22.1](https://github.com/libgit2/libgit2/archive/v0.22.1.tar.gz)
+* [libgit2 v0.23.4](https://github.com/libgit2/libgit2/archive/v0.23.4.tar.gz)
 * [msgpack 1.0.1](https://github.com/msgpack/msgpack-c/releases/download/cpp-1.0.1/msgpack-1.0.1.tar.gz)
 * [boost 1.48.0](http://sourceforge.net/projects/boost/files/boost/1.48.0/boost_1_48_0.tar.bz2/download) compiled also with `chrono`, `filesystem`, `system` (in addition to the original `program_options`, `thread` and `python`)
 
