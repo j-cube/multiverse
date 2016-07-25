@@ -3,7 +3,7 @@ Next generation data storage back-end for the widely used Alembic file format.
 
 > Authors: Aghiles Kheffache, Marco Pantaleoni, Bo Zhou, Paolo Berto Durante.
 
-## Repository Organization
+## Repository organization
 
 The original upstream Alembic code resides in the [master](https://github.com/j-cube/multiverse/tree/master) branch.
 
@@ -63,10 +63,8 @@ Contact Informations:
     http://j-cube.jp
 ```
 
-See the [LICENSE-multiverse.txt](LICENSE-multiverse.txt) file for details.
+See the [LICENSE-multiverse.txt](LICENSE-multiverse.txt) file for more details.
 
 The rest of Alembic remains covered by the original [LICENSE.txt](LICENSE.txt) file.
-
-## Original README
 
 See also the original [README.txt](README.txt) part of Alembic.
