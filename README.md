@@ -1,11 +1,13 @@
 # Multiverse
 Next generation data storage back-end for the widely used Alembic file format.
 
-## Organization
+> Authors: Aghiles Kheffache, Marco Pantaleoni, Bo Zhou, Paolo Berto Durante.
 
-The original upstream Alembic code resides in the [master](https://github.com/j-cube/multiverse) branch.
+## Repository Organization
 
-The `Multiverse` code for the `2.0.0` release, resides in its own [2.0.0/multiverse](https://github.com/j-cube/multiverse/tree/2.0.0/multiverse) branch.
+The original upstream Alembic code resides in the [master](https://github.com/j-cube/multiverse/tree/master) branch.
+
+The `Multiverse` code for the `2.0.0` release, resides in its own [2.0.0/multiverse](https://github.com/j-cube/multiverse/tree/2.0.0/multiverse) branch and is the default landing branch for the repository when browsing on GitHub.
 
 To use `Multiverse`, just checkout its branch:
 
@@ -18,7 +20,7 @@ $ git checkout 2.0.0/multiverse
 
 Note that both `Multiverse` code for `1.5.8` and `2.0.0` releases match Alembic API 1.5.8 and these branch could be merged and even fast-forwarded on the upstream `1.5.8` tag.
 
-Support for Alembic 1.6 API will be added shortly.
+Support for Alembic 1.6 API will be added after SIGGRAPH 2016.
 
 ## Multiverse dependencies
 
@@ -35,7 +37,7 @@ In addition to the original Alembic dependencies, `Multiverse` needs:
 ```
 Multiverse - a next generation storage back-end for Alembic
 
-Copyright 2015-2016 J CUBE Inc. Tokyo, Japan.     
+Copyright 2015—2016 J CUBE Inc. Tokyo, Japan.     
                                                                      
 Licensed under the Apache License, Version 2.0 (the "License");         
 you may not use this file except in compliance with the License.        
