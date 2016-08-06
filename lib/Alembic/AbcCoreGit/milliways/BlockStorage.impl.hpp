@@ -42,7 +42,7 @@ namespace milliways {
 
 static const size_t BS_LZ4_BLOCK_BYTES = 1024 * 8;
 static const int BS_N_LZ4_BUFFERS = 2;
-static const int BS_LZ4_ACCELERATION = 1;
+static const int BS_LZ4_ACCELERATION = MILLIWAYS_LZ4_ACCELERATION;
 
 /* ----------------------------------------------------------------- *
  *   BlockStorage                                                    *

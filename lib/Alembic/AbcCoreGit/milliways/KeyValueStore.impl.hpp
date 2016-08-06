@@ -28,6 +28,9 @@
 
 #include "lz4.h"
 
+//#undef MILLIWAYS_DISABLE_COMPRESSION
+//#define MILLIWAYS_DISABLE_COMPRESSION 1
+
 #ifndef MILLIWAYS_KEYVALUESTORE_IMPL_H
 //#define MILLIWAYS_KEYVALUESTORE_IMPL_H
 
@@ -448,7 +451,9 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	FullLocator locator;
 
 	bool do_compress = (value.length() >= KV_COMPRESSION_MIN_LENGTH);
-	// do_compress = false;
+#if MILLIWAYS_DISABLE_COMPRESSION
+	do_compress = false;
+#endif
 
 	if (present)
 	{

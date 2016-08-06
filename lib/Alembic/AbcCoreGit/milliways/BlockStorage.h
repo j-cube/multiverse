@@ -65,6 +65,14 @@
 
 namespace milliways {
 
+#ifndef MILLIWAYS_LZ4_ACCELERATION
+	#define MILLIWAYS_LZ4_ACCELERATION 1
+#endif
+#if MILLIWAYS_LZ4_ACCELERATION <= 0
+	#undef MILLIWAYS_DISABLE_COMPRESSION
+	#define MILLIWAYS_DISABLE_COMPRESSION 1
+#endif
+
 typedef uint32_t block_id_t;
 
 static const block_id_t BLOCK_ID_INVALID = static_cast<block_id_t>(-1);
