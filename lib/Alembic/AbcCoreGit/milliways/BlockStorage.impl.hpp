@@ -688,6 +688,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 		new_avail = static_cast<ssize_t>(new_location.size());
 		new_location.delta(static_cast<offset_t>(off));
 		new_avail -= off;
+		m_nwritten = off;
 		break;
 
 	case seek_current:
@@ -696,6 +697,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 		new_avail = (ssize_t) m_location.size();
 		new_location.delta(static_cast<offset_t>(off));
 		new_avail -= off;
+		m_nwritten -= off;
 		break;
 
 	case seek_end:
@@ -710,6 +712,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 			new_avail = 0;
 			new_location.delta(static_cast<offset_t>(initial_size + off));
 			new_avail -= off;
+			m_nwritten = initial_size + off;
 		}
 		break;
 
