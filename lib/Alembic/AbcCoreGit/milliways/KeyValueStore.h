@@ -456,8 +456,20 @@ protected:
 	bool write_lz4(write_stream_t& ws, const char*& srcp, size_t nbytes, size_t& compressed_size) { return m_blockstorage->write_lz4(ws, srcp, nbytes, compressed_size); }
 	bool write_lz4(write_stream_t& ws, const std::string& src, size_t& compressed_size) { const char *srcp = src.data(); return write_lz4(ws, srcp, src.length(), compressed_size); }
 
-	bool alloc_space(kv_stream_sized_pos_t& dst, size_t amount);
-	bool extend_allocated_space(kv_stream_sized_pos_t& dst, size_t amount);
+	struct kv_alloc_info
+	{
+		kv_alloc_info() :
+			initial_next_location(), returned(), initial_amount_req(0), allocated(false) {}
+
+		kv_stream_sized_pos_t initial_next_location;
+		kv_stream_sized_pos_t returned;
+		size_t initial_amount_req;
+		bool allocated;
+	};
+
+	bool alloc_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount);
+	bool mark_partial_use(kv_alloc_info& info, size_t used);
+	bool extend_allocated_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount);
 	size_t size_in_blocks(size_t size);
 
 	/* -- Header I/O ----------------------------------------------- */

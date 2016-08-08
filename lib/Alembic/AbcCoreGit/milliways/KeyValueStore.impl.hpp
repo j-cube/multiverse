@@ -493,6 +493,7 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	bool present = find(key, result);
 
 	bool do_allocate = true;
+	kv_alloc_info alloc_info;
 
 	FullLocator locator;
 
@@ -568,7 +569,7 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 			}
 		} else
 			amount = value.length() + FullLocator::ENVELOPE_SIZE;
-		if (! alloc_space(fresh, amount))
+		if (! alloc_space(alloc_info, fresh, amount))
 			return false;
 
 		// locator.set_uncompressed(value.length());
@@ -704,11 +705,16 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	if (! ok) {
 		// everything failed!
 		std::cerr << "WARNING: write FAILED" << std::endl;
+		mark_partial_use(alloc_info, 0);
 		assert(false);
 		return false;
 	}
 
-	assert(do_compress || (ws.nwritten() == static_cast<size_t>(head_loc.size())));
+	// if allocated more space than used, release excess space here
+	if (do_allocate && do_compress)
+		mark_partial_use(alloc_info, compressed_size + FullLocator::ENVELOPE_SIZE);
+
+	assert((ws.nwritten() <= static_cast<size_t>(head_loc.size())));
 
 	// -- update the key-value map --
 
@@ -718,12 +724,16 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 		if (present)
 		{
 			assert(overwrite);
-			if (! m_kv_tree->update(key, result.headDataLocator()))
+			if (! m_kv_tree->update(key, result.headDataLocator())) {
+				mark_partial_use(alloc_info, 0);
 				return false;
+			}
 		} else
 		{
-			if (! m_kv_tree->insert(key, result.headDataLocator()))
+			if (! m_kv_tree->insert(key, result.headDataLocator())) {
+				mark_partial_use(alloc_info, 0);
 				return false;
+			}
 		}
 
 		// TODO: if allocated more space than used, release excess space here
@@ -762,32 +772,99 @@ inline bool KeyValueStore::find(const std::string& key, kv_stream_pos_t& data_po
 	return false;
 }
 
-inline bool KeyValueStore::extend_allocated_space(kv_stream_sized_pos_t& dst, size_t amount)
+inline bool KeyValueStore::extend_allocated_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount)
 {
 	if (! m_next_location.follows(dst))
 		return false;
 
 	FullLocator extra;
-	if (! alloc_space(extra, amount))
+	kv_alloc_info orig_info = info;
+	if (! alloc_space(info, extra, amount))
 		return false;
 
-	return dst.merge(extra);
+	bool ok = dst.merge(extra);
+	if (ok) {
+		info.initial_next_location = orig_info.initial_next_location;
+		info.returned = dst;
+		info.initial_amount_req = orig_info.initial_amount_req + extra;
+	}
+	return ok;
 }
 
-inline bool KeyValueStore::alloc_space(kv_stream_sized_pos_t& dst, size_t amount)
+inline bool KeyValueStore::mark_partial_use(kv_alloc_info& info, size_t used)
 {
-	// size_t amount = dst.size();
+	// std::cerr << "mark_partial_use initial:" << info.initial_amount_req << " used:" << used << "\n";
+	if (! info.allocated)
+		return true;
+	assert(info.allocated);
+	assert(used <= info.initial_amount_req);
+	if (used == info.initial_amount_req)
+		return true;
+	assert(used < info.initial_amount_req);
+
+	assert(info.initial_next_location.valid() && (info.initial_next_location.size() >= used));
+
+	m_next_location = info.initial_next_location;
+	info.initial_amount_req = used;
+
+	// compute next block id / avail
+	m_next_location.consume(used);			// move and shrink
+	return true;
+}
+
+inline bool KeyValueStore::alloc_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount)
+{
+	info.initial_next_location = m_next_location;
+	info.returned.invalidate();
+	info.initial_amount_req = amount;
+
 	if ((! m_next_location.valid()) || (m_next_location.size() < amount))
 	{
-		size_t n_blocks = size_in_blocks(amount);
-		assert((n_blocks * BLOCKSIZE) >= amount);
+		bool contiguous = true;
+		size_t extra = 0;
+		if (! m_next_location.valid())
+			extra = amount;
+		else
+			extra = amount - m_next_location.size();
+
+		if ((extra > 0) && m_next_location.valid()) {
+			kv_stream_pos_t next;
+			next.from_block_offset(m_blockstorage->nextId(), 0);
+
+			if (m_next_location.end_pos() + 1 != next.pos())
+				contiguous = false;
+		}
+
+		if (! contiguous) {
+			// std::cerr << "NOTE: can't reuse remaining allocated space (loosing " << m_next_location.size() << " bytes)" << std::endl;
+			extra = amount;
+		}
+
+		size_t n_blocks = size_in_blocks(extra);
+		assert((n_blocks * BLOCKSIZE) >= extra);
 		block_id_t first_block_id = block_alloc_id(static_cast<int>(n_blocks));
 		if (! block_id_valid(first_block_id))
 			return false;
-		m_next_location.from_block_offset(first_block_id, 0);
-		m_next_location.size(n_blocks * BLOCKSIZE);
+
+		kv_stream_sized_pos_t extra_space;
+		extra_space.from_block_offset(first_block_id, 0);
+		extra_space.size(n_blocks * BLOCKSIZE);
 		if (! block_id_valid(m_first_block_id))
-			m_first_block_id = m_next_location.block_id();
+			m_first_block_id = extra_space.block_id();
+
+		if ((! m_next_location.valid()) || (! contiguous)) {
+			m_next_location = extra_space;
+		} else {
+			assert(contiguous);
+			if (! extra_space.follows(m_next_location)) {
+				std::cerr << "ERROR: non-contiguous residual space!" << std::endl;
+				return false;
+			}
+			if (! m_next_location.merge(extra_space)) {
+				std::cerr << "ERROR: can't extend residual space!" << std::endl;
+				return false;
+			}
+		}
 	}
 
 	assert(block_id_valid(m_first_block_id));
@@ -795,18 +872,25 @@ inline bool KeyValueStore::alloc_space(kv_stream_sized_pos_t& dst, size_t amount
 
 	assert(m_next_location.size() >= amount);
 	assert(m_next_location.offset() >= 0);
-	if (amount <= BLOCKSIZE)
-	{
-		assert(static_cast<ssize_t>(m_next_location.offset()) <= static_cast<ssize_t>((BLOCKSIZE - amount)));
-	}
+
+	// if (amount <= BLOCKSIZE)
+	// {
+	// 	assert(static_cast<ssize_t>(m_next_location.offset()) <= static_cast<ssize_t>((BLOCKSIZE - amount)));
+	// }
 
 	// set dst kv_stream_sized_pos_t to allocated space
 	dst.size(amount);
 	dst.pos(m_next_location.pos());
 
+	info.initial_amount_req = amount;
+	info.initial_next_location = m_next_location;
+	info.returned = dst;
+	info.allocated = true;
+
 	// compute next block id / avail
 	m_next_location.consume(amount);		// move and shrink
 	/* assert(m_next_location.full_size() >= 0); */
+	// std::cerr << "alloc -> " << dst << "  (" << amount << ")\n";
 	return true;
 }
 

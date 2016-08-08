@@ -281,6 +281,7 @@ public:
 
 	virtual bool hasId(block_id_t block_id) = 0;
 
+	virtual block_id_t nextId() = 0;
 	virtual block_id_t allocId(int n_blocks = 1) = 0;
 	virtual block_id_t firstId() = 0;
 	block_id_t allocBlock(block_t& dst);
