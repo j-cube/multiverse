@@ -936,7 +936,11 @@ int32_t GitRepo::formatVersion() const
     int32_t formatversion = -1;
 
     rc = git_config_get_int32(&formatversion, g_config(), "alembic.formatversion");
-    git_check_error(rc, "getting alembic.formatversion config value");
+    if (rc != GIT_SUCCESS)
+    {
+        formatversion = ALEMBIC_GIT_FILE_VERSION;
+        std::cerr << "WARNING: can't get alembic.formatversion config value, still try to open it" << std::endl;
+    }
 
     return formatversion;
 }
@@ -948,7 +952,11 @@ int32_t GitRepo::libVersion() const
     int32_t libversion = -1;
 
     rc = git_config_get_int32(&libversion, g_config(), "alembic.libversion");
-    git_check_error(rc, "getting alembic.libversion config value");
+    if (rc != GIT_SUCCESS)
+    {
+        libversion = ALEMBIC_LIBRARY_VERSION;
+        std::cerr << "WARNING: can't get alembic.libversion config value, still try to open it" << std::endl;
+    }
 
     return libversion;
 }
