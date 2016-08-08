@@ -82,8 +82,12 @@ public:
 		m_length(0), m_error(false), m_cmpBuf(NULL), m_ioBuf() { setup(); data(other.data(), other.size()); }
 	~Lz4Packer() {
 		char *space = m_buffer;
-		if (space)
-			delete[] space;
+		if (space) {
+			if (space == s_buffer)
+				s_buffer_used--;
+			else
+				delete[] space;
+		}
 		m_buffer = NULL;
 		m_dstp = NULL;
 		m_srcp = NULL;
@@ -93,7 +97,16 @@ public:
 	}
 
 	void setup() {
-		char *space = new char[EffectiveSize + CMPBUF_SIZE + (MEM_N_LZ4_BLOCK_BUFFERS * IOBUF_EL_SIZE)];
+		char *space = NULL;
+		if (! s_buffer) {
+			s_buffer_used++;
+			s_buffer = new char[EffectiveSize + CMPBUF_SIZE + (MEM_N_LZ4_BLOCK_BUFFERS * IOBUF_EL_SIZE)];
+			space = s_buffer;
+		} else if (s_buffer_used < 1) {
+			s_buffer_used++;
+			space = s_buffer;
+		} else
+			space = new char[EffectiveSize + CMPBUF_SIZE + (MEM_N_LZ4_BLOCK_BUFFERS * IOBUF_EL_SIZE)];
 		assert(space);
 		m_buffer = space;
 		m_dstp = m_buffer;
@@ -386,6 +399,8 @@ protected:
 private:
 	Lz4Packer& operator= (const Lz4Packer& other);
 
+	static char* s_buffer;
+	static int s_buffer_used;
 	char *m_buffer;
 	char* m_dstp;
 	size_t m_dst_avail;
@@ -412,6 +427,8 @@ private:
 	}
 };
 
+char* Lz4Packer::s_buffer = NULL;
+int Lz4Packer::s_buffer_used = 0;
 
 } /* end of namespace milliways */
 
