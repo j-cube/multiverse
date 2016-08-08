@@ -197,6 +197,8 @@ static bool git_check_rc(int rc, const std::string& action, std::string& errorMe
 std::string git_time_str(const git_time& intime)
 {
     char sign, out[32];
+    memset(out, '\0', 32);
+
     struct tm *intm;
     int offset, hours, minutes;
     time_t t;
@@ -215,7 +217,12 @@ std::string git_time_str(const git_time& intime)
     t = (time_t)intime.time + (intime.offset * 60);
 
     intm = gmtime(&t);
-    strftime(out, sizeof(out), "%a %b %e %T %Y", intm);
+#ifdef _MSC_VER
+    const char *formatstr = "%a %b %d %H:%M:%S %Y";
+#else
+    const char *formatstr = "%a %b %e %T %Y";
+#endif
+    strftime(out, sizeof(out) - 1, formatstr, intm);
 
     std::ostringstream ss;
     ss << out << " " << sign <<
