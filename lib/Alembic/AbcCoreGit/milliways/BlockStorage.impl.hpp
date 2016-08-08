@@ -29,6 +29,8 @@
 #include "Seriously.h"
 #include "Utils.h"
 
+#include "lz4packer.impl.hpp"
+
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -527,7 +529,7 @@ inline bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::read_lz4(read_stream_t& rs,
 	{
 		assert(to_read > 0);
 
-		uint16_t cmpBytes = 0;
+		uint32_t cmpBytes = 0;
 
 		nr = rs.read(cmpBytes);
 		if (nr < 0)
@@ -635,12 +637,12 @@ inline bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write_lz4(write_stream_t& w
         if (cmpBytes <= 0)
             break;			/* failure */
 
-        nw = ws.write(static_cast<uint16_t>(cmpBytes));
+        nw = ws.write(static_cast<uint32_t>(cmpBytes));
         if (nw < 0)
             break;			/* failure */
 		nwritten += static_cast<size_t>(nw);
 
-        nw = ws.write(cmpBuf, static_cast<uint16_t>(cmpBytes));
+        nw = ws.write(cmpBuf, static_cast<uint32_t>(cmpBytes));
         if (nw < 0)
             break;			/* failure */
 		nwritten   += static_cast<size_t>(nw);

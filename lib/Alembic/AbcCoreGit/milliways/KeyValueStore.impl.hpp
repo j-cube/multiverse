@@ -325,7 +325,30 @@ inline bool KeyValueStore::get(const std::string& key, std::string& value)
 
 	read_stream_t rs(m_blockstorage, payload_loc);
 	if (result.isCompressed()) {
-		ok = read_lz4(rs, value, result.contents_size(), compressed_size);
+		bool pre_compression_ok = false;
+		ssize_t pre_compressed_size = -1;
+		if (result.contents_size() < Lz4Packer::Size) {
+			std::string buffer;
+			IOExtString dst(buffer, result.compressed_size());
+			rs >> dst;
+			ok = !rs.fail();
+			assert(rs.nread() == result.compressed_size());
+
+			Lz4Packer lz4packer(buffer);
+			if (lz4packer.lz4_read(value, result.contents_size(), pre_compressed_size) >= 0) {
+				pre_compression_ok = true;
+				ok = true;
+			} else
+			{
+				assert(false);
+				ok = false;
+				// TODO: implement ReadStream::seek()
+				// rs.seek(0, seek_start);
+			}
+		}
+
+		if (! pre_compression_ok)
+			ok = read_lz4(rs, value, result.contents_size(), compressed_size);
 	} else {
 		IOExtString dst(value, result.contents_size());
 		rs >> dst;
@@ -376,8 +399,31 @@ inline bool KeyValueStore::get(Search& result, std::string& value, ssize_t parti
 		else
 			partial = (ssize_t) uncompressed_size;
 
+		bool pre_compression_ok = false;
+		ssize_t pre_compressed_size = -1;
+		if (result.contents_size() < Lz4Packer::Size) {
+			std::string buffer;
+			IOExtString dst(buffer, result.compressed_size());
+			rs >> dst;
+			ok = !rs.fail();
+			assert(rs.nread() == result.compressed_size());
+
+			Lz4Packer lz4packer(buffer);
+			if (lz4packer.lz4_read(value, result.contents_size(), pre_compressed_size) >= 0) {
+				pre_compression_ok = true;
+				ok = true;
+			} else
+			{
+				assert(false);
+				ok = false;
+				// TODO: implement ReadStream::seek()
+				// rs.seek(0, seek_start);
+			}
+		}
+
 		// std::cerr << "payload_loc: " << payload_loc << " payload_size:" << payload_size << " partial:" << partial << "\n";
-		ok = read_lz4(rs, value, (size_t) partial, r_compressed_size);
+		if (! pre_compression_ok)
+			ok = read_lz4(rs, value, (size_t) partial, r_compressed_size);
 		// std::cerr << "read_lz4 ok: " << (ok ? "OK" : "NO") << " r-compressed_size:" << r_compressed_size << "\n";
 
 		if (! ok) return false;
@@ -455,6 +501,29 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	do_compress = false;
 #endif
 
+	bool pre_compression_ok = false;
+	ssize_t pre_compressed_size = -1;
+	Lz4Packer lz4packer;
+
+	size_t payload_size = value.length();
+
+	if (do_compress && (value.length() < Lz4Packer::Size)) {
+		if (lz4packer.lz4_write(value, pre_compressed_size) >= 0) {
+			bool has_compressed = ((size_t)pre_compressed_size < value.length()) ? true : false;
+
+			if (has_compressed) {
+				pre_compression_ok = true;
+				payload_size = (size_t)pre_compressed_size;
+			} else {
+				pre_compression_ok = false;
+				do_compress = false;
+			}
+		} else {
+			pre_compression_ok = false;
+		}
+	} else {
+	}
+
 	if (present)
 	{
 		/* present */
@@ -465,15 +534,11 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 			return false;
 
 		// TODO: handle allocation decision when using compression
-		if (do_compress)
-			do_allocate = true;
-		else
+		if (result.isCompressed())
 		{
-			if (result.isCompressed())
-				do_allocate = (value.length() > result.payload_size()) ? true : false;
-			else
-				do_allocate = (value.length() > result.contents_size()) ? true : false;
-		}
+			do_allocate = ((! pre_compression_ok) || ((size_t)pre_compressed_size > result.payload_size()) || ((value.length() > result.payload_size()))) ? true : false;
+		} else
+			do_allocate = (value.length() > result.contents_size()) ? true : false;
 	} else
 	{
 		/* not present */
@@ -489,22 +554,30 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 		// allocate for uncompressed size, then later we'll mark
 		// residual space as free (TODO)
 		kv_stream_sized_pos_t fresh;
-		size_t amount = value.length() + FullLocator::ENVELOPE_SIZE;
-		if (do_compress) {
-			size_t n_lz4_blocks = (amount + LZ4_BLOCK_BYTES - 1) / LZ4_BLOCK_BYTES;
-			size_t lz4_amount = n_lz4_blocks * (sizeof(uint16_t) + LZ4_COMPRESSBOUND(LZ4_BLOCK_BYTES));
-			amount = lz4_amount;
-		}
+		size_t amount = 0;
+		if (do_compress)
+		{
+			if (pre_compression_ok)
+				amount = pre_compressed_size + FullLocator::ENVELOPE_SIZE;
+			else
+			{
+				amount = value.length(); /* value.length() + FullLocator::ENVELOPE_SIZE; */
+				size_t n_lz4_blocks = (amount + LZ4_BLOCK_BYTES - 1) / LZ4_BLOCK_BYTES;
+				size_t lz4_amount = n_lz4_blocks * (sizeof(uint32_t) + LZ4_COMPRESSBOUND(LZ4_BLOCK_BYTES));
+				amount = lz4_amount + FullLocator::ENVELOPE_SIZE; /* lz4_amount */
+			}
+		} else
+			amount = value.length() + FullLocator::ENVELOPE_SIZE;
 		if (! alloc_space(fresh, amount))
 			return false;
 
 		// locator.set_uncompressed(value.length());
 		locator = fresh;
 		assert(locator.valid());
-		assert(locator.payload_size() >= value.length());
-		assert(locator.contents_size() >= value.length());
+		assert(locator.payload_size() >= payload_size);
+		assert(locator.contents_size() >= payload_size);
 		assert(! locator.isCompressed());
-		assert(locator.full_size() >= value.length() + FullLocator::ENVELOPE_SIZE);
+		assert(locator.full_size() >= payload_size + FullLocator::ENVELOPE_SIZE);
 
 		// result.locator() = fresh;
 		// assert(result.locator().valid());
@@ -522,6 +595,10 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 
 	// kv_stream_pos_t dst_pos(head_pos);
 
+	bool ok = false;
+	bool done = false;
+	size_t compressed_size = 0;
+
 	// FullLocator head_loc(result.headLocator());
 	kv_stream_sized_pos_t head_loc(locator.headLocator());
 	write_stream_t ws(m_blockstorage, head_loc);
@@ -530,16 +607,52 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 	// preliminary compressed value length (to be rewritten later)
 	serialized_value_size_type v_value_length = static_cast<serialized_value_size_type>(value.length());
 	serialized_value_size_type v_compressed_length = 0;
-	ws << v_value_length << v_compressed_length;
+	if (pre_compression_ok)
+		v_compressed_length = static_cast<serialized_value_size_type>(pre_compressed_size);
+
+	if (pre_compression_ok)
+	{
+		compressed_size = static_cast<size_t>(pre_compressed_size);
+
+		// update head block with compressed size information
+		result.locator() = locator;
+		result.set_compressed(compressed_size, value.length());
+		assert(result.isCompressed());
+
+		v_compressed_length = static_cast<serialized_value_size_type>(compressed_size);
+		bool s_ok = ws.seek(0, seek_start);
+#ifdef NDEBUG
+		UNUSED(s_ok);
+#else
+		assert(s_ok);
+#endif
+		ws << v_value_length << v_compressed_length;
+
+		ws.write(lz4packer.data(), lz4packer.size());
+		done = true;
+	} else
+	{
+		ws << v_value_length << v_compressed_length;
+	}
 
 	// write value string
-	bool ok = false;
 
-	if (do_compress) {
-		size_t compressed_size = 0;
+	if ((! done) && do_compress) {
 		ok = write_lz4(ws, value, compressed_size);
-
 		if (ok) {
+			bool has_compressed = (compressed_size < value.length()) ? true : false;
+
+			if (! has_compressed) {
+				do_compress = false;
+				done = false;
+			} else {
+				done = true;
+			}
+		} else {
+			done = false;
+		}
+
+		if (done) {
 			// update head block with compressed size information
 			result.locator() = locator;
 			result.set_compressed(compressed_size, value.length());
@@ -555,23 +668,38 @@ inline bool KeyValueStore::put(const std::string& key, const std::string& value,
 			ws << v_value_length << v_compressed_length;
 			// std::cerr << "value length:" << v_value_length << " compressed length: " << v_compressed_length << "\n";
 		} else {
-			/* compression failed, retry without compression */
-			ws.seek(0, seek_start);
-			ws << v_value_length << v_compressed_length;
+			// /* compression failed, retry without compression */
+			// ws.seek(0, seek_start);
+			// ws << v_value_length << v_compressed_length;
 		}
+	} else {
 	}
 
-	if (! ok) {
+	if (! done) {
 		// no compression or compression failed (retry without compression)
+		/* compression failed, retry without compression */
+		bool s_ok = ws.seek(0, seek_start);
+#ifdef NDEBUG
+		UNUSED(s_ok);
+#else
+		assert(s_ok);
+#endif
+		ws << v_value_length << v_compressed_length;
+
 		ws << value;
 		ok = !ws.fail();
 
+		if (ok) {
+			done = true;
+		} else {
+			std::cerr << "FAIL" << std::endl;
+		}
 		result.locator() = locator;
 		result.set_uncompressed(value.length());
 	}
 
 	ws.flush();
-	ok = !ws.fail();
+	ok = done && !ws.fail();
 
 	if (! ok) {
 		// everything failed!
