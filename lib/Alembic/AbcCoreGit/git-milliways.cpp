@@ -73,8 +73,8 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 
 static int notified_first_write = 0;
 typedef milliways::KeyValueStore kv_store_t;
-typedef typename kv_store_t::block_storage_type kv_blockstorage_t;
-typedef typename kv_store_t::Search kv_search_t;
+typedef XTYPENAME kv_store_t::block_storage_type kv_blockstorage_t;
+typedef XTYPENAME kv_store_t::Search kv_search_t;
 
 struct milliways_backend
 {
