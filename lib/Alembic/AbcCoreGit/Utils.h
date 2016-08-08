@@ -99,6 +99,7 @@ inline bool TRACE_ENABLED() { return trace_enable; }
 #define _T_TODO             "[" << ANSI_COLOR_RED << "TODO" << ANSI_RESET << "] "
 
 #if GLOBAL_TRACE_ENABLE
+#ifndef TRACE
 #define TRACE( TEXT )                             \
 do                                                               \
 {                                                                \
@@ -110,6 +111,7 @@ do                                                               \
     }                                                            \
 }                                                                \
 while( 0 )
+#endif
 
 #define UNIMPLEMENTED( TEXT )                     \
 do                                                               \
@@ -133,7 +135,10 @@ while( 0 )
 
 #else /* start !GLOBAL_TRACE_ENABLE */
 
+#ifndef TRACE
 #define TRACE( TEXT )          do { } while(0)
+#endif
+
 #define UNIMPLEMENTED( TEXT )  do { } while(0)
 #define TODO( TEXT )           do { } while(0)
 
