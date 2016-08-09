@@ -20,15 +20,15 @@ $ git checkout 2.0.0/multiverse
 
 Note that both `Multiverse` code for `1.5.8` and `2.0.0` releases match Alembic API 1.5.8 and these branch could be merged and even fast-forwarded on the upstream `1.5.8` tag.
 
-Support for Alembic 1.6 API will be added after SIGGRAPH 2016.
+Support for Alembic API v1.6+ will be added after SIGGRAPH 2016.
 
 ## Multiverse dependencies
 
-In addition to the original Alembic dependencies, `Multiverse` needs:
+In addition to the original Alembic dependencies, `Multiverse` needs the following additional dependencies:
 
-* [libgit2 v0.23.4](https://github.com/libgit2/libgit2/archive/v0.23.4.tar.gz)
-* [msgpack 1.0.1](https://github.com/msgpack/msgpack-c/releases/download/cpp-1.0.1/msgpack-1.0.1.tar.gz)
-* [boost 1.48.0](http://sourceforge.net/projects/boost/files/boost/1.48.0/boost_1_48_0.tar.bz2/download) compiled also with `chrono`, `filesystem`, `system` (in addition to the original `program_options`, `thread` and `python`)
+* [libgit2 v0.23.4+](https://github.com/libgit2/libgit2/archive/v0.23.4.tar.gz)
+* [msgpack 1.0.1+](https://github.com/msgpack/msgpack-c/releases/download/cpp-1.0.1/msgpack-1.0.1.tar.gz)
+* [boost 1.48.0+](http://sourceforge.net/projects/boost/files/boost/1.48.0/boost_1_48_0.tar.bz2/download) compiled also with `chrono`, `filesystem`, `system` (in addition to the original `program_options`, `thread` and `python`)
 
 ## Multiverse license
 
@@ -52,7 +52,16 @@ See the License for the specific language governing permissions and
 limitations under the License.                             
 
 ```
-         
+
+```
+Authors:
+
+ Marco Pantaleoni
+ Aghiles Kheffache
+ Bo Zhou
+ Paolo Berto Durante
+```
+
 ```
 Contact Informations:
 
