@@ -466,6 +466,65 @@ public:
 	Packer& rewind() { m_dstp = m_buffer; m_dst_avail = sizeof(m_buffer); m_length = 0; m_srcp = m_buffer; m_src_avail = 0; m_error = false; return *this; }
 	Packer& unpacking_rewind() { m_srcp = m_buffer; m_src_avail = m_length; return *this; }
 
+	template <typename T>
+	ssize_t put(const T& value)
+	{
+		if (m_dst_avail < seriously::Traits<T>::serializedsize(value))
+		{
+			seterror();
+			return -1;
+		}
+		ssize_t used = seriously::Traits<T>::serialize(m_dstp, m_dst_avail, value);
+		if (used >= 0) {
+			m_length += static_cast<size_t>(used);
+			m_src_avail += static_cast<size_t>(used);
+		} else
+			seterror();
+		return used;
+	}
+
+	ssize_t put(const char* srcp, size_t nbytes)
+	{
+		if (m_dst_avail < nbytes)
+		{
+			seterror();
+			return -1;
+		}
+		memcpy(m_dstp, srcp, nbytes);
+		m_dstp += nbytes;
+		m_dst_avail -= nbytes;
+		m_length += nbytes;
+		m_src_avail += nbytes;
+		return nbytes;
+	}
+
+	template <typename T>
+	ssize_t get(T& value)
+	{
+		if (m_src_avail < seriously::Traits<T>::serializedsize(value))
+		{
+			seterror();
+			return -1;
+		}
+		ssize_t consumed = seriously::Traits<T>::deserialize(m_srcp, m_src_avail, value);
+		if (consumed < 0)
+			seterror();
+		return consumed;
+	}
+
+	ssize_t get(char* dstp, size_t nbytes)
+	{
+		if (m_src_avail < nbytes)
+		{
+			seterror();
+			return -1;
+		}
+		memcpy(dstp, m_srcp, nbytes);
+		m_srcp += nbytes;
+		m_src_avail -= nbytes;
+		return nbytes;
+	}
+
 protected:
 	bool seterror(bool value = true) { bool old = m_error; m_error = value; return old; }
 
@@ -483,31 +542,14 @@ private:
 	template <typename T>
 	friend inline Packer& operator<< (Packer& os, const T& value)
 	{
-		if (os.m_dst_avail < Traits<T>::serializedsize(value))
-		{
-			os.seterror();
-			return os;
-		}
-		ssize_t used = Traits<T>::serialize(os.m_dstp, os.m_dst_avail, value);
-		if (used >= 0) {
-			os.m_length += static_cast<size_t>(used);
-			os.m_src_avail += static_cast<size_t>(used);
-		} else
-			os.seterror();
+		os.put(value);
 		return os;
 	}
 
 	template <typename T>
 	friend inline Packer& operator>> (Packer& os, T& value)
 	{
-		if (os.m_src_avail < Traits<T>::serializedsize(value))
-		{
-			os.seterror();
-			return os;
-		}
-		ssize_t consumed = Traits<T>::deserialize(os.m_srcp, os.m_src_avail, value);
-		if (consumed < 0)
-			os.seterror();
+		os.get(value);
 		return os;
 	}
 

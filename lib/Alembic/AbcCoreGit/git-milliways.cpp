@@ -40,6 +40,7 @@
 #include "milliways/KeyValueStore.h"
 
 #include "milliways/Utils.h"
+#include "Utils.h"
 #include <algorithm>
 
 #ifndef GIT_SUCCESS
@@ -53,6 +54,8 @@
 // #ifndef GIT_ENOTFOUND
 // #define GIT_ENOTFOUND -1
 // #endif
+
+#define TRACE_MW 0
 
 /* ----------------------------------------------------------------- */
 /*   LOCAL PROTOTYPES                                                */
@@ -159,6 +162,9 @@ void milliways_backend::cleanup()
 
 static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_odb_backend *backend_, const git_oid *oid)
 {
+#if TRACE_MW
+	double t_start = Alembic::AbcCoreGit::time_ms();
+#endif /* TRACE_MW */
 	assert(len_p && type_p && backend_ && oid);
 
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
@@ -168,6 +174,10 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 	// std::cerr << "milliways_backend__read_header('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
     if (! backend->kv->find(s_oid, search)) {
+#if TRACE_MW
+    	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::GETH " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 		return GIT_ENOTFOUND;
 	}
 
@@ -181,6 +191,10 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 	/* extract type (int) */
 	bool ok = backend->kv->get(search, s_type, sizeof(uint32_t));
 	if (! ok) {
+#if TRACE_MW
+    	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::GETH " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 		return GIT_ENOTFOUND;
 	}
 	packer.data(s_type.data(), s_type.size());
@@ -192,6 +206,10 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 	*len_p = 0;
 	ok = backend->kv->get(search, s_size, sizeof(uint32_t));
 	if (! ok) {
+#if TRACE_MW
+    	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::GETH " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 		return GIT_ENOTFOUND;
 	}
 	packer.data(s_size.data(), s_size.size());
@@ -199,11 +217,19 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 
 	*len_p = static_cast<size_t>(v_size);
 
+#if TRACE_MW
+   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+	std::cerr << "MW::GETH " << milliways::hexify(s_oid) << " <- OK (" << t_elapsed << " ms) " << v_type << " " << v_size << std::endl;
+#endif /* TRACE_MW */
+
 	return GIT_SUCCESS;
 }
 
 static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type_p, git_odb_backend *backend_, const git_oid *oid)
 {
+#if TRACE_MW
+	double t_start = Alembic::AbcCoreGit::time_ms();
+#endif /* TRACE_MW */
 	assert(data_p && len_p && type_p && backend_ && oid);
 
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
@@ -213,6 +239,10 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	// std::cerr << "milliways_backend__read('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
     if (! backend->kv->find(s_oid, search)) {
+#if TRACE_MW
+	   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::GET " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 		// std::cerr << "  not found '" << milliways::hexify(s_oid) << "'" << std::endl;
 		return GIT_ENOTFOUND;
 	}
@@ -223,6 +253,10 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	std::string blob;
 	bool ok = backend->kv->get(search, blob);
 	if (! ok) {
+#if TRACE_MW
+	   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::GET " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 		// std::cerr << "  ERR: not found '" << milliways::hexify(s_oid) << "' at later stage!" << std::endl;
 		return GIT_ENOTFOUND;
 	}
@@ -284,11 +318,19 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 	databuf[s_data.size()] = '\0';
 	*data_p = databuf;
 
+#if TRACE_MW
+   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+	std::cerr << "MW::GET " << milliways::hexify(s_oid) << " <- OK (" << t_elapsed << " ms) " << v_type << " " << v_size << " " << milliways::hexify(s_data) << std::endl;
+#endif /* TRACE_MW */
+
 	return GIT_SUCCESS;
 }
 
 static int milliways_backend__exists(git_odb_backend *backend_, const git_oid *oid)
 {
+#if TRACE_MW
+	double t_start = Alembic::AbcCoreGit::time_ms();
+#endif /* TRACE_MW */
 	assert(backend_ && oid);
 
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
@@ -297,11 +339,19 @@ static int milliways_backend__exists(git_odb_backend *backend_, const git_oid *o
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
 	// std::cerr << "milliways_backend__exists('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
-    return backend->kv->has(s_oid) ? 1 : 0;
+    int r = backend->kv->has(s_oid) ? 1 : 0;
+#if TRACE_MW
+   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+	std::cerr << "MW::HAS " << milliways::hexify(s_oid) << " <- (" << t_elapsed << " ms) " << (r ? "TRUE" : "FALSE") << std::endl;
+#endif /* TRACE_MW */
+	return r;
 }
 
 static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oid_, const void *data, size_t len, git_otype type)
 {
+#if TRACE_MW
+	double t_start = Alembic::AbcCoreGit::time_ms();
+#endif /* TRACE_MW */
 	git_oid oid_data, *oid = NULL;
 	if (oid_)
 	{
@@ -310,8 +360,13 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 	{
 		int status;
 		oid = &oid_data;
-		if ((status = git_odb_hash(oid, data, len, type)) < 0)
+		if ((status = git_odb_hash(oid, data, len, type)) < 0) {
+#if TRACE_MW
+		   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+			std::cerr << "MW::PUT ERROR (type:" << type << " len:" << len << ") (" << t_elapsed << " ms)" << std::endl;
+#endif /* TRACE_MW */
 			return status;
+		}
 	}
 
 	assert(oid && backend_ && data);
@@ -335,9 +390,17 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
 	// std::cerr << "milliways_backend__write('" << milliways::hexify(s_oid) << "', len:" << len << ", type:" << v_type << ")" << std::endl;
     if (! backend->kv->put(s_oid, whole)) {
+#if TRACE_MW
+	   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+		std::cerr << "MW::PUT " << milliways::hexify(s_oid) << " <- NO (" << t_elapsed << " ms) " << v_type << " " << v_size << " " << milliways::hexify(whole) << std::endl;
+#endif /* TRACE_MW */
 		return GIT_ERROR;
 	}
 
+#if TRACE_MW
+   	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
+	std::cerr << "MW::PUT " << milliways::hexify(s_oid) << " <- OK (" << t_elapsed << " ms) " << v_type << " " << v_size << " " << milliways::hexify(whole) << std::endl;
+#endif /* TRACE_MW */
 	return GIT_SUCCESS;
 }
 

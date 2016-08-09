@@ -29,6 +29,8 @@
 #include "Seriously.h"
 #include "Utils.h"
 
+#include "lz4packer.impl.hpp"
+
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -527,7 +529,7 @@ inline bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::read_lz4(read_stream_t& rs,
 	{
 		assert(to_read > 0);
 
-		uint16_t cmpBytes = 0;
+		uint32_t cmpBytes = 0;
 
 		nr = rs.read(cmpBytes);
 		if (nr < 0)
@@ -635,12 +637,12 @@ inline bool FileBlockStorage<BLOCKSIZE, CACHE_SIZE>::write_lz4(write_stream_t& w
         if (cmpBytes <= 0)
             break;			/* failure */
 
-        nw = ws.write(static_cast<uint16_t>(cmpBytes));
+        nw = ws.write(static_cast<uint32_t>(cmpBytes));
         if (nw < 0)
             break;			/* failure */
 		nwritten += static_cast<size_t>(nw);
 
-        nw = ws.write(cmpBuf, static_cast<uint16_t>(cmpBytes));
+        nw = ws.write(cmpBuf, static_cast<uint32_t>(cmpBytes));
         if (nw < 0)
             break;			/* failure */
 		nwritten   += static_cast<size_t>(nw);
@@ -688,6 +690,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 		new_avail = static_cast<ssize_t>(new_location.size());
 		new_location.delta(static_cast<offset_t>(off));
 		new_avail -= off;
+		m_nwritten = off;
 		break;
 
 	case seek_current:
@@ -696,6 +699,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 		new_avail = (ssize_t) m_location.size();
 		new_location.delta(static_cast<offset_t>(off));
 		new_avail -= off;
+		m_nwritten -= off;
 		break;
 
 	case seek_end:
@@ -710,6 +714,7 @@ inline bool WriteStream<BLOCKSIZE, CACHE_SIZE>::seek(ssize_t off, seek_t seek_ty
 			new_avail = 0;
 			new_location.delta(static_cast<offset_t>(initial_size + off));
 			new_avail -= off;
+			m_nwritten = initial_size + off;
 		}
 		break;
 
