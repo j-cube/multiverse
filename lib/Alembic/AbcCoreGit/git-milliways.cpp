@@ -74,10 +74,89 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
 /*   CODE                                                            */
 /* ----------------------------------------------------------------- */
 
+struct cache_el
+{
+	git_oid oid;
+	git_otype type;
+	size_t len;
+	char *data;
+	bool present;
+
+	cache_el() :
+		oid(), type(), len(0), data(NULL), present(false), mem(NULL), mem_size(0) {}
+	~cache_el() {
+		if (mem)
+			delete[] mem;
+		mem = NULL;
+		mem_size = 0;
+		data = NULL;
+		len = 0;
+		present = false;
+	}
+
+	bool resize(size_t needed) {
+		if (needed == 0)
+			return true;
+		if (mem_size >= needed) {
+			data = mem;
+			return true;
+		}
+		assert(mem_size < needed);
+		if (mem)
+			delete[] mem;
+		mem = NULL;
+		mem_size = 0;
+		data = NULL;
+		mem = new char[needed + 1];
+		if (! mem)
+			return false;
+		mem_size = needed;
+		data = mem;
+		return true;
+	}
+
+	bool matches(const git_oid *oid_) const {
+		if (! oid_)
+			return false;
+		return (memcmp(oid.id, oid_->id, 20) == 0) ? true : false;
+	}
+
+	void invalidate() {
+		memset(oid.id, 0, 20);
+		len = 0;
+	}
+
+	bool set(const git_oid *oid_, git_otype type_, size_t len_, const void *data_) {
+		if (oid_)
+			oid = (const git_oid) *oid_;
+		else {
+			invalidate();
+			return false;
+		}
+		present = true;
+		type = type_;
+		len = len_;
+		if (! resize(len_)) {
+			data = NULL;
+			return false;
+		}
+		if (data && (len_ > 0)) {
+			assert(data);
+			memcpy(data, data_, len_);
+		}
+		return true;
+	}
+
+private:
+	char *mem;
+	size_t mem_size;
+};
+
 static int notified_first_write = 0;
 typedef milliways::KeyValueStore kv_store_t;
 typedef typename kv_store_t::block_storage_type kv_blockstorage_t;
 typedef typename kv_store_t::Search kv_search_t;
+static cache_el cached;
 
 struct milliways_backend
 {
@@ -170,6 +249,12 @@ static int milliways_backend__read_header(size_t *len_p, git_otype *type_p, git_
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
 	assert(backend);
 
+	if (cached.matches(oid)) {
+		*type_p = cached.type;
+		*len_p = cached.len;
+		return GIT_SUCCESS;
+	}
+
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
 	// std::cerr << "milliways_backend__read_header('" << milliways::hexify(s_oid) << "')" << std::endl;
 	kv_search_t search;
@@ -234,6 +319,23 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
 
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
 	assert(backend);
+
+	if (cached.matches(oid)) {
+		*type_p = cached.type;
+		*len_p = cached.len;
+		if (data_p) {
+			if (! cached.data)
+				return GIT_ENOMEM;
+			char* databuf = (char *)malloc(cached.len + 1);
+			if (! databuf)
+				return GIT_ENOMEM;
+			assert(cached.data);
+			memcpy(databuf, cached.data, cached.len);
+			databuf[cached.len] = '\0';
+			*data_p = databuf;
+		}
+		return GIT_SUCCESS;
+	}
 
 	std::string s_oid(reinterpret_cast<const char*>(oid->id), 20);
 	// std::cerr << "milliways_backend__read('" << milliways::hexify(s_oid) << "')" << std::endl;
@@ -322,6 +424,7 @@ static int milliways_backend__read(void **data_p, size_t *len_p, git_otype *type
    	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
 	std::cerr << "MW::GET " << milliways::hexify(s_oid) << " <- OK (" << t_elapsed << " ms) " << v_type << " " << v_size << " " << milliways::hexify(s_data) << std::endl;
 #endif /* TRACE_MW */
+	cached.set(oid, *type_p, *len_p, databuf);
 
 	return GIT_SUCCESS;
 }
@@ -332,6 +435,10 @@ static int milliways_backend__exists(git_odb_backend *backend_, const git_oid *o
 	double t_start = Alembic::AbcCoreGit::time_ms();
 #endif /* TRACE_MW */
 	assert(backend_ && oid);
+
+	if (cached.matches(oid)) {
+		return cached.present ? 1 : 0;
+	}
 
 	milliways_backend *backend = reinterpret_cast<milliways_backend*>(backend_);
 	assert(backend);
@@ -401,6 +508,8 @@ static int milliways_backend__write(git_odb_backend *backend_, const git_oid *oi
    	double t_elapsed = Alembic::AbcCoreGit::time_ms() - t_start;
 	std::cerr << "MW::PUT " << milliways::hexify(s_oid) << " <- OK (" << t_elapsed << " ms) " << v_type << " " << v_size << " " << milliways::hexify(whole) << std::endl;
 #endif /* TRACE_MW */
+	cached.set(oid, type, len, data);
+
 	return GIT_SUCCESS;
 }
 
