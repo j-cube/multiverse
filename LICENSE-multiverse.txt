@@ -18,11 +18,12 @@
 
 --------------------------------------------------------------------------------
 
-  Contact Informations:
+  Contact Informations:                       Authors:
 
-      J CUBE Inc.                                                              
-      6F Azabu Green Terrace                                                   
-      3-20-1 Minami-Azabu, Minato-ku, Tokyo, Japan.                                
+      J CUBE Inc.                                 Marco Pantaleoni                                 
+      6F Azabu Green Terrace                      Aghiles Kheffache                             
+      3-20-1 Minami-Azabu                         Bo Zhou
+      Minato-ku, Tokyo, Japan.                    Paolo Berto Durante            
       info@-jcube.jp
       http://j-cube.jp
 

@@ -56,40 +56,40 @@
 #define HAVE_UNISTD_H 1
 
 /* Define to 1 if <tr1/memory> exists and defines std::tr1::shared_ptr. */
-/* #undef HAVE_STD_TR1_SHARED_PTR */
+#define HAVE_STD_TR1_SHARED_PTR 1
 
 /* Define to 1 if <memory> exists and defines std::shared_ptr. */
-#define HAVE_STD_SHARED_PTR 1
+/* #undef HAVE_STD_SHARED_PTR */
 
 /* Define to 1 if <boost/shared_ptr.hpp> exists and defines boost::shared_ptr. */
-#define HAVE_BOOST_SHARED_PTR 1
+/* #undef HAVE_BOOST_SHARED_PTR */
 
 /* Define to 1 if <tr1/memory> exists and defines std::tr1::weak_ptr. */
-/* #undef HAVE_STD_TR1_WEAK_PTR */
+#define HAVE_STD_TR1_WEAK_PTR 1
 
 /* Define to 1 if <memory> exists and defines std::weak_ptr. */
-#define HAVE_STD_WEAK_PTR 1
+/* #undef HAVE_STD_WEAK_PTR */
 
 /* Define to 1 if <boost/weak_ptr.hpp> exists and defines boost::weak_ptr. */
-#define HAVE_BOOST_WEAK_PTR 1
+/* #undef HAVE_BOOST_WEAK_PTR */
 
 /* Define to 1 if <tr1/array> exists and defines std::tr1::array. */
-/* #undef HAVE_STD_TR1_ARRAY */
+#define HAVE_STD_TR1_ARRAY 1
 
 /* Define to 1 if <array> exists and defines std::array. */
-#define HAVE_STD_ARRAY 1
+/* #undef HAVE_STD_ARRAY */
 
 /* Define to 1 if <boost/array.hpp> exists and defines boost::array. */
-#define HAVE_BOOST_ARRAY 1
+/* #undef HAVE_BOOST_ARRAY */
 
 /* Define to 1 if <tr1/unordered_map> exists and defines std::tr1::unordered_map. */
-/* #undef HAVE_STD_TR1_UNORDERED_MAP */
+#define HAVE_STD_TR1_UNORDERED_MAP 1
 
 /* Define to 1 if <unordered_map> exists and defines std::unordered_map. */
-#define HAVE_STD_UNORDERED_MAP 1
+/* #undef HAVE_STD_UNORDERED_MAP */
 
 /* Define to 1 if <boost/unordered_map.hpp> exists and defines boost::unordered_map. */
-#define HAVE_BOOST_UNORDERED_MAP 1
+/* #undef HAVE_BOOST_UNORDERED_MAP */
 
 /* Define to 1 if <functional> exists and defines std::function. */
 /* #undef HAVE_STD_FUNCTION */

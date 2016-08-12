@@ -75,7 +75,7 @@ IF( "${CMAKE_SYSTEM_NAME}" MATCHES "Darwin" )
   IF ( NOT ${CMAKE_SYSTEM_VERSION} VERSION_LESS "13.0.0" )
     #ADD_DEFINITIONS( "-std=c++11" )
     #set( CMAKE_CXX_FLAGS "-std=c++11" )
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
+    #set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
   ENDIF()
 ENDIF()
 

@@ -33,12 +33,12 @@
 ##
 ##-*****************************************************************************
 
-ADD_SUBDIRECTORY( SimpleAbcViewer )
+#ADD_SUBDIRECTORY( SimpleAbcViewer )
 ADD_SUBDIRECTORY( AbcConvert )
 ADD_SUBDIRECTORY( AbcHistory )
 ADD_SUBDIRECTORY( AbcEcho )
-ADD_SUBDIRECTORY( AbcStitcher )
-ADD_SUBDIRECTORY( AbcTree )
-ADD_SUBDIRECTORY( AbcLs )
-ADD_SUBDIRECTORY( Bug26 )
-ADD_SUBDIRECTORY( Issue35 )
+#ADD_SUBDIRECTORY( AbcStitcher )
+#ADD_SUBDIRECTORY( AbcTree )
+#ADD_SUBDIRECTORY( AbcLs )
+#ADD_SUBDIRECTORY( Bug26 )
+#ADD_SUBDIRECTORY( Issue35 )
