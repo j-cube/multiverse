@@ -72,6 +72,10 @@ ENDIF()
 
 SET(LIBRARY_PATHS 
     ${ALEMBIC_OPENEXR_ROOT}/lib
+    ~/multiverse/lib
+    ~/jcube/lib
+    /opt/multiverse/lib
+    /opt/jcube/lib
     ~/Library/Frameworks
     /Library/Frameworks
     /usr/local/lib
@@ -85,6 +89,18 @@ SET(LIBRARY_PATHS
 
 SET(INCLUDE_PATHS 
     ${ALEMBIC_OPENEXR_ROOT}/include/OpenEXR/
+    ~/multiverse/include/OpenEXR/
+    ~/multiverse/include
+    ~/multiverse
+    ~/jcube/include/OpenEXR/
+    ~/jcube/include
+    ~/jcube
+    /opt/multiverse/include/OpenEXR/
+    /opt/multiverse/include
+    /opt/multiverse
+    /opt/jcube/include/OpenEXR/
+    /opt/jcube/include
+    /opt/jcube
     ~/Library/Frameworks
     /Library/Frameworks
     /usr/local/include/OpenEXR/

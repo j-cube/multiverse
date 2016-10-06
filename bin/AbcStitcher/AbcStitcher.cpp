@@ -41,6 +41,7 @@
 #endif
 
 #include <Alembic/AbcCoreOgawa/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
 
 #include "util.h"
@@ -1073,7 +1074,14 @@ int main( int argc, char *argv[] )
                 Alembic::AbcCoreHDF5::WriteArchive(),
                 fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
         }
+
 #endif
+        else if (coreType == Alembic::AbcCoreFactory::IFactory::kGit)
+        {
+            oArchive = CreateArchiveWithInfo(
+                Alembic::AbcCoreGit::WriteArchive(),
+                fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
+        }
 
         OObject oRoot = oArchive.getTop();
         if (!oRoot.valid())
