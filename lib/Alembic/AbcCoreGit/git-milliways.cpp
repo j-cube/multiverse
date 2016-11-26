@@ -154,8 +154,8 @@ private:
 
 static int notified_first_write = 0;
 typedef milliways::KeyValueStore kv_store_t;
-typedef typename kv_store_t::block_storage_type kv_blockstorage_t;
-typedef typename kv_store_t::Search kv_search_t;
+typedef XTYPENAME kv_store_t::block_storage_type kv_blockstorage_t;
+typedef XTYPENAME kv_store_t::Search kv_search_t;
 static cache_el cached;
 
 struct milliways_backend
@@ -179,7 +179,7 @@ public:
 
 bool milliways_backend::open(const char *pathname)
 {
-	std::cerr << "milliways_backend::open()\n";
+	TRACE("milliways_backend::open()") ;
 
 	assert(! bs);
 	assert(! kv);
@@ -218,7 +218,7 @@ void milliways_backend::cleanup()
 		return;
 	if (cleaned)
 		return;
-	std::cerr << "milliways_backend::cleanup()\n";
+	TRACE("milliways_backend::cleanup()");
 	if (kv)
 	{
 		if (kv->isOpen())
@@ -528,7 +528,7 @@ int milliways_backend__cleanedup(git_odb_backend *backend_)
 
 void milliways_backend__free(git_odb_backend *backend_)
 {
-	std::cerr << "CLEANUP MILLIWAYS BACKEND\n";
+	TRACE("CLEANUP MILLIWAYS BACKEND");
 	assert(backend_);
 
 	milliways_backend* backend = reinterpret_cast<milliways_backend*>(backend_);

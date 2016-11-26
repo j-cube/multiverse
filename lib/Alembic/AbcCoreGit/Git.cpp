@@ -197,6 +197,8 @@ static bool git_check_rc(int rc, const std::string& action, std::string& errorMe
 std::string git_time_str(const git_time& intime)
 {
     char sign, out[32];
+    memset(out, '\0', 32);
+
     struct tm *intm;
     int offset, hours, minutes;
     time_t t;
@@ -215,7 +217,12 @@ std::string git_time_str(const git_time& intime)
     t = (time_t)intime.time + (intime.offset * 60);
 
     intm = gmtime(&t);
-    strftime(out, sizeof(out), "%a %b %e %T %Y", intm);
+#ifdef _MSC_VER
+    const char *formatstr = "%a %b %d %H:%M:%S %Y";
+#else
+    const char *formatstr = "%a %b %e %T %Y";
+#endif
+    strftime(out, sizeof(out) - 1, formatstr, intm);
 
     std::ostringstream ss;
     ss << out << " " << sign <<
@@ -936,7 +943,11 @@ int32_t GitRepo::formatVersion() const
     int32_t formatversion = -1;
 
     rc = git_config_get_int32(&formatversion, g_config(), "alembic.formatversion");
-    git_check_error(rc, "getting alembic.formatversion config value");
+    if (rc != GIT_SUCCESS)
+    {
+        formatversion = ALEMBIC_GIT_FILE_VERSION;
+        std::cerr << "WARNING: can't get alembic.formatversion config value, still try to open it" << std::endl;
+    }
 
     return formatversion;
 }
@@ -948,7 +959,11 @@ int32_t GitRepo::libVersion() const
     int32_t libversion = -1;
 
     rc = git_config_get_int32(&libversion, g_config(), "alembic.libversion");
-    git_check_error(rc, "getting alembic.libversion config value");
+    if (rc != GIT_SUCCESS)
+    {
+        libversion = ALEMBIC_LIBRARY_VERSION;
+        std::cerr << "WARNING: can't get alembic.libversion config value, still try to open it" << std::endl;
+    }
 
     return libversion;
 }
