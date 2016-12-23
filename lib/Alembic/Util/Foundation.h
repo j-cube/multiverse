@@ -182,6 +182,11 @@ public:
         p = val;
     }
 
+    T* get() const
+    {
+        return p;
+    }
+
     T* operator->() const
     {
         return p;
