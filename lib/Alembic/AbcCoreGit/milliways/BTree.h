@@ -123,6 +123,7 @@ public:
 	MW_SHPTR<node_type> update(const key_type& key_, const mapped_type& value_);
 	bool search(lookup_type& res, const key_type& key_);
 	bool remove(lookup_type& res, const key_type& key_);
+	iterator find(const key_type& key_);
 
 	/* -- Node I/O ------------------------------------------------- */
 
@@ -156,8 +157,8 @@ public:
 		typedef std::forward_iterator_tag iterator_category;
 		typedef int difference_type;
 
-		iterator(): m_tree(NULL), m_root(), m_first_node(), m_forward(true), m_end(true), m_current() { update_current(); }
-		iterator(bool end_): m_tree(NULL), m_root(), m_first_node(), m_forward(true), m_end(end_), m_current() { update_current(); }
+		iterator(): m_tree(NULL), m_root(), m_first_node(), m_forward(true), m_end(true), m_current() { update_current(/* strict_found */ false); }
+		iterator(bool end_): m_tree(NULL), m_root(), m_first_node(), m_forward(true), m_end(end_), m_current() { update_current(/* strict_found */ false); }
 		iterator(tree_type* tree_, const MW_SHPTR<node_type>& root_, bool forward_ = true, bool end_ = false) : m_tree(tree_), m_root(root_), m_first_node(), m_forward(forward_), m_end(end_), m_current() { rewind(end_); }
 		iterator(const iterator& other) : m_tree(other.m_tree), m_root(other.m_root), m_first_node(other.m_first_node), m_forward(other.m_forward), m_end(other.m_end), m_current(other.m_current) { }
 		iterator& operator= (const iterator& other) { m_tree = other.m_tree; m_root = other.m_root; m_first_node = other.m_first_node; m_forward = other.m_forward; m_end = other.m_end; m_current = other.m_current; return *this; }
@@ -193,7 +194,8 @@ public:
 		bool end() const { return m_end; }
 
 	protected:
-		void update_current();
+		void update_current(bool strict_found = true);
+		void set_current(const value_type& at);			/* needed only by BTree::find(const key_type& key_) */
 
 	private:
 		tree_type* m_tree;
@@ -203,6 +205,7 @@ public:
 		bool m_end;
 		value_type m_current;
 		friend class const_iterator;
+		friend class BTree<B_, KeyTraits, TTraits, Compare>;
 	};
 
 private:

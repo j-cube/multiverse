@@ -84,12 +84,12 @@ public:
 	typedef BTreeNode<B_, KeyTraits, TTraits, Compare> node_type;
 
 	BTreeLookup() :
-		m_node_ptr(), m_found(false), m_pos(-1), m_key() {}
-	BTreeLookup(MW_SHPTR<node_type>& node_, bool found_, int pos_, const key_type& key_) :
-		m_node_ptr(node_), m_found(found_), m_pos(pos_), m_key(key_) {}
+		m_node_ptr(), m_found(false), m_pos(-1), m_key(), m_lookup_key() {}
+	BTreeLookup(MW_SHPTR<node_type>& node_, bool found_, int pos_, const key_type& key_, const key_type& lookup_key_) :
+		m_node_ptr(node_), m_found(found_), m_pos(pos_), m_key(key_), m_lookup_key(lookup_key_) {}
 	BTreeLookup(const BTreeLookup& other) :
-			m_node_ptr(other.m_node_ptr), m_found(other.m_found), m_pos(other.m_pos), m_key(other.m_key) {}
-	BTreeLookup& operator= (const BTreeLookup& other) { m_node_ptr = other.m_node_ptr; m_found = other.m_found; m_pos = other.m_pos; m_key = other.m_key; return *this; }
+			m_node_ptr(other.m_node_ptr), m_found(other.m_found), m_pos(other.m_pos), m_key(other.m_key), m_lookup_key(other.m_lookup_key) {}
+	BTreeLookup& operator= (const BTreeLookup& other) { m_node_ptr = other.m_node_ptr; m_found = other.m_found; m_pos = other.m_pos; m_key = other.m_key; m_lookup_key = other.m_lookup_key; return *this; }
 
 	bool operator== (const BTreeLookup& rhs) { return (m_node_ptr == rhs.m_node_ptr) && (m_found == rhs.m_found) && (m_pos == rhs.m_pos); }
 	bool operator!= (const BTreeLookup& rhs) { return (m_node_ptr != rhs.m_node_ptr) || (m_found != rhs.m_found) || (m_pos != rhs.m_pos); }
@@ -98,8 +98,13 @@ public:
 	bool found() const { return m_found; }
 	BTreeLookup& found(bool value) { m_found = value; return *this; }
 
+	/* key is the current key, which is (typically) different from the lookup key */
 	const key_type& key() const { return m_key; }
 	BTreeLookup& key(const key_type& key_) { m_key = key_; return *this; }
+
+	/* lookup key is (typically) different from current key */
+	const key_type& lookupKey() const { return m_lookup_key; }
+	BTreeLookup& lookupKey(const key_type& key_) { m_lookup_key = key_; return *this; }
 
 	MW_SHPTR<node_type> node() const { return m_node_ptr; }
 	BTreeLookup& node(const MW_SHPTR<node_type>& node_) { m_node_ptr = node_; return *this; }
@@ -115,13 +120,14 @@ private:
 	bool m_found;
 	int m_pos;
 	key_type m_key;
+	key_type m_lookup_key;
 };
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
 inline std::ostream& operator<< ( std::ostream& out, const BTreeLookup<B_, KeyTraits, TTraits, Compare>& value )
 {
 	node_id_t node_id = value.nodeId();
-	out << "<Lookup " << (value.found() ? "found" : "NOT-found") << " key:" << value.key() << " node:" << (int)(node_id_valid(node_id) ? (int)node_id : -1) << " pos:" << value.pos() << ">";
+	out << "<Lookup " << (value.found() ? "found" : "NOT-found") << " lookup-key:" << value.lookupKey() << " current-key:" << value.key() << " node:" << (int)(node_id_valid(node_id) ? (int)node_id : -1) << " pos:" << value.pos() << ">";
 	return out;
 }
 

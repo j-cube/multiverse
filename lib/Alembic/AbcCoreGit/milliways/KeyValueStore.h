@@ -39,6 +39,7 @@
 #include "BTreeNode.h"
 #include "BTree.h"
 #include "BTreeFileStorage.h"
+#include "glob.h"
 
 namespace milliways {
 
@@ -264,6 +265,7 @@ public:
 
 	class iterator;
 	class const_iterator;
+	class glob_iterator;
 
 	struct Search
 	{
@@ -347,10 +349,14 @@ public:
 
 	bool has(const std::string& key);
 	bool find(const std::string& key, Search& result);
-	Search find(const std::string& key) { Search result; find(key, result); return result; }
+	Search search(const std::string &key) { Search result; find(key, result); return result; }
+	iterator find(const std::string &key);
+	glob_iterator glob(const std::string &pattern);
 	bool get(const std::string& key, std::string& value);
 	bool get(Search& result, std::string& value, ssize_t partial = -1);			/* streaming/partial reads */ 
 	std::string get(const std::string& key);
+	bool get(const iterator& it, std::string& value, ssize_t partial = -1); 	/* streaming/partial reads */ 
+	std::string get(const iterator& it) { std::string value; get(it, value); return value; }
 	bool put(const std::string& key, const std::string& value, bool overwrite = true);
 	bool rename(const std::string& old_key, const std::string& new_key);
 
@@ -383,7 +389,7 @@ public:
 		base_iterator(kv_type* kv_, bool forward_ = true, bool end_ = false) : m_kv(kv_), m_tree(NULL), m_tree_it(), m_forward(forward_), m_end(end_), m_current_key() { m_tree = m_kv->kv_tree(); kv_tree_iterator_type it(m_tree, m_tree->root(), forward_, end_); m_tree_it = it; rewind(end_); }
 		base_iterator(const base_iterator& other) : m_kv(other.m_kv), m_tree(other.m_tree), m_tree_it(other.m_tree_it), m_forward(other.m_forward), m_end(other.m_end), m_current_key(other.m_current_key) { }
 		base_iterator& operator= (const base_iterator& other) { m_kv = other.m_kv; m_tree = other.m_tree; m_tree_it = other.m_tree_it; m_forward = other.m_forward; m_end = other.m_end; m_current_key = other.m_current_key; return *this; }
-		~base_iterator() { m_kv = NULL; m_tree = NULL; m_end = true; }
+		virtual ~base_iterator() { m_kv = NULL; m_tree = NULL; m_end = true; }
 
 		self_type& operator++() { next(); return *this; }									/* prefix  */
 		self_type operator++(int) { self_type i = *this; next(); return i; }				/* postfix */
@@ -393,23 +399,27 @@ public:
 		const_reference operator*() const { m_current_key = (*m_tree_it).key(); return m_current_key; }
 		// pointer operator->() { m_current_key = (*m_tree_it).key(); return &m_current_key; }
 		const_pointer operator->() const { m_current_key = (*m_tree_it).key(); return &m_current_key; }
-		bool operator== (const self_type& rhs) {
+		virtual bool operator== (const self_type& rhs) {
 			return (m_kv == rhs.m_kv) && (m_tree == rhs.m_tree) &&
 					((end() && rhs.end()) ||
 					 ((m_forward == rhs.m_forward) && (m_end == rhs.m_end) && (m_tree_it == rhs.m_tree_it))); }
-		bool operator!= (const self_type& rhs) { return (! (*this == rhs)); }
+		virtual bool operator!= (const self_type& rhs) { return (! (*this == rhs)); }
 
-		operator bool() const { return (! end()) && m_tree_it; }
+		virtual operator bool() const { return (! end()) && m_tree_it; }
 
 		self_type& rewind(bool end_) { m_tree_it.rewind(end_); return *this; }
-		bool next() { return m_tree_it.next(); }
-		bool prev() { return m_tree_it.prev(); }
+		virtual bool next() { return m_tree_it.next(); }
+		virtual bool prev() { return m_tree_it.prev(); }
 
 		kv_type* kv() const { return m_kv; }
 		const_reference key() const { m_current_key = (*m_tree_it).key(); return m_current_key; }
+		std::string lookupKey() const { return m_tree_it.current().lookupKey(); }
 		bool forward() const { return m_forward; }
 		bool backward() const { return (! m_forward); }
-		bool end() const { return m_end || (m_tree_it.end()); }
+		virtual bool end() const { return m_end || (m_tree_it.end()); }
+
+		const kv_tree_lookup_type& lookup() const { return m_tree_it.current(); }
+		virtual bool found() const { return m_tree_it.current().found(); }			/* same as bool operator */
 
 	protected:
 		kv_type* m_kv;
@@ -418,6 +428,8 @@ public:
 		bool m_forward;
 		bool m_end;
 		mutable std::string m_current_key;
+
+		friend class KeyValueStore;
 	};
 
 	class iterator : public base_iterator
@@ -441,6 +453,38 @@ public:
 	friend class iterator;
 	friend class const_iterator;
 
+	class glob_iterator : public base_iterator
+	{
+	public:
+		typedef glob_iterator self_type;
+
+		glob_iterator(kv_type* kv_, const std::string& globPattern, bool forward_ = true, bool end_ = false) :
+			base_iterator(kv_, forward_, end_), m_lookup_pattern(globPattern) {}
+		glob_iterator(const glob_iterator& other) : base_iterator(other), m_lookup_pattern(other.m_lookup_pattern) {}
+		glob_iterator& operator= (const glob_iterator& other) { base_iterator::operator=(other); m_lookup_pattern = other.m_lookup_pattern; return *this; }
+
+		bool operator== (const self_type& rhs) {
+			return base_iterator::operator==(rhs) && (m_lookup_pattern == rhs.m_lookup_pattern); }
+		bool operator!= (const self_type& rhs) { return (! (*this == rhs)); }
+
+		operator bool() const { return (! end()) && m_tree_it && matchesGlob(); }
+		bool found() const { return m_tree_it.current().found() && matchesGlob(); }			/* same as bool operator */
+
+		bool matchesGlob() const { return milliways::glob(lookupPattern(), key()); }
+
+		bool next() { return matchesGlob() && m_tree_it.next();	}
+		bool prev() { return m_tree_it.prev() && matchesGlob(); }
+
+		std::string lookupPattern() const { return m_lookup_pattern; }
+		bool end() const { return base_iterator::end() || (! matchesGlob()); }
+
+		reference operator*() { m_current_key = (*m_tree_it).key(); return m_current_key; }
+		pointer operator->() { m_current_key = (*m_tree_it).key(); return &m_current_key; }
+
+	protected:
+		std::string m_lookup_pattern;
+	};
+
 	/* -- Streaming ------------------------------------------------ */
 
 protected:
@@ -456,20 +500,8 @@ protected:
 	bool write_lz4(write_stream_t& ws, const char*& srcp, size_t nbytes, size_t& compressed_size) { return m_blockstorage->write_lz4(ws, srcp, nbytes, compressed_size); }
 	bool write_lz4(write_stream_t& ws, const std::string& src, size_t& compressed_size) { const char *srcp = src.data(); return write_lz4(ws, srcp, src.length(), compressed_size); }
 
-	struct kv_alloc_info
-	{
-		kv_alloc_info() :
-			initial_next_location(), returned(), initial_amount_req(0), allocated(false) {}
-
-		kv_stream_sized_pos_t initial_next_location;
-		kv_stream_sized_pos_t returned;
-		size_t initial_amount_req;
-		bool allocated;
-	};
-
-	bool alloc_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount);
-	bool mark_partial_use(kv_alloc_info& info, size_t used);
-	bool extend_allocated_space(kv_alloc_info& info, kv_stream_sized_pos_t& dst, size_t amount);
+	bool alloc_space(kv_stream_sized_pos_t& dst, size_t amount);
+	bool extend_allocated_space(kv_stream_sized_pos_t& dst, size_t amount);
 	size_t size_in_blocks(size_t size);
 
 	/* -- Header I/O ----------------------------------------------- */

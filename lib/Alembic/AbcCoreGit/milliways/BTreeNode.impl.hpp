@@ -139,15 +139,19 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::bsearch(lookup_type& res, const
 	int hi = n() - 1;
 	MW_SHPTR<node_type> self_( self_read() );
 
+	res.lookupKey(key_);
+
+	key_type last_key;
 	while (hi >= lo)
 	{
 		int m = (hi + lo) / 2;
 		assert(m >= 0);
 		assert(m < n());
 
-		if (key_ < key(m))
+		last_key = key(m);
+		if (key_ < last_key)
 			hi = m - 1;
-		else if (key_ > key(m))
+		else if (key_ > last_key)
 			lo = m + 1;
 		else
 		{
@@ -161,7 +165,7 @@ bool BTreeNode<B_, KeyTraits, TTraits, Compare>::bsearch(lookup_type& res, const
 	}
 
 	// not found
-	res.node(self_).found(false).pos(lo).key(key_);
+	res.node(self_).found(false).pos(lo).key(last_key);
 	return false;
 }
 

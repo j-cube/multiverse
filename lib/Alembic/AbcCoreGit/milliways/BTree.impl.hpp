@@ -131,11 +131,23 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::remove(lookup_type& res, const key_
 	return root_->remove(res, key_);
 }
 
+template < int B_, typename KeyTraits, typename TTraits, class Compare >
+typename BTree<B_, KeyTraits, TTraits, Compare>::iterator BTree<B_, KeyTraits, TTraits, Compare>::find(const key_type& key_)
+{
+	lookup_type lookup;
+	MW_SHPTR<node_type> root_( root() );
+	assert(root_);
+	/* bool found = */ root_->search(lookup, key_);
+	iterator it = iterator(this, root());
+	it.set_current(lookup);
+	return it;
+}
+
 
 /* -- BTree::iterator ---------------------------------------------- */
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
-void BTree<B_, KeyTraits, TTraits, Compare>::iterator::update_current()
+void BTree<B_, KeyTraits, TTraits, Compare>::iterator::update_current(bool strict_found)
 {
 	if (m_end || (! m_current.node()))
 	{
@@ -147,8 +159,24 @@ void BTree<B_, KeyTraits, TTraits, Compare>::iterator::update_current()
 		assert(! m_end);
 		MW_SHPTR<node_type> node( m_current.node() );
 		int pos = m_current.pos();
-		m_current.found(true).key(node->key(pos));
+		/*
+		 * 'strict' found setting is for when update_current() is called
+		 * by normal key lookups, while 'loose' found setting is for
+		 * iteration, ... when there is no match to perform
+		 */
+		if (! strict_found)
+			m_current.found(true).key(node->key(pos));
+		else
+			m_current.key(node->key(pos)).found((m_current.key() == m_current.lookupKey()) ? true : false);
 	}
+}
+
+/* needed only by BTree::find(const key_type& key_) */
+template < int B_, typename KeyTraits, typename TTraits, class Compare >
+void BTree<B_, KeyTraits, TTraits, Compare>::iterator::set_current(const value_type& at)
+{
+	m_current = at;
+	update_current(/* strict_found */ true);
 }
 
 template < int B_, typename KeyTraits, typename TTraits, class Compare >
@@ -170,7 +198,7 @@ typename BTree<B_, KeyTraits, TTraits, Compare>::iterator& BTree<B_, KeyTraits, 
 		assert(! m_end);
 	}
 
-	update_current();
+	update_current(/* strict_found */ false);
 
 	return *this;
 }
@@ -190,7 +218,7 @@ template < int B_, typename KeyTraits, typename TTraits, class Compare >
 bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::next()
 {
 	if (! m_current.node()) {
-		update_current();
+		update_current(/* strict_found */ false);
 		return false;             /* stop iteration */
 	}
 
@@ -214,7 +242,7 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::next()
 		}
 	}
 	m_current.pos(pos).node(node);
-	update_current();
+	update_current(/* strict_found */ false);
 
 	return true;
 }
@@ -223,7 +251,7 @@ template < int B_, typename KeyTraits, typename TTraits, class Compare >
 bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::prev()
 {
 	if (! m_current.node()) {
-		update_current();
+		update_current(/* strict_found */ false);
 		return false;             /* stop iteration */
 	}
 
@@ -247,7 +275,7 @@ bool BTree<B_, KeyTraits, TTraits, Compare>::iterator::prev()
 		}
 	}
 	m_current.pos(pos).node(node);
-	update_current();
+	update_current(/* strict_found */ false);
 
 	return true;
 }
