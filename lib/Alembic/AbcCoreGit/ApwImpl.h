@@ -89,7 +89,7 @@ private:
     // for accumulating our hierarchical hash
     Util::Digest m_hash;
 
-    Alembic::Util::unique_ptr<AbstractTypedSampleStore> m_store;
+    Alembic::Util::shared_ptr<AbstractTypedSampleStore> m_store;
 
     GitGroupPtr m_group;
 

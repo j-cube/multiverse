@@ -88,7 +88,7 @@ private:
     Util::Digest m_hash;
 
     AbcA::Dimensions m_rank0_dims;
-    Alembic::Util::unique_ptr<AbstractTypedSampleStore> m_store;
+    Alembic::Util::shared_ptr<AbstractTypedSampleStore> m_store;
 
     GitGroupPtr m_group;
 

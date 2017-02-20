@@ -112,7 +112,7 @@ void ApwImpl::setFromPreviousSample()
     ABCA_ASSERT( m_header->nextSampleIndex > 0,
         "Can't set from previous sample before any samples have been written" );
 
-    ABCA_ASSERT( m_store.get(),
+    ABCA_ASSERT(m_store,
         "Can't set from previous sample before any samples have been written" );
 
     m_store->setFromPreviousSample();
