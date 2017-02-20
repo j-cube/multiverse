@@ -50,8 +50,8 @@ ENDIF()
 
 # Declare the project version
 SET(PROJECT_VERSION_MAJOR "1")
-SET(PROJECT_VERSION_MINOR "6")
-SET(PROJECT_VERSION_PATCH "1")
+SET(PROJECT_VERSION_MINOR "7")
+SET(PROJECT_VERSION_PATCH "0")
 SET(PROJECT_VERSION
      ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH})
 SET(VERSION ${PROJECT_VERSION})
@@ -90,6 +90,11 @@ IF (ALEMBIC_SHARED_LIBS)
         ADD_DEFINITIONS(-DALEMBIC_DLL)
     ENDIF()
 ENDIF(ALEMBIC_SHARED_LIBS)
+
+# Need to test this on multiple platforms, it is an easy way to enable
+# memory checks like valgrind by doing:
+# ctest -D ExperimentalMemCheck
+# include (CTest)
 
 # Cmake system specific flags
 SET(WINDOWS FALSE)
