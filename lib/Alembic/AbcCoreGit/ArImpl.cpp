@@ -42,7 +42,7 @@ ArImpl::ArImpl( const std::string &iFileName, const Alembic::AbcCoreFactory::IOp
 {
     TRACE("ArImpl::ArImpl('" << iFileName << "')");
 
-    m_repo_ptr.reset( new GitRepo(m_fileName, m_options, GitMode::Read) );
+    // m_repo_ptr.reset( new GitRepo(m_fileName, m_options, GitMode::Read) );
 
     // since the GitRepo could have normalized/altered the actual path used, use that
     m_fileName = m_repo_ptr->pathname();

@@ -242,6 +242,7 @@ public:
     git_signature* g_signature() const  { return m_sig; }
     git_index *g_index() const          { return m_index; }
     git_odb *g_odb() const              { return m_odb; }
+    git_refdb *g_refdb() const              { return m_refdb; }
 
 private:
     GitRepo();                                  // disable default constructor
@@ -254,6 +255,7 @@ private:
     git_config *m_cfg;
     git_signature *m_sig;
     git_odb *m_odb;
+    git_refdb *m_refdb = NULL;
     git_index *m_index;
 
     git_odb_backend *m_git_backend;

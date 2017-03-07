@@ -32,7 +32,13 @@
 
 #include <time.h>
 
+#include <git2.h>
+#include <git2/errors.h>
 #include <git2/sys/repository.h>
+#include <git2/sys/odb_backend.h>
+#include <git2/sys/refdb_backend.h>
+#include <git2/odb_backend.h>
+
 #include <Alembic/AbcCoreGit/git-memcached.h>
 #include <Alembic/AbcCoreGit/git-sqlite.h>
 #include <Alembic/AbcCoreGit/git-milliways.h>
@@ -343,7 +349,7 @@ std::ostream& operator<< (std::ostream& out, const GitCommitInfo& cinfo)
 #if 0
 GitRepo::GitRepo(git_repository* repo, git_config* config, git_signature* signature) :
     m_repo(repo), m_mode(GitMode::ReadWrite), m_cfg(config), m_sig(signature),
-    m_odb(NULL), m_index(NULL), m_error(false)
+    m_odb(NULL), m_refdb(NULL), m_index(NULL), m_error(false)
 {
     LibGit::Initialize();
 }
@@ -351,7 +357,7 @@ GitRepo::GitRepo(git_repository* repo, git_config* config, git_signature* signat
 
 GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IOptions& options, GitMode mode_, bool milliwaysEnable) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
-    m_odb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
+    m_odb(NULL), m_refdb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
     m_index_dirty(false),
     m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
     m_milliways_enabled(milliwaysEnable),
@@ -491,6 +497,8 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     {
         TRACE("milliways enabled, setting custom git odb backend");
 
+        assert(! m_odb);
+
         rc = git_odb_new(&m_odb);
         ok = ok && git_check_ok(rc, "creating new odb without backends");
         if (!ok) goto ret;
@@ -499,7 +507,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
         TRACE("call git_odb_backend_milliways()");
         rc = git_odb_backend_milliways(&m_git_backend, milliwaysPathname.c_str());
-        ok = ok && git_check_ok(rc, "connecting to milliways backend");
+        ok = ok && git_check_ok(rc, "connecting to milliways ODB backend");
         if (!ok) goto ret;
 
         TRACE("call git_odb_add_backend()");
@@ -509,6 +517,31 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
         TRACE("call git_repository_set_odb()");
         git_repository_set_odb(m_repo, m_odb);
+
+        /* refdb */
+        assert(! m_refdb);
+        rc = git_refdb_new(&m_refdb, m_repo);
+        ok = ok && git_check_ok(rc, "creating new refdb");
+        if (!ok) goto ret;
+
+        assert(m_refdb);
+
+        git_refdb_backend *milliways_refdb_backend = NULL;
+
+        TRACE("call git_refdb_backend_milliways()");
+        rc = git_refdb_backend_milliways(&milliways_refdb_backend, milliwaysPathname.c_str());
+        ok = ok && git_check_ok(rc, "connecting to milliways refdb backend");
+        if (!ok) goto ret;
+
+        assert(milliways_refdb_backend);
+
+        TRACE("call git_refdb_set_backend()");
+        rc = git_refdb_set_backend(m_refdb, milliways_refdb_backend);
+        ok = ok && git_check_ok(rc, "add custom milliways backed to refdb");
+        if (!ok) goto ret;
+
+        TRACE("call git_repository_set_refdb()");
+        git_repository_set_refdb(m_repo, m_refdb);
     }
 #endif
 
@@ -568,6 +601,9 @@ ret:
         if (m_index)
             git_index_free(m_index);
         m_index = NULL;
+        if (m_refdb)
+            git_refdb_free(m_refdb);
+        m_refdb = NULL;
         if (m_odb)
             git_odb_free(m_odb);
         m_odb = NULL;
@@ -614,7 +650,7 @@ ret:
 
 GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnable) :
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
-    m_odb(NULL), m_index(NULL), m_error(false),
+    m_odb(NULL), m_refdb(NULL), m_index(NULL), m_error(false),
     m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
     m_milliways_enabled(milliwaysEnable),
     m_cleaned_up(false)
@@ -730,6 +766,31 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
 
         TRACE("call git_repository_set_odb()");
         git_repository_set_odb(m_repo, m_odb);
+
+        /* refdb */
+        assert(! m_refdb);
+        rc = git_refdb_new(&m_refdb, m_repo);
+        ok = ok && git_check_ok(rc, "creating new refdb");
+        if (!ok) goto ret;
+
+        assert(m_refdb);
+
+        git_refdb_backend *milliways_refdb_backend = NULL;
+
+        TRACE("call git_refdb_backend_milliways()");
+        rc = git_refdb_backend_milliways(&milliways_refdb_backend, milliwaysPathname.c_str());
+        ok = ok && git_check_ok(rc, "connecting to milliways refdb backend");
+        if (!ok) goto ret;
+
+        assert(milliways_refdb_backend);
+
+        TRACE("call git_refdb_set_backend()");
+        rc = git_refdb_set_backend(m_refdb, milliways_refdb_backend);
+        ok = ok && git_check_ok(rc, "add custom milliways backed to refdb");
+        if (!ok) goto ret;
+
+        TRACE("call git_repository_set_refdb()");
+        git_repository_set_refdb(m_repo, m_refdb);
     }
 #endif
 
@@ -789,6 +850,9 @@ ret:
         if (m_index)
             git_index_free(m_index);
         m_index = NULL;
+        if (m_refdb)
+            git_refdb_free(m_refdb);
+        m_refdb = NULL;
         if (m_odb)
             git_odb_free(m_odb);
         m_odb = NULL;
@@ -852,6 +916,12 @@ void GitRepo::cleanup()
     if (m_index)
         git_index_free(m_index);
     m_index = NULL;
+    if (m_refdb)
+    {
+        TRACE("calling git_refdb_free()");
+        git_refdb_free(m_refdb);
+    }
+    m_odb = NULL;
     if (m_odb)
     {
         TRACE("calling git_odb_free()");
