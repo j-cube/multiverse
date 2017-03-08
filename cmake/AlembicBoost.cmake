@@ -81,7 +81,7 @@ ENDIF()
 SET(Boost_Components program_options)
 
 IF (USE_MULTIVERSE)
-    LIST(APPEND Boost_Components thread filesystem system)
+    LIST(APPEND Boost_Components date_time thread filesystem system)
 	IF (MSVC)
 		LIST(APPEND Boost_Components locale)
 	ENDIF()
