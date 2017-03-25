@@ -271,6 +271,7 @@ private:
     std::string m_revision;
     bool m_ignore_wrong_rev;
     bool m_milliways_enabled;
+    std::string m_support_repo;
 
     bool m_cleaned_up;
 };

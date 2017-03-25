@@ -173,6 +173,11 @@ std::string relative_path(const std::string& abs, const std::string& base);
 
 std::string real_path(const std::string& path);
 
+std::string make_uuid();
+std::string unique_temp_path(const std::string& prefix = "multiverse-", const std::string& suffix = "");
+bool write_file(const std::string& pathname, const std::string& contents);
+bool rmrf(const std::string& pathname);
+
 double time_us();
 double time_ms();
 

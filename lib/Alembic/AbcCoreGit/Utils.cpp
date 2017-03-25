@@ -19,6 +19,7 @@
 #include <Alembic/AbcCoreGit/Utils.h>
 
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <cstdlib>
@@ -34,6 +35,11 @@
 #include <boost/locale.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 namespace Alembic {
 namespace AbcCoreGit {
@@ -338,6 +344,41 @@ std::string real_path(const std::string& pathname)
 #else
     return c_p.native();
 #endif
+}
+
+std::string make_uuid()
+{
+    return boost::lexical_cast<std::string>((boost::uuids::random_generator())());
+}
+
+std::string unique_temp_path(const std::string& prefix, const std::string& suffix)
+{
+    std::string tmpdir = boost::filesystem::temp_directory_path().native();
+    return pathjoin(tmpdir, prefix + make_uuid() + suffix);
+}
+
+bool write_file(const std::string& pathname, const std::string& contents)
+{
+    std::ofstream out_file;
+    try {
+        out_file.exceptions( std::ofstream::failbit | std::ofstream::badbit );
+        out_file.open(pathname.c_str());
+        out_file << contents;
+        out_file.close();
+    } catch (const std::ofstream::failure& exc) {
+        return false;
+    }
+    return true;
+}
+
+bool rmrf(const std::string& pathname)
+{
+    try {
+        boost::filesystem::remove_all(boost::filesystem::path(pathname));
+    } catch (boost::filesystem::filesystem_error& exc) {
+        return false;
+    }
+    return true;
 }
 
 double time_us()

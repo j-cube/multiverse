@@ -65,6 +65,12 @@ namespace ALEMBIC_VERSION_NS {
 // define MILLIWAYS_ENABLED to enable milliways at run-time
 #define MILLIWAYS_ENABLED
 
+#define MILLIWAYS_SINGLE_FILE
+
+#if !defined(MILLIWAYS_ENABLED)
+    #undef MILLIWAYS_SINGLE_FILE
+#endif
+
 // define only one of these
 // #define USE_SQLITE_BACKEND
 // #define USE_MEMCACHED_BACKEND
@@ -173,6 +179,8 @@ static bool git_check_ok(int error_code, const std::string& action)
 
     const git_error *error = giterr_last();
 
+    TRACE( "libgit2 error " << error_code << " " << action <<
+        " - " << ((error && error->message) ? error->message : "???") );
     ABCA_THROW( "libgit2 error " << error_code << " " << action <<
         " - " << ((error && error->message) ? error->message : "???") );
     // std::cerr << "ERROR: libgit2 error " << error_code << " - "
@@ -360,7 +368,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     m_odb(NULL), m_refdb(NULL), m_index(NULL), m_git_backend(NULL), m_error(false),
     m_index_dirty(false),
     m_options(options), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
-    m_milliways_enabled(milliwaysEnable),
+    m_milliways_enabled(milliwaysEnable), m_support_repo(),
     m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
@@ -388,27 +396,103 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
         TRACE("milliways enable/disable flag specified: " << (m_milliways_enabled ? "enabled" : "disabled"));
     }
 
+#ifdef MILLIWAYS_SINGLE_FILE
+    bool milliwaysSingleFile = m_milliways_enabled;
+
+    if (isfile(m_pathname)) {
+        m_milliways_enabled = true;
+        milliwaysSingleFile = true;
+    }
+#else
+    bool milliwaysSingleFile = false;
+#endif
+
+    TRACE("milliways            : " << (m_milliways_enabled ? "enabled" : "disabled"));
+    TRACE("milliways single file: " << (milliwaysSingleFile ? "enabled" : "disabled"));
+
     // if passed the path to the "archive.json.abc" file, use the containing directory instead
-    if (isfile(m_pathname))
-    {
-        TRACE("file specified ('" << m_pathname << "'), switching to parent directory: '" << dirname(m_pathname) << "'");
-        m_pathname = dirname(m_pathname);
+    if (! milliwaysSingleFile) {
+        if (isfile(m_pathname))
+        {
+            TRACE("file specified ('" << m_pathname << "'), switching to parent directory: '" << dirname(m_pathname) << "'");
+            m_pathname = dirname(m_pathname);
+        }
     }
 
-    std::string dotGitPathname = pathjoin(pathname(), ".git");
-    std::string sqlitePathname = pathjoin(pathname(), "store.db");
-    std::string milliwaysPathname = pathjoin(pathname(), "store.mwdb");
+    std::string repoPathname;
+    std::string dotGitPathname;
+    std::string sqlitePathname;
+    std::string milliwaysPathname;
+
+    if (milliwaysSingleFile) {
+        m_support_repo = unique_temp_path("multiverse-", ".mw.git");
+        repoPathname = m_support_repo;
+        dotGitPathname = pathjoin(repoPathname, ".git");
+        sqlitePathname = pathjoin(repoPathname, "store.db");
+        milliwaysPathname = m_pathname;
+    } else {
+        repoPathname = pathname();
+        dotGitPathname = pathjoin(repoPathname, ".git");
+        sqlitePathname = pathjoin(repoPathname, "store.db");
+        milliwaysPathname = pathjoin(repoPathname, "store.mwdb");
+    }
+
+    if (milliwaysSingleFile) {
+        bool createDummyRepo = false;
+
+        if (file_exists(milliwaysPathname))
+            createDummyRepo = true;
+
+        if (createDummyRepo)
+        {
+            TRACE("creating support repo structure '" << dotGitPathname << "'");
+            ok = mkpath(dotGitPathname, 0777) &&
+                mkpath(pathjoin(dotGitPathname, "refs"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "refs"), "tags"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "refs"), "heads"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "info"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "hooks"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "objects"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "objects"), "info"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "objects"), "pack"), 0777);
+            if (! ok) {
+                std::cerr << "ERROR: can't recreate support repo at path " << dotGitPathname << std::endl;
+                ABCA_THROW( "ERROR: can't recreate support repo at path " << dotGitPathname );
+                goto ret;
+            }
+            write_file(pathjoin(dotGitPathname, "config").c_str(),
+                        "[core]\n"
+                        "\tbare = false\n"
+                        "\tfilemode = true\n"
+                        "\tlogallrefupdates = true\n"
+                        "\tignorecase = true\n"
+                        "[core]\n"
+                        "\trepositoryformatversion = 0\n"
+                        "[alembic]\n"
+                        "\tformatversion = 1\n"
+                        "[alembic]\n"
+                        "\tlibversion = 10700\n");
+            write_file(pathjoin(dotGitPathname, "description").c_str(),
+                        "Unnamed repository; edit this file 'description' to name the repository.\n");
+            write_file(pathjoin(pathjoin(dotGitPathname, "info"), "exclude").c_str(),
+                        "# File patterns to ignore; see `git help ignore` for more information.\n"
+                        "# Lines that start with '#' are comments.\n");
+            write_file(pathjoin(dotGitPathname, "HEAD").c_str(),
+                        "ref: refs/heads/master\n");
+            TRACE("DONE");
+        }
+    }
 
     if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
     {
-        if (! isdir(m_pathname))
+        if (! isdir(repoPathname))
         {
-            TRACE("initializing Git repository '" << m_pathname << "'");
-            rc = git_repository_init(&m_repo, m_pathname.c_str(), /* is_bare */ 0);
+            TRACE("initializing Git repository '" << repoPathname << "'");
+            rc = git_repository_init(&m_repo, repoPathname.c_str(), /* is_bare */ 0);
             ok = ok && git_check_ok(rc, "initializing git repository");
             if (! ok)
             {
-                // ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+                // ABCA_THROW( "Could not open (initialize) file: " << repoPathname << " (git repo)");
                 goto ret;
             }
 
@@ -436,7 +520,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
             m_repo = NULL;
         } else
         {
-            TRACE("Git repository '" << m_pathname << "' exists, opening (for writing)");
+            TRACE("Git repository '" << repoPathname << "' exists, opening (for writing)");
             if (file_exists(milliwaysPathname))
             {
                 TRACE("milliways repository detected, force-enabling milliways");
@@ -445,9 +529,9 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
         }
     } else
     {
-        if (isdir(m_pathname))
+        if (isdir(repoPathname))
         {
-            TRACE("Git repository '" << m_pathname << "' exists, opening (for reading)");
+            TRACE("Git repository '" << repoPathname << "' exists, opening (for reading)");
             if (file_exists(milliwaysPathname))
             {
                 TRACE("milliways repository detected, force-enabling milliways");
@@ -460,10 +544,10 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
 
     rc = git_repository_open(&m_repo, dotGitPathname.c_str());
     ok = ok && git_check_ok(rc, "opening git repository");
-    if (!ok)
+    if (! ok)
     {
         TRACE("error opening repository from '" << dotGitPathname << "'");
-        //ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
+        //ABCA_THROW( "Could not open file: " << repoPathname << " (git repo)");
         goto ret;
     }
 
@@ -474,7 +558,7 @@ GitRepo::GitRepo(const std::string& pathname_, const Alembic::AbcCoreFactory::IO
     if (!ok)
     {
         TRACE("error fetching config for repository '" << dotGitPathname << "'");
-        //ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
+        //ABCA_THROW( "Could not get Git configuration for repository: " << repoPathname);
         goto ret;
     }
     assert(m_cfg);
@@ -652,7 +736,7 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
     m_pathname(pathname_), m_mode(mode_), m_repo(NULL), m_cfg(NULL), m_sig(NULL),
     m_odb(NULL), m_refdb(NULL), m_index(NULL), m_error(false),
     m_index_dirty(false), m_ignore_wrong_rev(DEFAULT_IGNORE_WRONG_REV),
-    m_milliways_enabled(milliwaysEnable),
+    m_milliways_enabled(milliwaysEnable), m_support_repo(),
     m_cleaned_up(false)
 {
     TRACE("GitRepo::GitRepo(pathname:'" << pathname_ << "' mode:" << mode_ << ")");
@@ -662,20 +746,86 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
     bool ok = true;
     int rc;
 
-    std::string dotGitPathname = pathjoin(pathname(), ".git");
-    std::string sqlitePathname = pathjoin(pathname(), "store.db");
-    std::string milliwaysPathname = pathjoin(pathname(), "store.mwdb");
+#if defined(MILLIWAYS_SINGLE_FILE)
+    bool milliwaysSingleFile = m_milliways_enabled;
+#else
+    bool milliwaysSingleFile = false;
+#endif
+
+    std::string repoPathname;
+    std::string dotGitPathname;
+    std::string sqlitePathname;
+    std::string milliwaysPathname;
+
+    if (milliwaysSingleFile) {
+        m_support_repo = unique_temp_path("multiverse-", ".mw.git");
+        repoPathname = m_support_repo;
+        dotGitPathname = pathjoin(repoPathname, ".git");
+        sqlitePathname = pathjoin(repoPathname, "store.db");
+        milliwaysPathname = m_pathname;
+    } else {
+        repoPathname = pathname();
+        dotGitPathname = pathjoin(repoPathname, ".git");
+        sqlitePathname = pathjoin(repoPathname, "store.db");
+        milliwaysPathname = pathjoin(repoPathname, "store.mwdb");
+    }
+
+    if (milliwaysSingleFile) {
+        bool createDummyRepo = false;
+
+        if (file_exists(milliwaysPathname))
+            createDummyRepo = true;
+
+        if (createDummyRepo)
+        {
+            TRACE("creating support repo structure '" << dotGitPathname << "'");
+            ok = mkpath(dotGitPathname, 0777) &&
+                mkpath(pathjoin(dotGitPathname, "refs"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "refs"), "tags"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "refs"), "heads"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "info"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "hooks"), 0777) &&
+                mkpath(pathjoin(dotGitPathname, "objects"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "objects"), "info"), 0777) &&
+                mkpath(pathjoin(pathjoin(dotGitPathname, "objects"), "pack"), 0777);
+            if (! ok) {
+                std::cerr << "ERROR: can't recreate support repo at path " << dotGitPathname << std::endl;
+                ABCA_THROW( "ERROR: can't recreate support repo at path " << dotGitPathname );
+                goto ret;
+            }
+            write_file(pathjoin(dotGitPathname, "config").c_str(),
+                        "[core]\n"
+                        "\tbare = false\n"
+                        "\tfilemode = true\n"
+                        "\tlogallrefupdates = true\n"
+                        "\tignorecase = true\n"
+                        "[core]\n"
+                        "\trepositoryformatversion = 0\n"
+                        "[alembic]\n"
+                        "\tformatversion = 1\n"
+                        "[alembic]\n"
+                        "\tlibversion = 10700\n");
+            write_file(pathjoin(dotGitPathname, "description").c_str(),
+                        "Unnamed repository; edit this file 'description' to name the repository.\n");
+            write_file(pathjoin(pathjoin(dotGitPathname, "info"), "exclude").c_str(),
+                        "# File patterns to ignore; see `git help ignore` for more information.\n"
+                        "# Lines that start with '#' are comments.\n");
+            write_file(pathjoin(dotGitPathname, "HEAD").c_str(),
+                        "ref: refs/heads/master\n");
+            TRACE("DONE");
+        }
+    }
 
     if ((m_mode == GitMode::Write) || (m_mode == GitMode::ReadWrite))
     {
-        if (! isdir(m_pathname))
+        if (! isdir(repoPathname))
         {
-            TRACE("initializing Git repository '" << m_pathname << "'");
-            rc = git_repository_init(&m_repo, m_pathname.c_str(), /* is_bare */ 0);
+            TRACE("initializing Git repository '" << repoPathname << "'");
+            rc = git_repository_init(&m_repo, repoPathname.c_str(), /* is_bare */ 0);
             ok = ok && git_check_ok(rc, "initializing git repository");
             if (! ok)
             {
-                // ABCA_THROW( "Could not open (initialize) file: " << m_pathname << " (git repo)");
+                // ABCA_THROW( "Could not open (initialize) file: " << repoPathname << " (git repo)");
                 goto ret;
             }
 
@@ -703,7 +853,7 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
             m_repo = NULL;
         } else
         {
-            TRACE("Git repository '" << m_pathname << "' exists, opening (for writing)");
+            TRACE("Git repository '" << repoPathname << "' exists, opening (for writing)");
         }
     }
 
@@ -714,7 +864,7 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
     if (!ok)
     {
         TRACE("error opening repository from '" << dotGitPathname << "'");
-        //ABCA_THROW( "Could not open file: " << m_pathname << " (git repo)");
+        //ABCA_THROW( "Could not open file: " << repoPathname << " (git repo)");
         goto ret;
     }
 
@@ -725,7 +875,7 @@ GitRepo::GitRepo(const std::string& pathname_, GitMode mode_, bool milliwaysEnab
     if (!ok)
     {
         TRACE("error fetching config for repository '" << dotGitPathname << "'");
-        //ABCA_THROW( "Could not get Git configuration for repository: " << m_pathname);
+        //ABCA_THROW( "Could not get Git configuration for repository: " << repoPathname);
         goto ret;
     }
     assert(m_cfg);
@@ -970,6 +1120,17 @@ void GitRepo::cleanup()
     m_repo = NULL;
 
     m_git_backend = NULL;
+
+#if defined(MILLIWAYS_SINGLE_FILE)
+    bool milliwaysSingleFile = m_milliways_enabled;
+#else
+    bool milliwaysSingleFile = false;
+#endif
+
+    if (milliwaysSingleFile && (! m_support_repo.empty()) && file_exists(m_support_repo)) {
+        rmrf(m_support_repo);
+        m_support_repo = "";
+    }
 }
 
 // WARNING: be sure to have an existing shared_ptr to the repo
