@@ -348,12 +348,13 @@ std::string real_path(const std::string& pathname)
 
 std::string make_uuid()
 {
-    return boost::lexical_cast<std::string>((boost::uuids::random_generator())());
+    static boost::uuids::random_generator generator;
+    return boost::lexical_cast<std::string>(generator());
 }
 
 std::string unique_temp_path(const std::string& prefix, const std::string& suffix)
 {
-    std::string tmpdir = boost::filesystem::temp_directory_path().native();
+    std::string tmpdir = boost::filesystem::temp_directory_path().generic_string();
     return pathjoin(tmpdir, prefix + make_uuid() + suffix);
 }
 

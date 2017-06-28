@@ -255,7 +255,7 @@ private:
     git_config *m_cfg;
     git_signature *m_sig;
     git_odb *m_odb;
-    git_refdb *m_refdb = NULL;
+    git_refdb *m_refdb;
     git_index *m_index;
 
     git_odb_backend *m_git_backend;

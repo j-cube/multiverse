@@ -295,7 +295,7 @@ inline bool KeyValueStore::find(const std::string& key, Search& result)
 	return true;
 }
 
-inline typename KeyValueStore::iterator KeyValueStore::find(const std::string &key)
+inline KeyValueStore::iterator KeyValueStore::find(const std::string &key)
 {
 	if (key.length() > KEY_MAX_SIZE)
 	{
@@ -395,7 +395,7 @@ static std::string nonGlobbingPrefix(const std::string& pattern)
 	return prefix;
 }
 
-inline typename KeyValueStore::glob_iterator KeyValueStore::glob(const std::string& pattern)
+inline KeyValueStore::glob_iterator KeyValueStore::glob(const std::string& pattern)
 {
 	if (pattern.length() > KEY_MAX_SIZE)
 	{
