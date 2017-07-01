@@ -9,7 +9,6 @@ The _"Multiverse"_ name is also used for the proprietary commercial product [Mul
 
 > NOTE: This repository is about the Multiverse _back-end_, not the end-user product Multiverse | Studio.
 
-
 ## Repository organization
 
 The original upstream Alembic code resides in the [master](https://github.com/j-cube/multiverse/tree/master) branch.
