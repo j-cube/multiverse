@@ -1,8 +1,13 @@
 # Multiverse
 
-Multiverse is the next-generation data storage back-end for the widely used Alembic file format.
+`Multiverse` is the next-generation data storage back-end for the widely used [Alembic](https://github.com/alembic/alembic) file format.
 
 > Authors: Marco Pantaleoni, Aghiles Kheffache, Bo Zhou, Paolo Berto Durante.
+
+
+The _"Multiverse"_ name is also used for the proprietary commercial product [Multiverse | Studio](http://multi-verse.io). `Multiverse | Studio` is a fast, efficient and easy to use solution for CGI/VFX studios, whose main purposes are to scale complexity in look-development, render procedurally, inter-op between DCC Apps like [Maya](https://autodesk.com/products/maya) and [Katana](https://foundry.com/products/katana). `Multiverse | Studio` offers full integration for the Multiverse back-end and as of June 2017 is distributed by [Foundry](https://foundry.com).
+
+> NOTE: This repository is about the Multiverse _back-end_, not the end-user product _Multiverse | Studio.
 
 
 ## Repository organization
