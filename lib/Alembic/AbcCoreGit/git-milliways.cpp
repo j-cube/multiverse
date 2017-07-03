@@ -264,11 +264,18 @@ milliways_backend::~milliways_backend()
 
 	typedef std::map< const git_refdb_backend*, struct milliways_backend* > r2m_map_t;
 	typedef r2m_map_t::iterator r2m_it_t;
+
+	std::vector<r2m_it_t> itrs;
 	for (r2m_it_t it = s_refdb_to_master.begin(); it != s_refdb_to_master.end(); ++it) {
-		milliways_backend*& b_ptr = it->second;
+		milliways_backend* b_ptr = it->second;
 		if (b_ptr == this)
-			s_refdb_to_master.erase(it);
+			itrs.push_back(it);
 	}
+
+	for (std::vector<r2m_it_t>::size_type i = 0; i < itrs.size(); ++ i) {
+		s_refdb_to_master.erase(itrs[i]);
+	}
+
 	// if (milliways_backend::s_refdb_to_master.count(this) != 0)
 	// 	milliways_backend::s_refdb_to_master.erase(this);
 	if (milliways_backend::s_instances.count(pathname()) != 0)
