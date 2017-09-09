@@ -64,6 +64,7 @@ OPTION(USE_ARNOLD "Include Arnold stuff" OFF)
 OPTION(USE_BINARIES "Include binaries" ON)
 OPTION(USE_EXAMPLES "Include examples" OFF)
 OPTION(USE_HDF5 "Include HDF5 stuff" OFF)
+OPTION(USE_MULTIVERSE "Include Multiverse stuff" ON)
 OPTION(USE_MAYA "Include Maya stuff" OFF)
 OPTION(USE_PRMAN "Include PRMan stuff" OFF)
 OPTION(USE_PYALEMBIC "Include PyAlembic stuff" OFF)
@@ -122,8 +123,12 @@ IF (NOT ${ALEMBIC_LIB_USES_TR1} AND NOT ${ALEMBIC_LIB_USES_BOOST})
     CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
     IF (COMPILER_SUPPORTS_CXX11)
         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+        MESSAGE(STATUS "Selected C++11 for ${CMAKE_CXX_COMPILER}.")
     ELSEIF (COMPILER_SUPPORTS_CXX0X)
         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+        MESSAGE(STATUS "Selected C++0X for ${CMAKE_CXX_COMPILER}.")
+    ELSE()
+        MESSAGE(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
     ENDIF()
 ENDIF()
 
@@ -170,7 +175,7 @@ ENDIF()
 
 IF (DEFINED ENV{ALEMBIC_INSTALL_PREFIX})
     SET( CMAKE_INSTALL_PREFIX
-        $ENV{ALEMBIC_INSTALL_PREFIX}/alembic-${VERSION})
+    $ENV{ALEMBIC_INSTALL_PREFIX}/multiverse-${VERSION} )
 ENDIF()
 
 # Tell me what my install location would be
@@ -212,10 +217,11 @@ ENDIF()
 
 FIND_PACKAGE(Threads REQUIRED)
 
-# We only need boost if including PyAlembic, or using it in the lib
-IF (ALEMBIC_LIB_USES_BOOST OR USE_PYALEMBIC)
+# We only need boost if including PyAlembic, or using it in the lib, or compiling in Multiverse
+IF (ALEMBIC_LIB_USES_BOOST OR USE_PYALEMBIC OR USE_MULTIVERSE)
     INCLUDE("./cmake/AlembicBoost.cmake")
     INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+    ADD_DEFINITIONS(-DBOOST_ALL_NO_LIB)
 ENDIF()
 
 # IlmBase
@@ -223,17 +229,67 @@ INCLUDE("./cmake/AlembicIlmBase.cmake")
 INCLUDE_DIRECTORIES(${ALEMBIC_ILMBASE_INCLUDE_DIRECTORY})
 
 # HDF5
+SET(CORE_LIBS_HDF5 "")
+SET(CORE_LIBS_HDF5_POST_THR "")
 IF (USE_HDF5)
     FIND_PACKAGE(ZLIB REQUIRED)
     SET(ALEMBIC_WITH_HDF5 "1")
     INCLUDE("./cmake/AlembicHDF5.cmake")
     INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
+    SET(CORE_LIBS_HDF5
+        ${HDF5_LIBRARIES}
+    )
+    SET(CORE_LIBS_HDF5_POST_THR
+        ${ZLIB_LIBRARIES}
+    )
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DH5_USE_18_API")
+ENDIF()
+
+# Multiverse
+SET(CORE_LIBS_MULTIVERSE "")
+SET(CORE_LIBS_MULTIVERSE_POST_THR "")
+IF (USE_MULTIVERSE)
+    FIND_PACKAGE(LibGit2 REQUIRED)
+    SET(LIBGIT2_LIBRARIES ${LIBGIT2_LIBRARY})
+    SET(LIBGIT2_INCLUDE_DIRS ${LIBGIT2_INCLUDE_DIR})
+
+    FIND_PACKAGE(MsgPack REQUIRED)
+    SET(MSGPACK_LIBRARIES ${MSGPACK_LIBRARY})
+    SET(MSGPACK_INCLUDE_DIRS ${MSGPACK_INCLUDE_DIR})
+
+    SET(ALEMBIC_WITH_MULTIVERSE "1")
+    INCLUDE_DIRECTORIES(${LIBGIT2_INCLUDE_DIRS})
+    INCLUDE_DIRECTORIES(${MSGPACK_INCLUDE_DIRS})
+    SET(CORE_LIBS_MULTIVERSE
+        ${LIBGIT2_LIBRARIES}
+        ${MSGPACK_LIBRARIES}
+    )
+    SET(CORE_LIBS_MULTIVERSE_POST_THR
+        ${Boost_THREAD_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        ${Boost_FILESYSTEM_LIBRARY}
+    )
+    IF(MSVC)
+        LIST(APPEND CORE_LIBS_MULTIVERSE_POST_THR ${Boost_LOCALE_LIBRARY})
+    ENDIF()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMULTIVERSE_ENABLE")
 ENDIF()
 
 #-******************************************************************************
 # BUILD LIBRARIES
 #-******************************************************************************
+
+SET(CORE_LIBS
+    Alembic
+    ${CORE_LIBS_HDF5}
+    ${CORE_LIBS_MULTIVERSE}
+    ${ALEMBIC_ILMBASE_LIBS}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${CORE_LIBS_HDF5_POST_THR}
+    ${CORE_LIBS_MULTIVERSE_POST_THR}
+    ${EXTERNAL_MATH_LIBS}
+)
+MESSAGE("CORE_LIBS: ${CORE_LIBS}")
 
 # Alembic
 ADD_SUBDIRECTORY(lib)
@@ -318,6 +374,7 @@ info_cfg_option(USE_ARNOLD)
 info_cfg_option(USE_BINARIES)
 info_cfg_option(USE_EXAMPLES)
 info_cfg_option(USE_HDF5)
+info_cfg_option(USE_MULTIVERSE)
 info_cfg_option(USE_MAYA)
 info_cfg_option(USE_PRMAN)
 info_cfg_option(USE_PYALEMBIC)
