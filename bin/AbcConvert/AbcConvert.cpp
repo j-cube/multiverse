@@ -36,8 +36,15 @@
 
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
+#ifdef ALEMBIC_WITH_HDF5
 #include <Alembic/AbcCoreHDF5/All.h>
+#endif
 #include <Alembic/AbcCoreOgawa/All.h>
+#ifdef ALEMBIC_WITH_MULTIVERSE
+#include <Alembic/AbcCoreGit/All.h>
+#endif
+
+#include <boost/algorithm/string/predicate.hpp>
 
 typedef Alembic::AbcCoreFactory::IFactory IFactoryNS;
 
@@ -56,12 +63,17 @@ public:
     {
         toType = IFactoryNS::kUnknown;
         force = false;
+        milliways = false;
     }
 
     std::vector<std::string>    inFiles;
     std::string                 outFile;
     IFactoryNS::CoreType        toType;
     bool                        force;
+
+    bool milliways;
+    std::string commitMessage;
+    std::string revision;
 };
 
 void copyProps(Alembic::Abc::ICompoundProperty & iRead,
@@ -168,17 +180,23 @@ void copyObject(Alembic::Abc::IObject & iIn,
 void displayHelp()
 {
     printf ("Usage (single file conversion):\n");
-    printf ("abcconvert [-force] OPTION inFile outFile\n");
+    printf ("abcconvert [-force] [-r | --revision REVISION] [--milliways ON|OFF] [-m | --message COMMIT-MESSAGE] OPTION inFile outFile\n");
     printf ("Usage (convert multiple, layered files to single file):\n");
-    printf ("abcconvert OPTION -in inFile1 inFile2 ... -out outFile\n");
+    printf ("abcconvert [-r | --revision REVISION] [--milliways ON|OFF] [-m | --message COMMIT-MESSAGE] OPTION -in inFile1 inFile2 ... -out outFile\n");
     printf ("Used to convert an Alembic file from one type to another.\n\n");
     printf ("If -force is not provided and inFile happens to be the same\n");
     printf ("type as OPTION no conversion will be done and a message will\n");
     printf ("be printed out.\n");
     printf ("OPTION has to be one of these:\n\n");
+#ifdef ALEMBIC_WITH_HDF5
     printf ("  -toHDF   Convert to HDF.\n");
+#endif
     printf ("  -toOgawa Convert to Ogawa.\n");
+#ifdef ALEMBIC_WITH_MULTIVERSE
+    printf ("  -toGit   Convert to Git.\n");
+#endif
 }
+
 
 bool parseArgs( int iArgc, char *iArgv[], ConversionOptions &oOptions, bool &oDoConversion )
 {
@@ -202,6 +220,10 @@ bool parseArgs( int iArgc, char *iArgv[], ConversionOptions &oOptions, bool &oDo
                 {
                     oOptions.toType = IFactoryNS::kOgawa;
                 }
+                else if(arg == "-toGit")
+                {
+                    oOptions.toType = IFactoryNS::kGit;
+                }
                 else if(arg == "-force")
                 {
                     oOptions.force = true;
@@ -209,6 +231,41 @@ bool parseArgs( int iArgc, char *iArgv[], ConversionOptions &oOptions, bool &oDo
                 else if(arg == "-in" )
                 {
                     argMode = kInFiles;
+                }
+                else if ((arg == "-m") || (arg == "--message") || boost::starts_with(arg, "--message="))
+                {
+                    if (boost::starts_with(arg, "--message="))
+                    {
+                        oOptions.commitMessage = arg.substr(10, std::string::npos);
+                    } else
+                    {
+                        oOptions.commitMessage = iArgv[++i];
+                    }
+                }
+                else if ((arg == "-r") || (arg == "--revision") || boost::starts_with(arg, "--revision="))
+                {
+                    if (boost::starts_with(arg, "--revision="))
+                    {
+                        oOptions.revision = arg.substr(11, std::string::npos);
+                    } else
+                    {
+                        oOptions.revision = iArgv[++i];
+                    }
+                }
+                else if ((arg == "--mw") || (arg == "--milliways") || boost::starts_with(arg, "--milliways="))
+                {
+                    std::string opt_value;
+                    if (boost::starts_with(arg, "--milliways="))
+                    {
+                        opt_value = arg.substr(12, std::string::npos);
+                    } else
+                    {
+                        opt_value = iArgv[++i];
+                    }
+                    if ((opt_value == "ON") || (opt_value == "on") || (opt_value == "true"))
+                        oOptions.milliways = true;
+                    else
+                        oOptions.milliways = false;
                 }
                 else if( (arg == "-help") || (arg == "--help") )
                 {
@@ -293,17 +350,25 @@ int main(int argc, char *argv[])
     {
         for( std::vector<std::string>::const_iterator inFile = options.inFiles.begin(); inFile != options.inFiles.end(); inFile++ )
         {
-            if (*inFile == options.outFile)
+            if ((*inFile == options.outFile) && (options.toType != IFactoryNS::kGit))
             {
                 printf("Error: inFile and outFile must not be the same!\n");
                 return 1;
             }
         }
 
-        if (options.toType != IFactoryNS::kHDF5 && options.toType != IFactoryNS::kOgawa)
+        if ((options.toType != IFactoryNS::kHDF5) && (options.toType != IFactoryNS::kOgawa) && (options.toType != IFactoryNS::kGit))
         {
-            printf("Currently only -toHDF and -toOgawa are supported.\n");
+            printf("Currently only -toHDF, -toOgawa and -toGit are supported.\n");
             return 1;
+        }
+
+        Alembic::AbcCoreFactory::IOptions rOptions;
+
+        if (! options.revision.empty())
+        {
+            rOptions["revision"] = options.revision;
+            // rOptions["ignoreNonexistentRevision"] = true;
         }
 
         Alembic::AbcCoreFactory::IFactory factory;
@@ -312,7 +377,7 @@ int main(int argc, char *argv[])
         Alembic::Abc::IArchive archive;
         if(options.inFiles.size() == 1)
         {
-            archive = factory.getArchive(*options.inFiles.begin(), coreType);
+            archive = factory.getArchive(*options.inFiles.begin(), coreType, rOptions);
             if (!archive.valid())
             {
                 printf("Error: Invalid Alembic file specified: %s\n",
@@ -323,7 +388,9 @@ int main(int argc, char *argv[])
                 (coreType == IFactoryNS::kHDF5 &&
                  options.toType == IFactoryNS::kHDF5) ||
                 (coreType == IFactoryNS::kOgawa &&
-                 options.toType == IFactoryNS::kOgawa)) )
+                 options.toType == IFactoryNS::kOgawa) ||
+                (coreType == IFactoryNS::kGit &&
+                 options.toType == IFactoryNS::kGit)) )
             {
                 printf("Warning: Alembic file specified: %s\n", options.inFiles.begin()->c_str());
                 printf("is already of the type you want to convert to.\n");
@@ -338,20 +405,39 @@ int main(int argc, char *argv[])
 
         Alembic::Abc::IObject inTop = archive.getTop();
         Alembic::Abc::OArchive outArchive;
+#ifdef ALEMBIC_WITH_HDF5
         if (options.toType == IFactoryNS::kHDF5)
         {
             outArchive = Alembic::Abc::OArchive(
                 Alembic::AbcCoreHDF5::WriteArchive(),
                 options.outFile, inTop.getMetaData(),
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
-        }
-        else if (options.toType == IFactoryNS::kOgawa)
+        } else
+#endif
+        if (options.toType == IFactoryNS::kOgawa)
         {
             outArchive = Alembic::Abc::OArchive(
                 Alembic::AbcCoreOgawa::WriteArchive(),
                 options.outFile, inTop.getMetaData(),
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
         }
+#ifdef ALEMBIC_WITH_MULTIVERSE
+        else if (options.toType == IFactoryNS::kGit)
+        {
+            Alembic::AbcCoreGit::WriteOptions wOptions;
+
+            if (! options.commitMessage.empty())
+                wOptions.setCommitMessage(options.commitMessage);
+
+            std::cout << "milliways is " << (options.milliways ? "enabled" : "disabled") << std::endl;
+            wOptions["milliways"] = (options.milliways ? true : false);
+
+            outArchive = Alembic::Abc::OArchive(
+                Alembic::AbcCoreGit::WriteArchive(wOptions),
+                options.outFile, inTop.getMetaData(),
+                Alembic::Abc::ErrorHandler::kThrowPolicy);
+        }
+#endif
 
         // start at 1, we don't need to worry about intrinsic default case
         for (Alembic::Util::uint32_t i = 1; i < archive.getNumTimeSamplings();
