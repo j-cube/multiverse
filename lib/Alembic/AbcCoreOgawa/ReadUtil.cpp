@@ -1310,6 +1310,7 @@ ConvertData( Alembic::Util::PlainOldDataType fromPod,
 //-*****************************************************************************
 void
 ReadData( void * iIntoLocation,
+          AbcA::ReadArraySampleCachePtr iCache,
           Ogawa::IDataPtr iData,
           size_t iThreadId,
           const AbcA::DataType &iDataType,
@@ -1427,7 +1428,8 @@ ReadData( void * iIntoLocation,
 
 //-*****************************************************************************
 void
-ReadArraySample( Ogawa::IDataPtr iDims,
+ReadArraySample( AbcA::ReadArraySampleCachePtr iCache,
+                 Ogawa::IDataPtr iDims,
                  Ogawa::IDataPtr iData,
                  size_t iThreadId,
                  const AbcA::DataType &iDataType,
@@ -1439,9 +1441,8 @@ ReadArraySample( Ogawa::IDataPtr iDims,
 
     oSample = AbcA::AllocateArraySample( iDataType, dims );
 
-    ReadData( const_cast<void*>( oSample->getData() ), iData,
-        iThreadId, iDataType, iDataType.getPod() );
-
+    ReadData( const_cast<void*>( oSample->getData() ),
+        iCache, iData, iThreadId, iDataType, iDataType.getPod() );
 }
 
 //-*****************************************************************************
