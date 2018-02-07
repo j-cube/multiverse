@@ -4,6 +4,10 @@
 *.swp
 *~
 *.vcxproj*
+/.cproject
+/.project
+*.sublime-project
+*.sublime-workspace
 
 # cmake files
 CMakeCache.txt
@@ -24,3 +28,7 @@ install_manifest.txt
 SimpleAbcViewer
 abcview
 build
+/lib/Alembic/AbcCoreGit/milliways/config.h
+*/doxygen
+doxygen
+/doc/html/*

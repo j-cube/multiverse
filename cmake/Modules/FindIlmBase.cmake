@@ -76,6 +76,10 @@ SET(_ilmbase_FIND_COMPONENTS
 
 SET(_ilmbase_SEARCH_DIRS
     ${ALEMBIC_ILMBASE_ROOT}
+    ~/multiverse
+    ~/jcube
+    /opt/multiverse
+    /opt/jcube
     ~/Library/Frameworks
     /Library/Frameworks
     /usr/local

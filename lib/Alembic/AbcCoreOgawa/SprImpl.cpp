@@ -109,7 +109,11 @@ void SprImpl::getSample( index_t iSampleIndex, void * iIntoLocation )
 
     std::size_t id = streamId->getID();
     Ogawa::IDataPtr data = m_group->getData( index, id );
-    ReadData( iIntoLocation, data, id,
+
+    AbcA::ReadArraySampleCachePtr cachePtr =
+        this->getObject()->getArchive()->getReadArraySampleCachePtr();
+
+    ReadData( iIntoLocation, cachePtr, data, id,
               m_header->header.getDataType(),
               m_header->header.getDataType().getPod() );
 }

@@ -34,6 +34,7 @@
 //
 //-*****************************************************************************
 
+#include <Alembic/AbcCoreAbstract/Foundation.h>
 #include <Alembic/AbcCoreOgawa/ReadUtil.h>
 
 #if defined(_MSC_VER)
@@ -1310,6 +1311,7 @@ ConvertData( Alembic::Util::PlainOldDataType fromPod,
 //-*****************************************************************************
 void
 ReadData( void * iIntoLocation,
+          AbcA::ReadArraySampleCachePtr iCache,
           Ogawa::IDataPtr iData,
           size_t iThreadId,
           const AbcA::DataType &iDataType,
@@ -1427,7 +1429,8 @@ ReadData( void * iIntoLocation,
 
 //-*****************************************************************************
 void
-ReadArraySample( Ogawa::IDataPtr iDims,
+ReadArraySample( AbcA::ReadArraySampleCachePtr iCache,
+                 Ogawa::IDataPtr iDims,
                  Ogawa::IDataPtr iData,
                  size_t iThreadId,
                  const AbcA::DataType &iDataType,
@@ -1437,11 +1440,52 @@ ReadArraySample( Ogawa::IDataPtr iDims,
     Util::Dimensions dims;
     ReadDimensions( iDims, iData, iThreadId, iDataType, dims );
 
+    // use the cache if possible
+    AbcA::ArraySample::Key key;
+
+    const AbcA::PlainOldDataType pod = iDataType.getPod();
+    const bool isValidPod = ( pod != AbcA::kStringPOD && pod != AbcA::kWstringPOD );
+    if ( isValidPod )
+    {
+        if ( iCache )
+        {
+            key.origPOD = pod;
+            key.readPOD = pod;
+
+            key.numBytes = Util::PODNumBytes( key.readPOD ) *
+                dims.numPoints();
+
+            iData->read( 16, key.digest.d, 0, iThreadId );
+
+            AbcA::ReadArraySampleID found = iCache->find( key );
+            if ( found )
+            {
+                AbcA::ArraySamplePtr ret = found.getSample();
+                assert( ret );
+                if (ret->getDataType().getPod() != iDataType.getPod())
+                {
+                    ABCA_THROW("ERROR: Read data type");
+                }
+
+                oSample = ret;
+
+                return;
+            }
+        }
+    }
+
+    // read the array from slow device
     oSample = AbcA::AllocateArraySample( iDataType, dims );
 
-    ReadData( const_cast<void*>( oSample->getData() ), iData,
-        iThreadId, iDataType, iDataType.getPod() );
+    ReadData( const_cast<void*>( oSample->getData() ),
+        iCache, iData, iThreadId, iDataType, iDataType.getPod() );
 
+    // store the sample into cache.
+    if ( isValidPod && iCache )
+    {
+        key = oSample->getKey();
+        iCache->store(key, oSample);
+    }
 }
 
 //-*****************************************************************************
