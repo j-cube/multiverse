@@ -78,11 +78,26 @@ IF (USE_PYALEMBIC AND APPLE)
     SET(Boost_USE_MULTITHREADED OFF)
 ENDIF()
 
-IF (USE_PYALEMBIC)
-    FIND_PACKAGE(Boost 1.42.0 COMPONENTS program_options python)
-ELSE()
-    FIND_PACKAGE(Boost 1.42.0 COMPONENTS program_options)
+SET(Boost_Components program_options)
+
+IF (USE_MULTIVERSE)
+    LIST(APPEND Boost_Components date_time thread filesystem system)
+	IF (MSVC)
+		LIST(APPEND Boost_Components locale)
+	ENDIF()
 ENDIF()
+
+IF (USE_PYALEMBIC)
+    LIST(APPEND Boost_Components python)
+ENDIF()
+
+# IF (USE_PYALEMBIC)
+#     FIND_PACKAGE(Boost 1.42.0 COMPONENTS program_options python)
+# ELSE()
+#     FIND_PACKAGE(Boost 1.42.0 COMPONENTS program_options)
+# ENDIF()
+
+FIND_PACKAGE(Boost 1.42.0 COMPONENTS ${Boost_Components})
 
 #-******************************************************************************
 # Wrap it all up

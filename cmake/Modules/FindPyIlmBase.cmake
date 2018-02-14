@@ -61,6 +61,10 @@ ELSE()
     SET(LIBRARY_PATHS
         ${ALEMBIC_PYILMBASE_ROOT}/lib
         ${ALEMBIC_PYILMBASE_MODULE_DIRECTORY}
+        ~/multiverse/lib
+        ~/jcube/lib
+        /opt/multiverse/lib
+        /opt/jcube/lib
         ~/Library/Frameworks
         /Library/Frameworks
         /usr/local/lib
@@ -78,6 +82,14 @@ ELSE()
 
     SET(INCLUDE_PATHS
         ${ALEMBIC_PYILMBASE_ROOT}/include/OpenEXR/
+        ~/multiverse/include/OpenEXR/
+        ~/multiverse/include
+        ~/jcube/include/OpenEXR/
+        ~/jcube/include
+        /opt/multiverse/include/OpenEXR/
+        /opt/multiverse/include
+        /opt/jcube/include/OpenEXR/
+        /opt/jcube/include
         ~/Library/Frameworks
         /Library/Frameworks
         /usr/local/include/OpenEXR/

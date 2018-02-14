@@ -41,9 +41,47 @@
 #include <Alembic/Abc/IArchive.h>
 #include <Alembic/Util/Export.h>
 
+#include <map>
+#include <boost/any.hpp>
+#include <boost/optional.hpp>
+
 namespace Alembic {
 namespace AbcCoreFactory {
 namespace ALEMBIC_VERSION_NS {
+
+class ALEMBIC_EXPORT IOptions
+{
+public:
+    class OptProxy
+    {
+    public:
+        OptProxy(const std::string& key, std::map< std::string, boost::any >& opts) :
+            m_opts(opts), m_key(key) {}
+
+        const boost::any& operator= (const boost::any& value) { m_opts[m_key] = value; return value; }
+
+        operator boost::any() { return m_opts[m_key]; }
+
+    private:
+        std::map< std::string, boost::any >& m_opts;
+        std::string m_key;
+    };
+
+    IOptions() {}
+    IOptions(const IOptions& other) { m_generic = other.m_generic; }
+    ~IOptions() {}
+
+    IOptions& operator= (const IOptions& rhs) { m_generic = rhs.m_generic; return *this; }
+
+    void set(const std::string& key, const boost::any& value) { m_generic[key] = value; }
+    bool has(const std::string& key) const { return (m_generic.count(key) > 0); }
+    boost::any get(const std::string& key) { return m_generic[key]; }
+
+    OptProxy operator[] (const std::string& key) { return OptProxy(key, m_generic); }
+
+private:
+    std::map< std::string, boost::any > m_generic;
+};
 
 class ALEMBIC_EXPORT IFactory
 {
@@ -56,7 +94,8 @@ public:
     {
         kHDF5,
         kOgawa,
-        kLayer,
+        kGit,
+		kLayer,
         kUnknown
     };
 
@@ -64,10 +103,13 @@ public:
     //! oType, or kUnknown if the IArchive isn't valid
     Alembic::Abc::IArchive getArchive( const std::string & iFileName,
                                        CoreType & oType );
+    Alembic::Abc::IArchive getArchive( const std::string & iFileName,
+                                       CoreType & oType, const IOptions& iOptions );
 
     //! Try to open a file and return IArchive.  If the file wasn't a valid
     //! file or known type and invalid archive is returned.
     Alembic::Abc::IArchive getArchive( const std::string & iFileName );
+    Alembic::Abc::IArchive getArchive( const std::string & iFileName, const IOptions& iOptions );
 
     //! Open a series of alembic files, layering each file on top of the next
     //! to present a single IArchive
