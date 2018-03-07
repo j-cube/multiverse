@@ -797,7 +797,6 @@ inline bool KeyValueStore::alloc_space(kv_stream_sized_pos_t& dst, size_t amount
 	assert(m_next_location.valid());
 
 	assert(m_next_location.size() >= amount);
-	assert(m_next_location.offset() >= 0);
 	if (amount <= BLOCKSIZE)
 	{
 		assert(static_cast<ssize_t>(m_next_location.offset()) <= static_cast<ssize_t>((BLOCKSIZE - amount)));
