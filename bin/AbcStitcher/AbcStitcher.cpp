@@ -40,7 +40,7 @@
 #include <Alembic/AbcCoreHDF5/All.h>
 #endif
 
-#ifdef ALEMBIC_WITH_GIT
+#ifdef ALEMBIC_WITH_MULTIVERSE
 #include <Alembic/AbcCoreGit/All.h>
 #endif
 
@@ -1079,7 +1079,7 @@ int main( int argc, char *argv[] )
         }
 
 #endif
-#ifdef ALEMBIC_WITH_GIT
+#ifdef ALEMBIC_WITH_MULTIVERSE
         else if (coreType == Alembic::AbcCoreFactory::IFactory::kGit)
         {
             oArchive = CreateArchiveWithInfo(
