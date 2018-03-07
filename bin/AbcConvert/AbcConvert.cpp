@@ -359,17 +359,22 @@ int main(int argc, char *argv[])
 
         if ((options.toType != IFactoryNS::kHDF5) && (options.toType != IFactoryNS::kOgawa) && (options.toType != IFactoryNS::kGit))
         {
+#ifdef ALEMBIC_WITH_MULTIVERSE
             printf("Currently only -toHDF, -toOgawa and -toGit are supported.\n");
+#else
+            printf("Currently only -toHDF and -toOgawa are supported.\n");
+#endif
             return 1;
         }
 
+#ifdef ALEMBIC_WITH_MULTIVERSE
         Alembic::AbcCoreFactory::IOptions rOptions;
-
         if (! options.revision.empty())
         {
             rOptions["revision"] = options.revision;
             // rOptions["ignoreNonexistentRevision"] = true;
         }
+#endif
 
         Alembic::AbcCoreFactory::IFactory factory;
         Alembic::AbcCoreFactory::IFactory::CoreType coreType;
@@ -377,7 +382,11 @@ int main(int argc, char *argv[])
         Alembic::Abc::IArchive archive;
         if(options.inFiles.size() == 1)
         {
+#ifdef ALEMBIC_WITH_MULTIVERSE
             archive = factory.getArchive(*options.inFiles.begin(), coreType, rOptions);
+#else
+            archive = factory.getArchive(*options.inFiles.begin(), coreType);
+#endif
             if (!archive.valid())
             {
                 printf("Error: Invalid Alembic file specified: %s\n",
