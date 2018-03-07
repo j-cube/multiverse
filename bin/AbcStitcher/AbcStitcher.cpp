@@ -40,8 +40,11 @@
 #include <Alembic/AbcCoreHDF5/All.h>
 #endif
 
-#include <Alembic/AbcCoreOgawa/All.h>
+#ifdef ALEMBIC_WITH_GIT
 #include <Alembic/AbcCoreGit/All.h>
+#endif
+
+#include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
 
 #include "util.h"
@@ -1076,12 +1079,14 @@ int main( int argc, char *argv[] )
         }
 
 #endif
+#ifdef ALEMBIC_WITH_GIT
         else if (coreType == Alembic::AbcCoreFactory::IFactory::kGit)
         {
             oArchive = CreateArchiveWithInfo(
                 Alembic::AbcCoreGit::WriteArchive(),
                 fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
         }
+#endif
 
         OObject oRoot = oArchive.getTop();
         if (!oRoot.valid())
