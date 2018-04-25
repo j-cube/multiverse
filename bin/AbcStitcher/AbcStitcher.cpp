@@ -40,6 +40,10 @@
 #include <Alembic/AbcCoreHDF5/All.h>
 #endif
 
+#ifdef ALEMBIC_WITH_MULTIVERSE
+#include <Alembic/AbcCoreGit/All.h>
+#endif
+
 #include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
 
@@ -1071,6 +1075,15 @@ int main( int argc, char *argv[] )
         {
             oArchive = CreateArchiveWithInfo(
                 Alembic::AbcCoreHDF5::WriteArchive(),
+                fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
+        }
+
+#endif
+#ifdef ALEMBIC_WITH_MULTIVERSE
+        else if (coreType == Alembic::AbcCoreFactory::IFactory::kGit)
+        {
+            oArchive = CreateArchiveWithInfo(
+                Alembic::AbcCoreGit::WriteArchive(),
                 fileName, appWriter, userStr, ErrorHandler::kThrowPolicy);
         }
 #endif

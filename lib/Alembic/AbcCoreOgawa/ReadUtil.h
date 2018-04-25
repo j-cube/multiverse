@@ -59,6 +59,7 @@ ReadDimensions( Ogawa::IDataPtr iDims,
 //-*****************************************************************************
 void
 ReadData( void * iIntoLocation,
+          AbcA::ReadArraySampleCachePtr iCache,
           Ogawa::IDataPtr iData,
           size_t iThreadId,
           const AbcA::DataType &iDataType,
@@ -66,7 +67,8 @@ ReadData( void * iIntoLocation,
 
 //-*****************************************************************************
 void
-ReadArraySample( Ogawa::IDataPtr iDims,
+ReadArraySample( AbcA::ReadArraySampleCachePtr iCache,
+                 Ogawa::IDataPtr iDims,
                  Ogawa::IDataPtr iData,
                  size_t iThreadId,
                  const AbcA::DataType &iDataType,

@@ -40,6 +40,7 @@
 #include <Alembic/AbcCoreHDF5/All.h>
 #endif
 #include <Alembic/AbcCoreOgawa/All.h>
+#include <Alembic/AbcCoreGit/All.h>
 #include <Alembic/AbcCoreFactory/All.h>
 #include <Alembic/AbcCollection/All.h>
 #include <Alembic/AbcGeom/All.h>
@@ -763,6 +764,8 @@ int main( int argc, char *argv[] )
                 coreName = "Ogawa";
             } else if ( coreType == AbcF::IFactory::kHDF5 ) {
                 coreName = "HDF5";
+            } else if ( coreType == AbcF::IFactory::kGit ) {
+                coreName = "Git";
             } else {
                 coreName = "Unknown";
             };

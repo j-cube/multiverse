@@ -110,8 +110,12 @@ void AprImpl::getSample( index_t iSampleIndex, AbcA::ArraySamplePtr &oSample )
     std::size_t id = streamId->getID();
     Ogawa::IDataPtr dims = m_group->getData(index + 1, id);
     Ogawa::IDataPtr data = m_group->getData(index, id);
+    const AbcA::DataType &dataType = m_header->header.getDataType();
 
-    ReadArraySample( dims, data, id, m_header->header.getDataType(), oSample );
+    AbcA::ReadArraySampleCachePtr cachePtr =
+        this->getObject()->getArchive()->getReadArraySampleCachePtr();
+
+    ReadArraySample( cachePtr, dims, data, id, dataType, oSample );
 }
 
 //-*****************************************************************************
@@ -199,7 +203,13 @@ void AprImpl::getAs( index_t iSampleIndex, void *iIntoLocation,
 
     std::size_t id = streamId->getID();
     Ogawa::IDataPtr data = m_group->getData( index, id );
-    ReadData( iIntoLocation, data, id, m_header->header.getDataType(), iPod );
+    const AbcA::DataType &dataType = m_header->header.getDataType();
+
+    AbcA::ReadArraySampleCachePtr cachePtr =
+        this->getObject()->getArchive()->getReadArraySampleCachePtr();
+
+    ReadData( iIntoLocation,
+        cachePtr, data, id, dataType, iPod );
 }
 
 } // End namespace ALEMBIC_VERSION_NS
